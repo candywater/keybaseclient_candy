@@ -22,8 +22,8 @@ export type Tab =
   | typeof fsTab
 
 export type AppTab =
-  | typeof peopleTab
   | typeof chatTab
+  | typeof peopleTab
   | typeof cryptoTab
   | typeof fsTab
   | typeof teamsTab
@@ -33,8 +33,8 @@ export type AppTab =
 
 // Canonical ordering for desktop tabs, used visually and for hotkeys
 export const desktopTabs = [
-  peopleTab,
   chatTab,
+  peopleTab,
   fsTab,
   cryptoTab,
   teamsTab,
@@ -42,8 +42,8 @@ export const desktopTabs = [
   devicesTab,
   settingsTab,
 ] as const
-export const phoneTabs = [peopleTab, chatTab, fsTab, teamsTab, settingsTab] as const
-export const tabletTabs = [peopleTab, chatTab, fsTab, teamsTab, settingsTab] as const
+export const phoneTabs = [chatTab, peopleTab, fsTab, teamsTab, settingsTab] as const
+export const tabletTabs = [chatTab, peopleTab, fsTab, teamsTab, settingsTab] as const
 
 export const desktopTabMeta = {
   [chatTab]: {icon: 'iconfont-nav-2-chat', label: 'Chat'},
