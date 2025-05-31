@@ -1,10 +1,9 @@
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
-import type {StylesTextCrossPlatform} from '@/common-adapters/text'
 import {useMessagePopup} from '../messages/message-popup'
 import * as Styles from '@/styles'
 import type {Props} from '.'
-import {useData} from './hooks'
+import {useData, usePreviewFallback} from './hooks'
 
 type ArrowProps = {
   left: boolean
@@ -33,14 +32,28 @@ const Arrow = (props: ArrowProps) => {
 
 const Fullscreen = React.memo(function Fullscreen(p: Props) {
   const data = useData(p.ordinal)
-  const {message, ordinal, path, title, progress} = data
+  const {message, ordinal, path, title, progress, previewPath} = data
   const {progressLabel, onNextAttachment, onPreviousAttachment, onClose} = data
   const {onDownloadAttachment, onShowInFinder, isVideo} = data
+  const {fullWidth, fullHeight} = data
 
   const [isZoomed, setIsZoomed] = React.useState(false)
   const onIsZoomed = React.useCallback((zoomed: boolean) => {
     setIsZoomed(zoomed)
   }, [])
+
+  const preload = React.useCallback((path: string, onLoad: () => void, onError: () => void) => {
+    const img = new Image()
+    img.src = path
+    img.onload = onLoad
+    img.onerror = onError
+  }, [])
+
+  const imgSrc = usePreviewFallback(path, previewPath, isVideo, data.showPreview, preload)
+
+  const forceDims = React.useMemo(() => {
+    return fullHeight && fullWidth ? {height: fullHeight, width: fullWidth} : undefined
+  }, [fullHeight, fullWidth])
 
   const vidRef = React.useRef<HTMLVideoElement>(null)
   const hotKeys = ['left', 'right']
@@ -56,7 +69,7 @@ const Fullscreen = React.memo(function Fullscreen(p: Props) {
     () => ({
       paragraph: Styles.platformStyles({
         isElectron: {whiteSpace: 'nowrap'},
-      }) as StylesTextCrossPlatform,
+      }),
     }),
     []
   )
@@ -66,7 +79,7 @@ const Fullscreen = React.memo(function Fullscreen(p: Props) {
       <Kb.Box style={styles.container}>
         <Kb.HotKey hotKeys={hotKeys} onHotKey={onHotKey} />
         <Kb.Box style={styles.headerFooter}>
-          <Kb.Markdown lineClamp={2} style={Styles.globalStyles.flexOne} styleOverride={titleOverride}>
+          <Kb.Markdown lineClamp={2} style={Styles.globalStyles.flexOne} styleOverride={titleOverride as any}>
             {title}
           </Kb.Markdown>
           <Kb.Icon
@@ -95,7 +108,7 @@ const Fullscreen = React.memo(function Fullscreen(p: Props) {
                 {isVideo ? (
                   <video
                     autoPlay={true}
-                    style={styles.videoFit as any}
+                    style={Kb.Styles.castStyleDesktop(styles.videoFit)}
                     controlsList="nodownload nofullscreen noremoteplayback"
                     controls={true}
                     ref={vidRef}
@@ -103,7 +116,7 @@ const Fullscreen = React.memo(function Fullscreen(p: Props) {
                     <source src={path} />
                   </video>
                 ) : (
-                  <Kb.ZoomableImage src={path} onIsZoomed={onIsZoomed} />
+                  <Kb.ZoomableImage src={imgSrc} onIsZoomed={onIsZoomed} forceDims={forceDims} />
                 )}
               </Kb.Box2>
               {!isZoomed && <Arrow left={false} onClick={onNextAttachment} />}

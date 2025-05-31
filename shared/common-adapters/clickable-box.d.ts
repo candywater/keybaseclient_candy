@@ -4,7 +4,7 @@ import type {MeasureRef} from './measure-ref'
 
 export type Props = {
   className?: string
-  children?: any
+  children?: React.ReactNode
   style?: Styles.StylesCrossPlatform
   onClick?: (event: React.BaseSyntheticEvent) => void
   onDoubleClick?: (event: React.BaseSyntheticEvent) => void
@@ -31,6 +31,7 @@ export type Props = {
 export type Props2 = {
   // mobile only
   onLongPress?: () => void
+  hitSlop?: number
   // desktop only
   onMouseOver?: (event: React.MouseEvent) => void
 

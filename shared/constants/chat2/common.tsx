@@ -34,7 +34,7 @@ export const waitingKeyMutualTeams = (conversationIDKey: T.Chat.ConversationIDKe
 
 export const explodingModeGregorKeyPrefix = 'exploding:'
 
-export const loadThreadMessageTypes = Object.keys(T.RPCChat.MessageType).reduce<Array<T.RPCChat.MessageType>>(
+export const loadThreadMessageTypes = C.enumKeys(T.RPCChat.MessageType).reduce<Array<T.RPCChat.MessageType>>(
   (arr, key) => {
     switch (key) {
       case 'none':
@@ -47,7 +47,7 @@ export const loadThreadMessageTypes = Object.keys(T.RPCChat.MessageType).reduce<
         break
       default:
         {
-          const val = T.RPCChat.MessageType[key as any]
+          const val = T.RPCChat.MessageType[key]
           if (typeof val === 'number') {
             arr.push(val)
           }
@@ -75,7 +75,7 @@ export const reasonToRPCReason = (reason: string): T.RPCChat.GetThreadReason => 
 export const getSelectedConversation = (): T.Chat.ConversationIDKey => {
   const maybeVisibleScreen = Router2.getVisibleScreen()
   if (maybeVisibleScreen?.name === threadRouteName) {
-    const mParams: undefined | {conversationIDKey?: T.Chat.ConversationIDKey} = maybeVisibleScreen.params
+    const mParams = maybeVisibleScreen.params as undefined | {conversationIDKey?: T.Chat.ConversationIDKey}
     return mParams?.conversationIDKey ?? T.Chat.noConversationIDKey
   }
   return T.Chat.noConversationIDKey

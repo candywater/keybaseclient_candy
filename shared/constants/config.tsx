@@ -43,6 +43,7 @@ export const publicFolderWithUsers = (users: ReadonlyArray<string>) =>
 export const teamFolder = (team: string) => `${defaultKBFSPath}${defaultTeamPrefix}${team}`
 
 export type Store = T.Immutable<{
+  forceSmallNav: boolean
   allowAnimatedEmojis: boolean
   androidShare?:
     | {type: T.RPCGen.IncomingShareType.file; urls: Array<string>}
@@ -115,6 +116,7 @@ const initialStore: Store = {
   badgeState: undefined,
   configuredAccounts: [],
   defaultUsername: '',
+  forceSmallNav: false,
   globalError: undefined,
   gregorPushState: [],
   gregorReachable: undefined,
@@ -166,7 +168,7 @@ const initialStore: Store = {
   },
 }
 
-type State = Store & {
+interface State extends Store {
   dispatch: {
     dynamic: {
       copyToClipboard: (s: string) => void
@@ -189,6 +191,7 @@ type State = Store & {
     filePickerError: (error: Error) => void
     initAppUpdateLoop: () => void
     initNotifySound: () => void
+    initForceSmallNav: () => void
     initOpenAtLogin: () => void
     initUseNativeFrame: () => void
     installerRan: () => void
@@ -211,6 +214,7 @@ type State = Store & {
     setAndroidShare: (s: Store['androidShare']) => void
     setBadgeState: (b: State['badgeState']) => void
     setDefaultUsername: (u: string) => void
+    setForceSmallNav: (f: boolean) => void
     setGlobalError: (e?: unknown) => void
     setHTTPSrvInfo: (address: string, token: string) => void
     setIncomingShareUseOriginal: (use: boolean) => void
@@ -237,6 +241,7 @@ export const openAtLoginKey = 'openAtLogin'
 export const _useConfigState = Z.createZustand<State>((set, get) => {
   const nativeFrameKey = 'useNativeFrame'
   const notifySoundKey = 'notifySound'
+  const forceSmallNavKey = 'ui.forceSmallNav'
 
   const _checkForUpdate = async () => {
     try {
@@ -438,7 +443,8 @@ export const _useConfigState = Z.createZustand<State>((set, get) => {
             .then(() => {
               get().dispatch.openUnlockFolders([])
             })
-            .catch(e => {
+            .catch((e: unknown) => {
+              if (!(e instanceof C.RPCError)) return
               set(s => {
                 s.unlockFoldersError = e.desc
               })
@@ -526,13 +532,26 @@ export const _useConfigState = Z.createZustand<State>((set, get) => {
     },
     initAppUpdateLoop: () => {
       const f = async () => {
-        // eslint-disable-next-line
         while (true) {
           try {
             await _checkForUpdate()
           } catch {}
           await timeoutPromise(3_600_000) // 1 hr
         }
+      }
+      ignorePromise(f())
+    },
+    initForceSmallNav: () => {
+      const f = async () => {
+        try {
+          const val = await T.RPCGen.configGuiGetValueRpcPromise({path: forceSmallNavKey})
+          const forceSmallNav = val.b
+          if (typeof forceSmallNav === 'boolean') {
+            set(s => {
+              s.forceSmallNav = forceSmallNav
+            })
+          }
+        } catch {}
       }
       ignorePromise(f())
     },
@@ -911,6 +930,7 @@ export const _useConfigState = Z.createZustand<State>((set, get) => {
         configuredAccounts: s.configuredAccounts,
         defaultUsername: s.defaultUsername,
         dispatch: s.dispatch,
+        forceSmallNav: s.forceSmallNav,
         mobileAppState: s.mobileAppState,
         startup: {loaded: s.startup.loaded},
         useNativeFrame: s.useNativeFrame,
@@ -1012,6 +1032,21 @@ export const _useConfigState = Z.createZustand<State>((set, get) => {
       set(s => {
         s.defaultUsername = u
       })
+    },
+    setForceSmallNav: force => {
+      const f = async () => {
+        await T.RPCGen.configGuiSetValueRpcPromise({
+          path: forceSmallNavKey,
+          value: {
+            b: force,
+            isNull: false,
+          },
+        })
+        set(s => {
+          s.forceSmallNav = force
+        })
+      }
+      ignorePromise(f())
     },
     setGlobalError: _e => {
       if (_e) {
@@ -1183,7 +1218,7 @@ export const _useConfigState = Z.createZustand<State>((set, get) => {
             category,
             dtime: dtime || {offset: 0, time: 0},
           })
-        } catch (_) {}
+        } catch {}
       }
       C.ignorePromise(f())
     },

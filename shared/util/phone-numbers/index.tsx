@@ -26,15 +26,17 @@ const load = () => {
   if (_countryDataLoaded) return
   _countryDataLoaded = true
 
-  const countries: Array<{
+  const countries = require('./country-data/countries.json') as Array<{
     alpha2: string
     status: string
     emoji: string
     name: string
     countryCallingCodes: Array<string>
-  }> = require('./country-data/countries.json')
-  const {emojiIndexByChar} = require('@/common-adapters/markdown/emoji-gen')
-  const supportedCodes: {[key: string]: boolean} = require('./sms-support/data.json')
+  }>
+  const {emojiIndexByChar} = require('@/common-adapters/markdown/emoji-gen') as {
+    emojiIndexByChar: {[key: string | number]: string}
+  }
+  const supportedCodes = require('./sms-support/data.json') as {[key: string]: boolean}
 
   countries.forEach(curr => {
     if (
@@ -42,7 +44,7 @@ const load = () => {
       (curr.status === 'assigned' || curr.status === 'user assigned') &&
       supportedCodes[curr.alpha2] &&
       curr.countryCallingCodes.length &&
-      supported.includes(curr.alpha2 as any)
+      supported.includes(curr.alpha2 as (typeof supported)[number])
     ) {
       const emojiText: string = emojiIndexByChar[curr.emoji || -1] || ''
       // see here for why we check status is 'assigned'
@@ -141,7 +143,7 @@ export const validateNumber = (rawNumber: string, region?: string) => {
       phoneNumber,
       valid,
     }
-  } catch (e) {
+  } catch {
     return {e164: '', valid: false}
   }
 }
@@ -171,7 +173,7 @@ export const e164ToDisplay = (e164: string): string => {
       return '+1 ' + phoneUtil.format(phoneNumber, PNF.NATIONAL)
     }
     return phoneUtil.format(phoneNumber, PNF.INTERNATIONAL)
-  } catch (e) {
+  } catch {
     return e164
   }
 }

@@ -65,17 +65,17 @@ export const dumpLogs = async (reason?: string) => {
 export const initPlatformListener = () => {
   C.useConfigState.setState(s => {
     s.dispatch.dynamic.dumpLogsNative = dumpLogs
-    s.dispatch.dynamic.showMainNative = () => showMainWindow?.()
-    s.dispatch.dynamic.copyToClipboard = s => copyToClipboard?.(s)
-    s.dispatch.dynamic.onEngineConnectedDesktop = () => {
+    s.dispatch.dynamic.showMainNative = C.wrapErrors(() => showMainWindow?.())
+    s.dispatch.dynamic.copyToClipboard = C.wrapErrors((s: string) => copyToClipboard?.(s))
+    s.dispatch.dynamic.onEngineConnectedDesktop = C.wrapErrors(() => {
       // Introduce ourselves to the service
       const f = async () => {
         await T.RPCGen.configHelloIAmRpcPromise({details: KB2.constants.helloDetails})
       }
       C.ignorePromise(f())
-    }
+    })
 
-    s.dispatch.dynamic.onEngineIncomingDesktop = action => {
+    s.dispatch.dynamic.onEngineIncomingDesktop = C.wrapErrors((action: EngineGen.Actions) => {
       switch (action.type) {
         case EngineGen.keybase1LogsendPrepareLogsend: {
           const f = async () => {
@@ -97,16 +97,19 @@ export const initPlatformListener = () => {
           kbfsNotification(action.payload.params.notification, NotifyPopup)
           break
         case EngineGen.keybase1NotifyPGPPgpKeyInSecretStoreFile: {
-          const f = async () =>
-            T.RPCGen.pgpPgpStorageDismissRpcPromise().catch(err => {
+          const f = async () => {
+            try {
+              await T.RPCGen.pgpPgpStorageDismissRpcPromise()
+            } catch (err) {
               console.warn('Error in sending pgpPgpStorageDismissRpc:', err)
-            })
+            }
+          }
           C.ignorePromise(f())
           break
         }
         case EngineGen.keybase1NotifyServiceShutdown: {
           const {code} = action.payload.params
-          if (isWindows && code !== T.RPCGen.ExitCode.restart) {
+          if (isWindows && code !== (T.RPCGen.ExitCode.restart as number)) {
             console.log('Quitting due to service shutdown with code: ', code)
             // Quit just the app, not the service
             quitApp?.()
@@ -119,7 +122,7 @@ export const initPlatformListener = () => {
           const {level, text} = params
           logger.info('keybase.1.logUi.log:', params.text.data)
           if (level >= T.RPCGen.LogLevel.error) {
-            NotifyPopup(text.data, {})
+            NotifyPopup(text.data)
           }
           break
         }
@@ -136,7 +139,7 @@ export const initPlatformListener = () => {
         }
         default:
       }
-    }
+    })
   })
 
   C.useConfigState.subscribe((s, old) => {
@@ -215,9 +218,12 @@ export const initPlatformListener = () => {
         const enabled =
           (await T.RPCGen.ctlGetOnLoginStartupRpcPromise()) === T.RPCGen.OnLoginStartupStatus.enabled
         if (enabled !== openAtLogin) {
-          await T.RPCGen.ctlSetOnLoginStartupRpcPromise({enabled: openAtLogin}).catch(err => {
-            logger.warn(`Error in sending ctlSetOnLoginStartup: ${err.message}`)
-          })
+          try {
+            await T.RPCGen.ctlSetOnLoginStartupRpcPromise({enabled: openAtLogin})
+          } catch (error_) {
+            const error = error_ as RPCError
+            logger.warn(`Error in sending ctlSetOnLoginStartup: ${error.message}`)
+          }
         }
       } else {
         logger.info(`Login item settings changed! now ${openAtLogin ? 'on' : 'off'}`)
@@ -236,6 +242,7 @@ export const initPlatformListener = () => {
     C.useConfigState.getState().dispatch.initUseNativeFrame()
   }
   C.useConfigState.getState().dispatch.initNotifySound()
+  C.useConfigState.getState().dispatch.initForceSmallNav()
   C.useConfigState.getState().dispatch.initOpenAtLogin()
   C.useConfigState.getState().dispatch.initAppUpdateLoop()
 

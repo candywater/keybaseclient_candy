@@ -6,7 +6,7 @@ import * as ExpoLocation from 'expo-location'
 import * as ExpoTaskManager from 'expo-task-manager'
 import * as MediaLibrary from 'expo-media-library'
 import * as Tabs from '../tabs'
-import NetInfo from '@react-native-community/netinfo'
+import * as NetInfo from '@react-native-community/netinfo'
 import NotifyPopup from '@/util/notify-popup'
 import PushNotificationIOS from '@react-native-community/push-notification-ios'
 import logger from '@/logger'
@@ -93,7 +93,7 @@ export async function saveAttachmentToCameraRoll(filePath: string, mimeType: str
   } finally {
     try {
       await androidUnlink(filePath)
-    } catch (_) {
+    } catch {
       logger.warn('failed to unlink')
     }
   }
@@ -120,7 +120,7 @@ export const showShareActionSheet = async (options: {
       try {
         await androidShareText(options.message, options.mimeType)
         return {completed: true, method: ''}
-      } catch (_) {
+      } catch {
         return {completed: false, method: ''}
       }
     }
@@ -128,7 +128,7 @@ export const showShareActionSheet = async (options: {
     try {
       await androidShare(options.filePath ?? '', options.mimeType)
       return {completed: true, method: ''}
-    } catch (_) {
+    } catch {
       return {completed: false, method: ''}
     }
   }
@@ -156,7 +156,7 @@ const loadStartupDetails = async () => {
       path: 'ui.routeState2',
       value: {isNull: false, s: ''},
     })
-  } catch (_) {}
+  } catch {}
 
   let conversation: T.Chat.ConversationIDKey | undefined
   let followUser = ''
@@ -195,7 +195,7 @@ const loadStartupDetails = async () => {
           tab = _rn as any as typeof tab
         }
       }
-    } catch (_) {
+    } catch {
       logger.info('initialState: routeState parseFail')
       conversation = undefined
       tab = ''
@@ -354,7 +354,7 @@ let afterStartupDetails = (_done: boolean) => {}
 export const initPlatformListener = () => {
   let _lastPersist = ''
   C.useConfigState.setState(s => {
-    s.dispatch.dynamic.persistRoute = (path?: ReadonlyArray<any>) => {
+    s.dispatch.dynamic.persistRoute = C.wrapErrors((path?: ReadonlyArray<any>) => {
       const f = async () => {
         let param = {}
         let routeName = Tabs.peopleTab
@@ -366,7 +366,7 @@ export const initPlatformListener = () => {
           const ap = C.Router2.getVisiblePath()
           ap.some(r => {
             if (r.name === 'chatConversation') {
-              const rParams: undefined | {conversationIDKey?: T.Chat.ConversationIDKey} = r.params
+              const rParams = r.params as undefined | {conversationIDKey?: T.Chat.ConversationIDKey}
               param = {selectedConversationIDKey: rParams?.conversationIDKey}
               return true
             }
@@ -385,13 +385,13 @@ export const initPlatformListener = () => {
         })
       }
       C.ignorePromise(f())
-    }
+    })
 
-    s.dispatch.dynamic.onEngineIncomingNative = action => {
+    s.dispatch.dynamic.onEngineIncomingNative = C.wrapErrors((action: EngineGen.Actions) => {
       switch (action.type) {
         default:
       }
-    }
+    })
   })
 
   C.useConfigState.subscribe((s, old) => {
@@ -421,11 +421,11 @@ export const initPlatformListener = () => {
   })
 
   C.useConfigState.setState(s => {
-    s.dispatch.dynamic.copyToClipboard = s => {
+    s.dispatch.dynamic.copyToClipboard = C.wrapErrors((s: string) => {
       Clipboard.setStringAsync(s)
         .then(() => {})
         .catch(() => {})
-    }
+    })
   })
 
   C.useDaemonState.subscribe((s, old) => {
@@ -458,16 +458,16 @@ export const initPlatformListener = () => {
   })
 
   C.useConfigState.setState(s => {
-    s.dispatch.dynamic.onFilePickerError = error => {
+    s.dispatch.dynamic.onFilePickerError = C.wrapErrors((error: Error) => {
       Alert.alert('Error', String(error))
-    }
-    s.dispatch.dynamic.openAppStore = () => {
+    })
+    s.dispatch.dynamic.openAppStore = C.wrapErrors(() => {
       Linking.openURL(
         isAndroid
           ? 'http://play.google.com/store/apps/details?id=io.keybase.ossifrage'
           : 'https://itunes.apple.com/us/app/keybase-crypto-for-everyone/id1044461770?mt=8'
       ).catch(() => {})
-    }
+    })
   })
 
   C.useProfileState.setState(s => {
@@ -492,7 +492,9 @@ export const initPlatformListener = () => {
     if (s.loggedIn === old.loggedIn) return
     const f = async () => {
       const {type} = await NetInfo.fetch()
-      C.useConfigState.getState().dispatch.osNetworkStatusChanged(type !== 'none', type, true)
+      C.useConfigState
+        .getState()
+        .dispatch.osNetworkStatusChanged(type !== NetInfo.NetInfoStateType.none, type, true)
     }
     C.ignorePromise(f())
   })
@@ -512,12 +514,14 @@ export const initPlatformListener = () => {
   })
 
   C.useConfigState.setState(s => {
-    s.dispatch.dynamic.showShareActionSheet = (filePath: string, message: string, mimeType: string) => {
-      const f = async () => {
-        await showShareActionSheet({filePath, message, mimeType})
+    s.dispatch.dynamic.showShareActionSheet = C.wrapErrors(
+      (filePath: string, message: string, mimeType: string) => {
+        const f = async () => {
+          await showShareActionSheet({filePath, message, mimeType})
+        }
+        C.ignorePromise(f())
       }
-      C.ignorePromise(f())
-    }
+    )
   })
 
   C.useConfigState.subscribe((s, old) => {
@@ -554,7 +558,7 @@ export const initPlatformListener = () => {
   initPushListener()
 
   NetInfo.addEventListener(({type}) => {
-    C.useConfigState.getState().dispatch.osNetworkStatusChanged(type !== 'none', type)
+    C.useConfigState.getState().dispatch.osNetworkStatusChanged(type !== NetInfo.NetInfoStateType.none, type)
   })
 
   const initAudioModes = () => {
@@ -563,7 +567,7 @@ export const initPlatformListener = () => {
   initAudioModes()
 
   C.useConfigState.setState(s => {
-    s.dispatch.dynamic.openAppSettings = () => {
+    s.dispatch.dynamic.openAppSettings = C.wrapErrors(() => {
       const f = async () => {
         if (isAndroid) {
           androidOpenSettings()
@@ -578,9 +582,9 @@ export const initPlatformListener = () => {
         }
       }
       C.ignorePromise(f())
-    }
+    })
 
-    s.dispatch.dynamic.onEngineIncomingNative = action => {
+    s.dispatch.dynamic.onEngineIncomingNative = C.wrapErrors((action: EngineGen.Actions) => {
       switch (action.type) {
         case EngineGen.chat1ChatUiTriggerContactSync:
           C.useSettingsContactsState.getState().dispatch.manageContactsCache()
@@ -590,7 +594,7 @@ export const initPlatformListener = () => {
           const {level, text} = params
           logger.info('keybase.1.logUi.log:', params.text.data)
           if (level >= T.RPCGen.LogLevel.error) {
-            NotifyPopup(text.data, {})
+            NotifyPopup(text.data)
           }
           break
         }
@@ -602,11 +606,11 @@ export const initPlatformListener = () => {
           break
         default:
       }
-    }
+    })
   })
 
   C.useRouterState.setState(s => {
-    s.dispatch.dynamic.tabLongPress = tab => {
+    s.dispatch.dynamic.tabLongPress = C.wrapErrors((tab: string) => {
       if (tab !== Tabs.peopleTab) return
       const accountRows = C.useConfigState.getState().configuredAccounts
       const current = C.useCurrentUserState.getState().username
@@ -615,6 +619,6 @@ export const initPlatformListener = () => {
         C.useConfigState.getState().dispatch.setUserSwitching(true)
         C.useConfigState.getState().dispatch.login(row.username, '')
       }
-    }
+    })
   })
 }

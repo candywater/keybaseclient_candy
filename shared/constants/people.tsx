@@ -356,7 +356,7 @@ const initialStore: Store = {
   resentEmail: '',
 }
 
-type State = Store & {
+interface State extends Store {
   dispatch: {
     dismissAnnouncement: (id: T.RPCGen.HomeScreenAnnouncementID) => void
     loadPeople: (markViewed: boolean, numFollowSuggestionsWanted?: number) => void
@@ -490,7 +490,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
             }
           })
           // never throw black bars
-        } catch (_) {}
+        } catch {}
       }
       C.ignorePromise(f())
     },
@@ -552,7 +552,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
           })
           // TODO get rid of this load and have core send us a homeUIRefresh
           get().dispatch.loadPeople(false)
-        } catch (_) {}
+        } catch {}
       }
       C.ignorePromise(f())
     },

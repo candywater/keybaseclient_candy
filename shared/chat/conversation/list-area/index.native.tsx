@@ -13,10 +13,11 @@ import {getMessageRender} from '../messages/wrapper'
 import {mobileTypingContainerHeight} from '../input-area/normal/typing'
 import {SetRecycleTypeContext} from '../recycle-type-context'
 import {ForceListRedrawContext} from '../force-list-redraw-context'
-import {useChatDebugDump} from '@/constants/chat2/debug'
+// import {useChatDebugDump} from '@/constants/chat2/debug'
 import {usingFlashList} from './flashlist-config'
 import {ScrollContext} from '../normal/context'
 import noop from 'lodash/noop'
+// import {useDebugLayout} from '@/util/debug-react'
 
 // TODO if we bring flashlist back bring back the patch
 const List = /*usingFlashList ? FlashList :*/ FlatList
@@ -76,6 +77,10 @@ const useScrolling = (p: {
   }
 }
 
+// This keeps the list stable when data changes. If we don't do this it will jump around
+// when new messages come in and its very easy to get this to cause an unstoppable loop of
+// quick janking up and down
+const maintainVisibleContentPosition = {autoscrollToTopThreshold: 1, minIndexForVisible: 0}
 const ConversationList = React.memo(function ConversationList() {
   const debugWhichList = __DEV__ ? (
     <Kb.Text type="HeaderBig" style={{backgroundColor: 'red', left: 0, position: 'absolute', top: 0}}>
@@ -179,51 +184,55 @@ const ConversationList = React.memo(function ConversationList() {
     }, 100)
   }, [extraData])
 
-  useChatDebugDump(
-    'listArea',
-    C.useEvent(() => {
-      if (!listRef.current) return ''
-      const {props, state} = listRef.current as {props: {extraData?: {}; data?: [number]}; state: any}
-      const {extraData, data} = props
-
-      const layoutManager = (state?.layoutProvider?._lastLayoutManager ?? ({} as any)) as {
-        _layouts?: [unknown]
-        _renderWindowSize: unknown
-        _totalHeight: unknown
-        _totalWidth: unknown
-      }
-      const {_layouts, _renderWindowSize, _totalHeight, _totalWidth} = layoutManager
-      // const mm = window.DEBUGStore.store.getState().chat2.messageMap.get(conversationIDKey)
-      // const stateItems = messageOrdinals.map(o => ({o, type: mm.get(o)?.type}))
-
-      console.log(listRef.current)
-
-      const items = data?.map((ordinal: number, idx: number) => {
-        const layout = _layouts?.[idx]
-        // const m = mm.get(ordinal) ?? ({} as any)
-        return {
-          idx,
-          layout,
-          ordinal,
-          // rid: m.id,
-          // rtype: m.type,
-        }
-      })
-
-      const details = {
-        // children,
-        _renderWindowSize,
-        _totalHeight,
-        _totalWidth,
-        data,
-        extraData,
-        items,
-      }
-      return JSON.stringify(details)
-    })
-  )
+  // useChatDebugDump(
+  //   'listArea',
+  //   C.useEvent(() => {
+  //     if (!listRef.current) return ''
+  //     const {props, state} = listRef.current as {
+  //       props: {extraData?: {}; data?: [number]}
+  //       state?: object
+  //     }
+  //     const {extraData, data} = props
+  //
+  //     // const layoutManager = (state?.layoutProvider?._lastLayoutManager ?? ({} as unknown)) as {
+  //     //   _layouts?: [unknown]
+  //     //   _renderWindowSize: unknown
+  //     //   _totalHeight: unknown
+  //     //   _totalWidth: unknown
+  //     // }
+  //     // const {_layouts, _renderWindowSize, _totalHeight, _totalWidth} = layoutManager
+  //     // const mm = window.DEBUGStore.store.getState().chat2.messageMap.get(conversationIDKey)
+  //     // const stateItems = messageOrdinals.map(o => ({o, type: mm.get(o)?.type}))
+  //
+  //     console.log(listRef.current)
+  //
+  //     const items = data?.map((ordinal: number, idx: number) => {
+  //       const layout = _layouts?.[idx]
+  //       // const m = mm.get(ordinal) ?? ({} as any)
+  //       return {
+  //         idx,
+  //         layout,
+  //         ordinal,
+  //         // rid: m.id,
+  //         // rtype: m.type,
+  //       }
+  //     })
+  //
+  //     const details = {
+  //       // children,
+  //       _renderWindowSize,
+  //       _totalHeight,
+  //       _totalWidth,
+  //       data,
+  //       extraData,
+  //       items,
+  //     }
+  //     return JSON.stringify(details)
+  //   })
+  // )
 
   const onViewableItemsChanged = useSafeOnViewableItemsChanged(onEndReached, messageOrdinals.length)
+  // const onLayout = useDebugLayout()
 
   return (
     <Kb.ErrorBoundary>
@@ -251,6 +260,11 @@ const ConversationList = React.memo(function ConversationList() {
               keyboardShouldPersistTaps="handled"
               keyExtractor={keyExtractor}
               ref={listRef}
+              maintainVisibleContentPosition={
+                // MUST do this else if you come into a new thread it'll slowly scroll down when it loads
+                numOrdinals ? maintainVisibleContentPosition : undefined
+              }
+              // onlayout={onLayout}
             />
             {jumpToRecent}
             {debugWhichList}

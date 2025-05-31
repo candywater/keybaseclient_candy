@@ -270,7 +270,14 @@ const useScrolling = (p: {
     {leading: true, trailing: true}
   )
 
+  // we did it so we should ignore it
+  const programaticScrollRef = React.useRef(false)
+
   const onScroll = React.useCallback(() => {
+    if (programaticScrollRef.current) {
+      programaticScrollRef.current = false
+      return
+    }
     if (listRef.current) {
       scrollBottomOffsetRef.current = Math.max(0, listRef.current.scrollHeight - listRef.current.scrollTop)
     } else {
@@ -344,6 +351,7 @@ const useScrolling = (p: {
     if (ordinalsLength === prevOrdinalLength || firstOrdinal === prevFirstOrdinal) return
     const {current} = listRef
     if (current && !isLockedToBottom() && isMounted() && scrollBottomOffsetRef.current !== undefined) {
+      programaticScrollRef.current = true
       current.scrollTop = current.scrollHeight - scrollBottomOffsetRef.current
     }
     // we want this to fire when the ordinals change
@@ -605,11 +613,15 @@ const ThreadWrapper = React.memo(function ThreadWrapper() {
     <ErrorBoundary>
       <ResizeObserverContext.Provider value={resizeObserve}>
         <IntersectObserverContext.Provider value={intersectionObserve}>
-          <div style={styles.container as any} onClick={handleListClick} onCopyCapture={onCopyCapture}>
+          <div
+            style={Kb.Styles.castStyleDesktop(styles.container)}
+            onClick={handleListClick}
+            onCopyCapture={onCopyCapture}
+          >
             <div
               className="chat-scroller"
               key={conversationIDKey}
-              style={styles.list as any}
+              style={Kb.Styles.castStyleDesktop(styles.list)}
               ref={setListRef}
             >
               <div style={styles.listContents} ref={setListContents}>

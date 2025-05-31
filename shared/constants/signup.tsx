@@ -54,7 +54,7 @@ const initialStore: Store = {
   usernameTaken: '',
 }
 
-export type State = Store & {
+export interface State extends Store {
   dispatch: {
     checkDeviceName: (devicename: string) => void
     checkInviteCode: () => void
@@ -278,7 +278,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
             s.inviteCode = inviteCode
           })
           get().dispatch.checkInviteCode()
-        } catch (_) {
+        } catch {
           set(s => {
             s.inviteCode = ''
           })

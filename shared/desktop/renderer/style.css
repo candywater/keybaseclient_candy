@@ -139,6 +139,7 @@ table {
   src: url('../../fonts/kb.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
+  font-display: block;
 }
 
 /* Source Code Pro */
@@ -146,12 +147,14 @@ table {
   font-family: 'Source Code Pro';
   font-weight: 500;
   src: url('../../fonts/SourceCodePro-Medium.ttf') format('truetype');
+  font-display: block;
 }
 
 @font-face {
   font-family: 'Source Code Pro';
   font-weight: 600;
   src: url('../../fonts/SourceCodePro-Semibold.ttf') format('truetype');
+  font-display: block;
 }
 /* End Source Code Pro */
 
@@ -160,6 +163,7 @@ table {
   font-family: 'Keybase';
   font-weight: 500;
   src: url('../../fonts/keybase-medium.ttf') format('truetype');
+  font-display: block;
 }
 
 @font-face {
@@ -167,12 +171,14 @@ table {
   font-weight: 500;
   font-style: italic;
   src: url('../../fonts/keybase-medium-italic.ttf') format('truetype');
+  font-display: block;
 }
 
 @font-face {
   font-family: 'Keybase';
   font-weight: 600;
   src: url('../../fonts/keybase-semibold.ttf') format('truetype');
+  font-display: block;
 }
 
 @font-face {
@@ -180,12 +186,14 @@ table {
   font-weight: 600;
   font-style: italic;
   src: url('../../fonts/keybase-semibold-italic.ttf') format('truetype');
+  font-display: block;
 }
 
 @font-face {
   font-family: 'Keybase';
   font-weight: 700;
   src: url('../../fonts/keybase-bold.ttf') format('truetype');
+  font-display: block;
 }
 
 @font-face {
@@ -193,12 +201,14 @@ table {
   font-weight: 700;
   font-style: italic;
   src: url('../../fonts/keybase-bold-italic.ttf') format('truetype');
+  font-display: block;
 }
 
 @font-face {
   font-family: 'Keybase';
   font-weight: 800;
   src: url('../../fonts/keybase-extrabold.ttf') format('truetype');
+  font-display: block;
 }
 /* End Keybase */
 
@@ -431,7 +441,7 @@ input {
   border: none;
   background: none;
   box-shadow: none;
-  vertical-align: middle;
+  vertical-align: bottom;
   display: inline;
   .emoji-native {
     line-height: 0;
@@ -477,9 +487,15 @@ input {
 
 .lightMode {
   background-color: #ffffff;
+  &.isWidget {
+    background-color: transparent;
+  }
 }
 .darkMode {
   background-color: #191919;
+  &.isWidget {
+    background-color: transparent;
+  }
 }
 
 .addInviteAndLinkBox {
@@ -528,7 +544,7 @@ input {
   position: relative;
 }
 .tooltip:before {
-  transition: opacity 0.2s ease-in-out;
+  transition: opacity 0.2s ease-in-out 0.3s;
   /* body small text */
   -webkit-font-smoothing: antialiased;
   align-items: center;
@@ -553,43 +569,58 @@ input {
   text-rendering: optimizeLegibility;
   white-space: nowrap;
   z-index: 999;
-  top: 0;
   left: 50%;
   transform: translate(-50%, -100%);
-}
-
-.tooltip-bottom-center:before {
-  transform: translate(-50%, 100%);
-}
-
-.tooltip-top-left:before {
-  transform: translate(-100%, -100%);
-}
-
-.tooltip-top-right:before {
-  transform: translate(0%, -100%);
-}
-
-.tooltip-bottom-left:before {
-  transform: translate(-100%, 100%);
-}
-
-.tooltip-bottom-right:before {
-  transform: translate(0%, 100%);
-}
-
-.tooltip-right:before {
-  transform: translate(5px, -50%);
-  top: 50%;
-  left: 100%;
-}
-.tooltip-left:before {
-  transform: translate(-5px, -50%);
-  top: 50%;
-  left: initial;
-  right: 100%;
+  /* move out so it doesn't affect measuring*/
+  top: -99999px;
 }
 
 .tooltip:hover:before {
   opacity: 1;
+  top: initial;
+}
+
+.tooltip-bottom-center:hover:before {
+  opacity: 1;
+  top: initial;
+  transform: translate(-50%, 100%);
+}
+
+.tooltip-top-left:hover:before {
+  opacity: 1;
+  top: initial;
+  transform: translate(-100%, -100%);
+}
+
+.tooltip-top-right:hover:before {
+  opacity: 1;
+  top: initial;
+  transform: translate(0%, -100%);
+}
+
+.tooltip-bottom-left:hover:before {
+  opacity: 1;
+  top: initial;
+  transform: translate(-100%, 100%);
+}
+
+.tooltip-bottom-right:hover:before {
+  opacity: 1;
+  top: initial;
+  transform: translate(0%, 100%);
+}
+
+.tooltip-right:hover:before {
+  opacity: 1;
+  transform: translate(5px, -50%);
+  top: 50%;
+  left: 100%;
+}
+
+.tooltip-left:hover:before {
+  opacity: 1;
+  transform: translate(-5px, -50%);
+  top: 50%;
+  left: initial;
+  right: 100%;
 }

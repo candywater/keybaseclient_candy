@@ -3,13 +3,12 @@ import * as Kb from '@/common-adapters'
 import * as React from 'react'
 import * as RowSizes from './sizes'
 import * as T from '@/constants/types'
-import * as RPCChatTypes from '@/constants/types/rpc-chat-gen'
 
 type Props = {
   layoutChannelname: string
   navKey: string
   selected: boolean
-  layoutSnippetDecoration?: RPCChatTypes.SnippetDecoration
+  layoutSnippetDecoration?: T.RPCChat.SnippetDecoration
 }
 
 const BigTeamChannel = React.memo(function BigTeamChannel(props: Props) {
@@ -19,7 +18,7 @@ const BigTeamChannel = React.memo(function BigTeamChannel(props: Props) {
   const snippetDecoration = C.useChatContext(s => {
     const d =
       s.meta.conversationIDKey === C.Chat.noConversationIDKey
-        ? layoutSnippetDecoration ?? RPCChatTypes.SnippetDecoration.none
+        ? layoutSnippetDecoration ?? T.RPCChat.SnippetDecoration.none
         : s.meta.snippetDecoration
 
     switch (d) {
@@ -111,33 +110,35 @@ const BigTeamChannel = React.memo(function BigTeamChannel(props: Props) {
   ) : null
 
   return (
-    <Kb.ClickableBox onClick={onSelectConversation} style={styles.container}>
-      <Kb.Box2 direction="horizontal" fullHeight={true} style={styles.rowContainer}>
-        <Kb.Box2
-          className="hover_background_color_blueGreyDark"
-          direction="horizontal"
-          fullWidth={!Kb.Styles.isMobile}
-          style={Kb.Styles.collapseStyles([
-            styles.channelBackground,
-            selected && styles.selectedChannelBackground,
-          ])}
-        >
-          {name}
-          {mutedIcon}
+    <Kb.Styles.CanFixOverdrawContext.Provider value={!Kb.Styles.isTablet}>
+      <Kb.ClickableBox onClick={onSelectConversation} style={styles.container}>
+        <Kb.Box2 direction="horizontal" fullHeight={true} style={styles.rowContainer}>
           <Kb.Box2
+            className="hover_background_color_blueGreyDark"
             direction="horizontal"
-            alignSelf="center"
-            alignItems="center"
-            style={styles.iconContainer}
-            tooltip={outboxTooltip || hasDraft ? 'Draft message' : undefined}
+            fullWidth={!Kb.Styles.isMobile}
+            style={Kb.Styles.collapseStyles([
+              styles.channelBackground,
+              selected && styles.selectedChannelBackground,
+            ])}
           >
-            {draftIcon}
-            {outboxIcon}
-            {hasBadge && <Kb.Box style={styles.unread} />}
+            {name}
+            {mutedIcon}
+            <Kb.Box2
+              direction="horizontal"
+              alignSelf="center"
+              alignItems="center"
+              style={styles.iconContainer}
+              tooltip={outboxTooltip || hasDraft ? 'Draft message' : undefined}
+            >
+              {draftIcon}
+              {outboxIcon}
+              {hasBadge && <Kb.Box style={styles.unread} />}
+            </Kb.Box2>
           </Kb.Box2>
         </Kb.Box2>
-      </Kb.Box2>
-    </Kb.ClickableBox>
+      </Kb.ClickableBox>
+    </Kb.Styles.CanFixOverdrawContext.Provider>
   )
 })
 

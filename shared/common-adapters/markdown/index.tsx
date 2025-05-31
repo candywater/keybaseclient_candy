@@ -85,7 +85,7 @@ export type Props = {
   // preferred to use the props.styleOverride.preview flag for this
   //
   // TODO type this up or remove it
-  style?: any
+  style?: Styles.StylesCrossPlatform
   allowFontScaling?: boolean
   messageType?: T.Chat.MessageType
   // This changes the specific style for specific types of text
@@ -308,10 +308,11 @@ const rules: {[type: string]: SM.ParserRule} = {
     }),
   },
   spoiler: {
-    match: SimpleMarkdown.inlineRegex(/^!>([^!>]*?)<!/),
+    match: SimpleMarkdown.inlineRegex(/^!>(.*?)<!/),
     order: 2,
-    parse: (capture: SM.Capture, _nestedParse: SM.Parser, _state: SM.State) => ({
-      content: capture[1],
+    parse: (capture: SM.Capture, nestedParse: SM.Parser, state: SM.State) => ({
+      content: nestedParse(capture[1] || '', state),
+      raw: capture[1],
       type: 'spoiler',
     }),
   },

@@ -3,7 +3,7 @@ import * as Kb from '@/common-adapters'
 import * as React from 'react'
 import * as Styles from '@/styles'
 import {assertionToDisplay} from '@/common-adapters/usernames'
-import {Dimensions} from 'react-native'
+import {useWindowDimensions} from 'react-native'
 
 export const useBackBadge = () => {
   const visiblePath = C.Router2.getVisiblePath()
@@ -44,7 +44,7 @@ const ShhIcon = React.memo(function ShhIcon() {
 })
 
 const useMaxWidthStyle = () => {
-  const {width} = Dimensions.get('window')
+  const {width} = useWindowDimensions()
   const hasBadge = useBackBadge() > 0
   return React.useMemo(() => ({maxWidth: width - 140 - (hasBadge ? 40 : 0)}), [width, hasBadge])
 }
@@ -68,7 +68,10 @@ const ChannelHeader = () => {
   return (
     <Kb.Box2 direction="vertical" style={maxWidthStyle}>
       <Kb.Box2 direction="horizontal" style={styles.channelHeaderContainer}>
-        <Kb.Avatar teamname={teamname || undefined} size={smallTeam ? 16 : (12 as any)} />
+        <Kb.Avatar
+          teamname={teamname || undefined}
+          size={smallTeam ? 16 : (12 as 16) /* not really allowed a one off */}
+        />
         <Kb.Text
           type={textType}
           lineClamp={1}

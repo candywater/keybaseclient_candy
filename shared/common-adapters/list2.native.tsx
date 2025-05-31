@@ -9,15 +9,11 @@ import noop from 'lodash/noop'
 const AnimatedFlatList = ReAnimated.FlatList
 
 class List2<T> extends React.PureComponent<Props<T>> {
-  static defaultProps = {
-    keyboardShouldPersistTaps: 'handled',
-  }
-
   _itemRender = ({item, index}: {item: T; index: number}) => {
     return this.props.renderItem(index, item)
   }
 
-  _getItemLayout = (data: Array<T> | null | undefined, index: number) => {
+  _getItemLayout = (data: ArrayLike<T> | null | undefined, index: number) => {
     switch (this.props.itemHeight.type) {
       case 'fixed':
         return {index, length: this.props.itemHeight.height, offset: this.props.itemHeight.height * index}
@@ -52,9 +48,11 @@ class List2<T> extends React.PureComponent<Props<T>> {
           bounces={this.props.bounces}
           renderItem={this._itemRender}
           data={this.props.items}
-          getItemLayout={(data: any, index: number) => this._getItemLayout(data, index)}
+          getItemLayout={(data: ArrayLike<T> | null | undefined, index: number) =>
+            this._getItemLayout(data, index)
+          }
           keyExtractor={this._keyExtractor}
-          keyboardShouldPersistTaps={this.props.keyboardShouldPersistTaps}
+          keyboardShouldPersistTaps={this.props.keyboardShouldPersistTaps ?? 'handled'}
           onEndReached={this.props.onEndReached}
           windowSize={this.props.windowSize || 10}
           debug={false /* set to true to debug the list */}

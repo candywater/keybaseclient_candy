@@ -133,7 +133,7 @@ function compileActionCreator(ns: ActionNS, actionName: ActionName, _desc: Actio
     ? `payload: ${printPayload(desc)}${assignPayload ? ' = {}' : ''}`
     : 'payload?: undefined'
   return `${comment}${allowCreate ? 'export ' : ''}const create${capitalize(actionName)} = (${payload}) => (
-  {payload, type: ${actionName} as typeof ${actionName}}
+  {payload, type: ${actionName}} as const
 )`
 }
 
@@ -190,6 +190,6 @@ async function main() {
 
 main()
   .then(() => {})
-  .catch(e => {
+  .catch((e: unknown) => {
     console.error('Error generating', e)
   })

@@ -283,12 +283,13 @@ const styles = Kb.Styles.styleSheetCreate(
           lineHeight: 17,
         },
         isElectron: {
+          display: 'flex',
           fontSize: 13,
           lineHeight: 17,
           wordBreak: 'break-all',
         },
         isMobile: {
-          color: Kb.Styles.globalColors.black_50 as any,
+          color: Kb.Styles.globalColors.black_50,
           fontSize: 15,
           lineHeight: 19,
         },

@@ -30,7 +30,7 @@ const decodeForgotUsernameError = (error: RPCError) => {
 // Do NOT change this. These values are used by the daemon also so this way we can ignore it when they do it / when we do
 const errorCausedByUsCanceling = (e?: RPCError) =>
   (e ? e.desc : undefined) === 'Input canceled' || (e ? e.desc : undefined) === 'kex canceled by caller'
-const cancelOnCallback = (_: any, response: CommonResponseHandler) => {
+const cancelOnCallback = (_: unknown, response: CommonResponseHandler) => {
   response.error({code: T.RPCGen.StatusCode.scinputcanceled, desc: 'Input canceled'})
 }
 
@@ -117,10 +117,10 @@ const initialStore: Store = {
   username: '',
 }
 
-type State = Store & {
+interface State extends Store {
   dispatch: {
     dynamic: {
-      cancel?: () => void
+      cancel?: (dueToReset?: boolean) => void
       setDeviceName?: (name: string) => void
       setPassphrase?: (passphrase: string) => void
       setUsername?: (username: string) => void
@@ -136,13 +136,15 @@ type State = Store & {
 }
 
 export const _useState = Z.createZustand<State>((set, get) => {
-  const _cancel = () => {
+  const _cancel = C.wrapErrors((dueToReset?: boolean) => {
     C.useWaitingState.getState().dispatch.clear(waitingKey)
-    console.log('Provision: cancel called while not overloaded')
-  }
+    if (!dueToReset) {
+      console.log('Provision: cancel called while not overloaded')
+    }
+  })
 
   // add a new value to submit and clear things behind
-  const _updateAutoSubmit = (step: Store['autoSubmit'][0]) => {
+  const _updateAutoSubmit = C.wrapErrors((step: Store['autoSubmit'][0]) => {
     set(s => {
       const idx = s.autoSubmit.findIndex(a => a.type === step.type)
       if (idx !== -1) {
@@ -150,9 +152,9 @@ export const _useState = Z.createZustand<State>((set, get) => {
       }
       s.autoSubmit.push(T.castDraft(step))
     })
-  }
+  })
 
-  const _setUsername = (username: string, restart: boolean = true) => {
+  const _setUsername = C.wrapErrors((username: string, restart: boolean = true) => {
     set(s => {
       s.username = username
       s.autoSubmit = [{type: 'username'}]
@@ -160,8 +162,8 @@ export const _useState = Z.createZustand<State>((set, get) => {
     if (restart) {
       get().dispatch.restartProvisioning()
     }
-  }
-  const _setPassphrase = (passphrase: string, restart: boolean = true) => {
+  })
+  const _setPassphrase = C.wrapErrors((passphrase: string, restart: boolean = true) => {
     set(s => {
       s.passphrase = passphrase
     })
@@ -169,9 +171,9 @@ export const _useState = Z.createZustand<State>((set, get) => {
     if (restart) {
       get().dispatch.restartProvisioning()
     }
-  }
+  })
 
-  const _setDeviceName = (name: string, restart: boolean = true) => {
+  const _setDeviceName = C.wrapErrors((name: string, restart: boolean = true) => {
     set(s => {
       s.deviceName = name
     })
@@ -179,9 +181,9 @@ export const _useState = Z.createZustand<State>((set, get) => {
     if (restart) {
       get().dispatch.restartProvisioning()
     }
-  }
+  })
 
-  const _submitDeviceSelect = (name: string, restart: boolean = true) => {
+  const _submitDeviceSelect = C.wrapErrors((name: string, restart: boolean = true) => {
     const devices = get().devices
     const selectedDevice = devices.find(d => d.name === name)
     if (!selectedDevice) {
@@ -194,12 +196,12 @@ export const _useState = Z.createZustand<State>((set, get) => {
     if (restart) {
       get().dispatch.restartProvisioning()
     }
-  }
+  })
 
-  const _submitTextCode = (_code: string) => {
+  const _submitTextCode = C.wrapErrors((_code: string) => {
     console.log('Provision, unwatched submitTextCode called')
     get().dispatch.restartProvisioning()
-  }
+  })
 
   const resetErrorAndCancel = () => {
     set(s => {
@@ -217,13 +219,13 @@ export const _useState = Z.createZustand<State>((set, get) => {
       let cancelled = false
       const setupCancel = (response: CommonResponseHandler) => {
         set(s => {
-          s.dispatch.dynamic.cancel = () => {
+          s.dispatch.dynamic.cancel = C.wrapErrors(() => {
             set(s => {
               s.dispatch.dynamic.cancel = _cancel
             })
             cancelled = true
             cancelOnCallback(undefined, response)
-          }
+          })
         })
       }
       const isCanceled = (response: CommonResponseHandler) => {
@@ -244,14 +246,14 @@ export const _useState = Z.createZustand<State>((set, get) => {
                 set(s => {
                   s.error = previousErr
                   s.codePageIncomingTextCode = phrase
-                  s.dispatch.dynamic.submitTextCode = (code: string) => {
+                  s.dispatch.dynamic.submitTextCode = C.wrapErrors((code: string) => {
                     set(s => {
                       s.dispatch.dynamic.submitTextCode = _submitTextCode
                     })
                     resetErrorAndCancel()
                     const good = code.replace(/\W+/g, ' ').trim()
                     response.result({phrase: good, secret: null as any})
-                  }
+                  })
                 })
                 C.useRouterState.getState().dispatch.navigateAppend('codePage')
               },
@@ -340,7 +342,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
       C.ignorePromise(f())
     },
     resetState: () => {
-      get().dispatch.dynamic.cancel?.()
+      get().dispatch.dynamic.cancel?.(true)
       set(s => ({
         ...s,
         ...initialStore,
@@ -373,13 +375,13 @@ export const _useState = Z.createZustand<State>((set, get) => {
         // Make cancel set the flag and cancel the current rpc
         const setupCancel = (response: CommonResponseHandler) => {
           set(s => {
-            s.dispatch.dynamic.cancel = () => {
+            s.dispatch.dynamic.cancel = C.wrapErrors(() => {
               set(s => {
                 s.dispatch.dynamic.cancel = _cancel
               })
               cancelled = true
               cancelOnCallback(undefined, response)
-            }
+            })
           })
         }
 
@@ -404,14 +406,14 @@ export const _useState = Z.createZustand<State>((set, get) => {
                 set(s => {
                   s.error = previousErr
                   s.codePageIncomingTextCode = phrase
-                  s.dispatch.dynamic.submitTextCode = (code: string) => {
+                  s.dispatch.dynamic.submitTextCode = C.wrapErrors((code: string) => {
                     set(s => {
                       s.dispatch.dynamic.submitTextCode = _submitTextCode
                     })
                     resetErrorAndCancel()
                     const good = code.replace(/\W+/g, ' ').trim()
                     response.result({phrase: good, secret: null as any})
-                  }
+                  })
                 })
 
                 // we ignore the return as we never autosubmit, but we want things to increment
@@ -425,14 +427,14 @@ export const _useState = Z.createZustand<State>((set, get) => {
                 set(s => {
                   s.error = errorMessage
                   s.existingDevices = T.castDraft(existingDevices ?? [])
-                  s.dispatch.dynamic.setDeviceName = (name: string) => {
+                  s.dispatch.dynamic.setDeviceName = C.wrapErrors((name: string) => {
                     set(s => {
                       s.dispatch.dynamic.setDeviceName = _setDeviceName
                     })
                     _setDeviceName(name, false)
                     resetErrorAndCancel()
                     response.result(name)
-                  }
+                  })
                 })
 
                 if (shouldAutoSubmit(!!errorMessage, {type: 'deviceName'})) {
@@ -450,7 +452,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
                 set(s => {
                   s.error = ''
                   s.devices = devices
-                  s.dispatch.dynamic.submitDeviceSelect = (device: string) => {
+                  s.dispatch.dynamic.submitDeviceSelect = C.wrapErrors((device: string) => {
                     set(s => {
                       s.dispatch.dynamic.submitDeviceSelect = _submitDeviceSelect
                     })
@@ -458,7 +460,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
                     const id = get().codePageOtherDevice.id
                     resetErrorAndCancel()
                     response.result(id)
-                  }
+                  })
                 })
 
                 if (shouldAutoSubmit(false, {devices, type: 'chooseDevice'})) {
@@ -480,14 +482,14 @@ export const _useState = Z.createZustand<State>((set, get) => {
                 set(s => {
                   s.error =
                     retryLabel === C.Config.invalidPasswordErrorString ? 'Incorrect password.' : retryLabel
-                  s.dispatch.dynamic.setPassphrase = (passphrase: string) => {
+                  s.dispatch.dynamic.setPassphrase = C.wrapErrors((passphrase: string) => {
                     set(s => {
                       s.dispatch.dynamic.setPassphrase = _setPassphrase
                     })
                     _setPassphrase(passphrase, false)
                     resetErrorAndCancel()
                     response.result({passphrase, storeSecret: false})
-                  }
+                  })
                 })
 
                 if (shouldAutoSubmit(!!retryLabel, {type: 'passphrase'})) {

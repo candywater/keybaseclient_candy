@@ -7,15 +7,15 @@ const featureOn = (key: keyof FeatureFlags) => features.includes(key)
 
 const ff: FeatureFlags = {
   admin: false,
-  archive: false,
+  archive: true,
 }
 
 const inAdmin: {[K in keyof FeatureFlags]?: boolean} = {}
 
 // load overrides
 Object.keys(ff).forEach(_k => {
-  const k: keyof FeatureFlags = _k as any
-  ff[k] = featureOn(k as keyof FeatureFlags) || ff[k] || (featureOn('admin') && !!inAdmin[k])
+  const k = _k as keyof FeatureFlags
+  ff[k] = featureOn(k) || ff[k] || (featureOn('admin') && !!inAdmin[k])
 })
 
 if (__DEV__) {

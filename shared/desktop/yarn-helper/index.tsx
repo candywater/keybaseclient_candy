@@ -11,7 +11,7 @@ import {rimrafSync} from 'rimraf'
 const [, , command, ...rest] = process.argv
 
 type Command = {
-  code?: (info: unknown, exec: Function) => void
+  code?: (info: Command, exec: Function) => void
   help?: string
   env?: {}
   shell?: string
@@ -101,15 +101,15 @@ function fixModules() {
 
   try {
     fs.mkdirSync(root)
-  } catch (_) {}
+  } catch {}
 
   try {
     fs.writeFileSync(path.join(root, 'package.json'), `{"main": "index.js"}`)
     fs.writeFileSync(path.join(root, 'index.js'), `module.exports = function(){return {};};`)
-  } catch (_) {}
+  } catch {}
 }
 
-function exec(command: string, env?: any, options?: Object) {
+function exec(command: string, env?: {}, options?: object) {
   console.log(
     execSync(command, {
       encoding: 'utf8',

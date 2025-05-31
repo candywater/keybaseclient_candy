@@ -3,6 +3,7 @@ import {getEngine} from './require'
 import {RPCError} from '@/util/errors'
 import {printOutstandingRPCs} from '@/local-debug'
 import type {CommonResponseHandler} from './types'
+import {wrapErrors} from '@/util/debug'
 
 type WaitingKey = string | Array<string>
 
@@ -41,7 +42,7 @@ const makeWaitingResponse = (_r?: Partial<CommonResponseHandler>, waitingKey?: W
 // TODO could have a mechanism to ensure only one is in flight at a time. maybe by some key or something
 async function listener(p: {
   method: string
-  params?: Object
+  params?: object
   incomingCallMap?: {[K in string]: (params: unknown) => Promise<void>}
   customResponseIncomingCallMap?: {
     [K in string]: (params: unknown, response: Partial<CommonResponseHandler>) => Promise<void>
@@ -88,7 +89,7 @@ async function listener(p: {
 
         // defer to process network first
         setTimeout(() => {
-          const invokeAndDispatch = async () => {
+          const invokeAndDispatch = wrapErrors(async () => {
             if (response) {
               const cb = customResponseIncomingCallMap[method]
               await cb?.(params, response)
@@ -96,7 +97,7 @@ async function listener(p: {
               const cb = incomingCallMap[method]
               await cb?.(params)
             }
-          }
+          }, method)
 
           invokeAndDispatch()
             .then(() => {})

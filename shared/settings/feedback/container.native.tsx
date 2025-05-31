@@ -14,11 +14,11 @@ export type State = {
   sendError: string
 }
 export type Props = {
-  chat: Object
+  chat: object
   feedback?: string
   loggedOut: boolean
-  push: Object
-  status: Object
+  push: object
+  status: object
 }
 
 const mobileOsVersion = Platform.Version
@@ -74,7 +74,7 @@ class FeedbackContainer extends React.Component<Props, State> {
       }
       run()
         .then(() => {})
-        .catch(err => {
+        .catch((err: unknown) => {
           logger.warn('err in sending logs', err)
           if (this.mounted) {
             this.setState({sendError: String(err), sending: false})

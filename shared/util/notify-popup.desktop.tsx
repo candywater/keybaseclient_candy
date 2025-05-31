@@ -6,7 +6,7 @@ const rateLimitPayloads: {
   [K in string]:
     | {
         title: string
-        opts?: Object
+        opts?: object
         onClick?: () => void
       }
     | undefined
@@ -14,7 +14,7 @@ const rateLimitPayloads: {
 
 function NotifyPopup(
   title: string,
-  opts: any,
+  opts?: {body?: string; sound?: boolean},
   rateLimitSeconds: number = -1,
   rateLimitKey?: string,
   onClick?: () => void,

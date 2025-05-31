@@ -5,9 +5,8 @@ import {SimpleTopLine} from './top-line'
 import {BottomLine} from './bottom-line'
 import {Avatars, TeamAvatar} from '@/chat/avatars'
 import * as RowSizes from '../sizes'
-import type * as T from '@/constants/types'
+import * as T from '@/constants/types'
 import SwipeConvActions from './swipe-conv-actions'
-import * as RPCChatTypes from '@/constants/types/rpc-chat-gen'
 import './small-team.css'
 import {
   IsTeamContext,
@@ -25,7 +24,7 @@ export type Props = {
   layoutName?: string
   layoutSnippet?: string
   layoutTime?: number
-  layoutSnippetDecoration?: RPCChatTypes.SnippetDecoration
+  layoutSnippetDecoration?: T.RPCChat.SnippetDecoration
   swipeCloseRef?: React.MutableRefObject<(() => void) | null>
   onSelectConversation?: () => void
 }
@@ -39,9 +38,12 @@ const SmallTeam = React.memo(function SmallTeam(p: Props) {
       const typingSnippet = (() => {
         const typers = !isInWidget ? s.typing : undefined
         if (!typers?.size) return undefined
-        return typers.size === 1
-          ? `${typers.values().next().value as string} is typing...`
-          : 'Multiple people typing...'
+        if (typers.size === 1) {
+          const [t] = typers
+          return `${t} is typing...`
+        } else {
+          return 'Multiple people typing...'
+        }
       })()
 
       const {meta} = s
@@ -51,7 +53,7 @@ const SmallTeam = React.memo(function SmallTeam(p: Props) {
       const snippet = typingSnippet ?? meta.snippetDecorated ?? maybeLayoutSnippet ?? ''
       const snippetDecoration =
         meta.conversationIDKey === C.Chat.noConversationIDKey
-          ? layoutSnippetDecoration ?? RPCChatTypes.SnippetDecoration.none
+          ? layoutSnippetDecoration ?? T.RPCChat.SnippetDecoration.none
           : meta.snippetDecoration
       return {snippet, snippetDecoration}
     })

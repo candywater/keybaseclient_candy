@@ -6,13 +6,15 @@ import {Video, ResizeMode} from 'expo-av'
 import logger from '@/logger'
 import {ShowToastAfterSaving} from '../messages/attachment/shared'
 import type {Props} from '.'
-import {useData} from './hooks'
-import {Animated} from 'react-native'
+import {useData, usePreviewFallback} from './hooks'
+import {type GestureResponderEvent, Animated, View, useWindowDimensions, Image} from 'react-native'
+// TODO bring this back when we update expo-image > 1.8.0
+// import {Image} from 'expo-image'
 
-const Fullscreen = (p: Props) => {
+const Fullscreen = React.memo(function Fullscreen(p: Props) {
   const {showHeader: _showHeader = true} = p
   const data = useData(p.ordinal)
-  const {isVideo, onClose, message, path, previewHeight, onAllMedia} = data
+  const {isVideo, onClose, message, path, previewHeight, onAllMedia, previewPath} = data
   const {onNextAttachment, onPreviousAttachment} = data
   const [loaded, setLoaded] = React.useState(false)
   const {ordinal} = message
@@ -21,6 +23,26 @@ const Fullscreen = (p: Props) => {
     setShowHeader(s => !s)
   }, [])
 
+  const preload = React.useCallback((path: string, onLoad: () => void, onError: () => void) => {
+    const f = async () => {
+      try {
+        await Image.prefetch(path)
+        onLoad()
+      } catch {
+        onError()
+      }
+    }
+    f()
+      .then(() => {})
+      .catch(() => {})
+  }, [])
+
+  const imgSrc = usePreviewFallback(path, previewPath, isVideo, data.showPreview, preload)
+  const srcDims = React.useMemo(() => {
+    return imgSrc === path
+      ? {height: data.fullHeight, width: data.fullWidth}
+      : {height: data.previewWidth, width: data.previewHeight}
+  }, [data.fullHeight, data.fullWidth, data.previewHeight, data.previewWidth, imgSrc, path])
   const {showPopup, popup} = useMessagePopup({ordinal})
 
   const onSwipe = React.useCallback(
@@ -37,16 +59,42 @@ const Fullscreen = (p: Props) => {
   let content: React.ReactNode = null
   let spinner: React.ReactNode = null
 
+  const {width: windowWidth} = useWindowDimensions()
+  const needDiff = windowWidth / 3
+  const initialTouch = React.useRef(-1)
+  const maxTouchesRef = React.useRef(0)
+  const onTouchStart = React.useCallback((e: GestureResponderEvent) => {
+    // we get calls when the touches increase
+    maxTouchesRef.current = Math.max(maxTouchesRef.current, e.nativeEvent.touches.length)
+    if (e.nativeEvent.touches.length === 1) {
+      initialTouch.current = e.nativeEvent.pageX
+    } else {
+      initialTouch.current = -1
+    }
+  }, [])
+  const onTouchEnd = React.useCallback(
+    (e: GestureResponderEvent) => {
+      const maxTouches = maxTouchesRef.current
+      maxTouchesRef.current = 0
+      const diff = e.nativeEvent.pageX - initialTouch.current
+      initialTouch.current = -1
+      // we only do swipes on single touch
+      if (maxTouches !== 1) {
+        return
+      }
+      if (diff > needDiff) {
+        onSwipe(false)
+      } else if (diff < -needDiff) {
+        onSwipe(true)
+      }
+    },
+    [onSwipe, needDiff]
+  )
+
   if (path) {
     if (isVideo) {
       content = (
-        <Kb.Box2
-          direction="vertical"
-          fullWidth={true}
-          fullHeight={true}
-          centerChildren={true}
-          style={styles.videoWrapper}
-        >
+        <View style={styles.videoWrapper} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           <Video
             source={{uri: `${path}&contentforce=true`}}
             onError={e => {
@@ -61,11 +109,18 @@ const Fullscreen = (p: Props) => {
             }}
             resizeMode={ResizeMode.CONTAIN}
           />
-        </Kb.Box2>
+        </View>
       )
     } else {
       content = (
-        <Kb.ZoomableImage src={path} style={styles.zoomableBox} onSwipe={onSwipe} onTap={toggleHeader} />
+        <Kb.ZoomableImage
+          src={imgSrc}
+          style={styles.zoomableBox}
+          onSwipe={onSwipe}
+          onTap={toggleHeader}
+          srcDims={srcDims}
+          boxCacheKey="chat-attach"
+        />
       )
     }
   }
@@ -116,7 +171,7 @@ const Fullscreen = (p: Props) => {
       {popup}
     </Kb.Box2>
   )
-}
+})
 
 const styles = Styles.styleSheetCreate(
   () =>
@@ -158,19 +213,19 @@ const styles = Styles.styleSheetCreate(
         zIndex: 3,
       },
       headerWrapper: {backgroundColor: Styles.globalColors.blackOrBlack},
-      progressIndicator: {
-        width: 48,
-      },
-      progressWrapper: {
-        position: 'absolute',
-      },
+      progressIndicator: {width: 48},
+      progressWrapper: {position: 'absolute'},
       safeAreaTop: {
         ...Styles.globalStyles.flexBoxColumn,
         ...Styles.globalStyles.fillAbsolute,
         backgroundColor: Styles.globalColors.blackOrBlack,
       },
       videoWrapper: {
+        alignItems: 'center',
+        height: '100%',
+        justifyContent: 'center',
         position: 'relative',
+        width: '100%',
       },
       zoomableBox: {
         backgroundColor: Styles.globalColors.blackOrBlack,

@@ -2,6 +2,8 @@ package client
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/keybase/cli"
 	"github.com/keybase/client/go/chatrender"
@@ -46,16 +48,36 @@ func (c *CmdChatArchiveList) Run() error {
 	ui := c.G().UI.GetTerminalUI()
 	ui.Printf("Found %d job(s)\n\n", len(res.Jobs))
 	for _, job := range res.Jobs {
-		var percent int
+		percent := 100
 		if job.MessagesTotal > 0 {
 			percent = int((100 * job.MessagesComplete) / job.MessagesTotal)
 		}
+		matchingConvs := ""
+		if job.Request.Query == nil || (job.Request.Query.Name == nil && job.Request.Query.TopicName == nil && len(job.Request.Query.ConvIDs) == 0) {
+			matchingConvs = "<all chat>"
+		} else {
+			names := make([]string, 0, len(job.MatchingConvs))
+			for _, conv := range job.MatchingConvs {
+				name := conv.Name
+				if len(name) == 0 {
+					continue
+				}
+				if conv.Channel != "" {
+					name += fmt.Sprintf("#%s", conv.Channel)
+				}
+				names = append(names, name)
+			}
+			slices.Sort(names)
+			matchingConvs += strings.Join(names, "\n")
+		}
 		ui.Printf(`Job ID: %s
+Matching Conversations:
+%s
 Output Path: %s
 Started At: %s (%s)
 Status: %s
 Progress: %d%% (%d of %d messages archived)
-`, job.Request.JobID, job.Request.OutputPath,
+`, job.Request.JobID, matchingConvs, job.Request.OutputPath,
 			chatrender.FmtTime(gregor1.FromTime(job.StartedAt), chatrender.RenderOptions{UseDateTime: true}),
 			chatrender.FmtTime(gregor1.FromTime(job.StartedAt), chatrender.RenderOptions{}),
 			job.Status.String(), percent, job.MessagesComplete, job.MessagesTotal)

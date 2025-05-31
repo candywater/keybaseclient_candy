@@ -67,15 +67,15 @@ const FilePreviewViewContent = ({path, onUrlError}: Props) => {
   const url = fileContext.url + `&unused_field_ts=${loadedLastModifiedTimestamp}`
   switch (fileContext.viewType) {
     case T.RPCGen.GUIViewType.default: {
-      // mobile client only supports heic now, but this doesn't work, TODO
-      // if (C.isMobile && pathItem.name.toLowerCase().endsWith('.heic')) {
-      //   return (
-      //     <>
-      //       {reloadBanner}
-      //       <Kb.ZoomableImage src={url} style={styles.zoomableBox} />
-      //     </>
-      //   )
-      // }
+      // mobile client only supports heic now
+      if (C.isIOS && C.Chat.isPathHEIC(pathItem.name)) {
+        return (
+          <>
+            {reloadBanner}
+            <Kb.ZoomableImage src={url} style={styles.zoomableBox} boxCacheKey="fsdef" />
+          </>
+        )
+      }
       return <DefaultView path={path} />
     }
     case T.RPCGen.GUIViewType.text:
@@ -96,7 +96,7 @@ const FilePreviewViewContent = ({path, onUrlError}: Props) => {
       return (
         <>
           {reloadBanner}
-          <Kb.ZoomableImage src={url} style={styles.zoomableBox} />
+          <Kb.ZoomableImage src={url} style={styles.zoomableBox} boxCacheKey="fsimg" />
         </>
       )
     }

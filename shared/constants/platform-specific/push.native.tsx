@@ -56,7 +56,8 @@ type PushN = {
 } & Data
 
 const anyToConversationMembersType = (a: string | number): T.RPCChat.ConversationMembersType | undefined => {
-  const membersTypeNumber: number = typeof a === 'string' ? parseInt(a, 10) : a || -1
+  const membersTypeNumber: T.RPCChat.ConversationMembersType =
+    typeof a === 'string' ? parseInt(a, 10) : a || -1
   switch (membersTypeNumber) {
     case T.RPCChat.ConversationMembersType.kbfs:
       return T.RPCChat.ConversationMembersType.kbfs
@@ -70,7 +71,7 @@ const anyToConversationMembersType = (a: string | number): T.RPCChat.Conversatio
       return undefined
   }
 }
-const normalizePush = (_n?: Object): T.Push.PushNotification | undefined => {
+const normalizePush = (_n?: object): T.Push.PushNotification | undefined => {
   try {
     if (!_n) {
       return undefined
@@ -198,7 +199,7 @@ const iosListenForPushNotificationsFromJS = () => {
     C.usePushState.getState().dispatch.setPushToken(token)
   }
 
-  const onNotification = (n: Object) => {
+  const onNotification = (n: object) => {
     logger.debug('[onNotification]: ', n)
     const notification = normalizePush(n)
     if (!notification) {
@@ -303,7 +304,7 @@ export const initPushListener = () => {
       if (isAndroid) {
         try {
           await listenForNativeAndroidIntentNotifications()
-        } catch (e) {}
+        } catch {}
       } else {
         iosListenForPushNotificationsFromJS()
       }

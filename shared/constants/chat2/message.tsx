@@ -3,14 +3,27 @@ import * as T from '../types'
 import * as C from '..'
 import type * as ConvoConstants from './convostate'
 import HiddenString from '@/util/hidden-string'
-import invert from 'lodash/invert'
 import logger from '@/logger'
 import type * as MessageTypes from '../types/chat2/message'
 import type {ServiceId} from 'util/platforms'
 import {noConversationIDKey} from '../types/chat2/common'
-import isEqual from 'lodash/isEqual'
 
 const noString = new HiddenString('')
+
+export const isPathHEIC = (path: string) => path.toLowerCase().endsWith('.heic')
+// real image or heic
+export const isImageViewable = (message: T.Chat.Message) => {
+  if (message.type === 'attachment') {
+    if (message.attachmentType === 'image') {
+      // regular image
+      return true
+    }
+    if (message.attachmentType === 'file' && C.isIOS && isPathHEIC(message.fileName)) {
+      return true
+    }
+  }
+  return false
+}
 
 export const getMessageRenderType = (m: T.Immutable<T.Chat.Message>): T.Chat.RenderMessageType => {
   switch (m.type) {
@@ -18,18 +31,16 @@ export const getMessageRenderType = (m: T.Immutable<T.Chat.Message>): T.Chat.Ren
       if (m.inlineVideoPlayable && m.attachmentType !== 'audio') {
         return 'attachment:video'
       }
-      if (C.isMobile) {
-        // allow heic on mobile only
-        if (m.attachmentType === 'file' && m.fileName.toLowerCase().endsWith('.heic')) {
-          return 'attachment:image'
-        }
+      // allow heic on ios only
+      if (isImageViewable(m)) {
+        return 'attachment:image'
       }
       return `attachment:${m.attachmentType}`
     default:
       return m.type
   }
 }
-export const isMessageWithReactions = (message: T.Chat.Message): message is T.Chat.MessagesWithReactions => {
+export const isMessageWithReactions = (message: T.Chat.Message) => {
   return (
     !(
       message.type === 'placeholder' ||
@@ -58,7 +69,7 @@ export const getMessageID = (m: T.RPCChat.UIMessage) => {
 export const getPaymentMessageInfo = (
   accountsInfoMap: ConvoConstants.ConvoState['accountsInfoMap'],
   message: T.Chat.MessageSendPayment | T.Chat.MessageText
-) => {
+): T.Chat.ChatPaymentInfo | undefined => {
   const maybePaymentInfo = accountsInfoMap.get(message.id)
   if (!maybePaymentInfo) {
     return message.paymentInfo
@@ -227,6 +238,8 @@ export const makeMessageAttachment = (
   fileType: '',
   fileURL: '',
   fileURLCached: false,
+  fullHeight: 0,
+  fullWidth: 0,
   inlineVideoPlayable: false,
   isCollapsed: false,
   isDeleteable: true,
@@ -478,7 +491,7 @@ const makeMessageSystemNewChannel = (
 ): MessageTypes.MessageSystemNewChannel => ({
   ...makeMessageCommonNoDeleteNoEdit,
   reactions: undefined,
-  text: '',
+  text: new HiddenString(''),
   type: 'systemNewChannel',
   ...m,
 })
@@ -606,7 +619,7 @@ const uiMessageToSystemMessage = (
     case T.RPCChat.MessageSystemType.inviteaddedtoteam: {
       const inviteaddedtoteam = body.inviteaddedtoteam
       const invitee = inviteaddedtoteam.invitee || 'someone'
-      const role = C.Teams.teamRoleByEnum[inviteaddedtoteam.role] || 'none'
+      const role = C.Teams.teamRoleByEnum[inviteaddedtoteam.role]
       const adder = inviteaddedtoteam.adder || 'someone'
       const inviter = inviteaddedtoteam.inviter || 'someone'
       const team = inviteaddedtoteam.team || '???'
@@ -705,7 +718,7 @@ const uiMessageToSystemMessage = (
         ? makeMessageSystemNewChannel({
             ...minimum,
             reactions,
-            text: m.decoratedTextBody,
+            text: new HiddenString(m.decoratedTextBody),
           })
         : undefined
     }
@@ -870,7 +883,7 @@ const validUIMessagetoMessage = (
               currentUsername,
               getLastOrdinal,
               currentDeviceName
-            ) as any) // TODO better reply to handling
+            ) as T.Chat.MessageReplyTo)
           : undefined,
         text: new HiddenString(rawText),
         unfurls: m.unfurls ? new Map(m.unfurls.map(u => [u.url, u])) : undefined,
@@ -906,6 +919,14 @@ const validUIMessagetoMessage = (
       const {filename, title, size} = a.object
 
       const pre = previewSpecs(preview?.metadata, full.metadata)
+
+      let fullHeight = 0
+      let fullWidth = 0
+      if (full.metadata.assetType === T.RPCChat.AssetMetadataType.image) {
+        fullHeight = full.metadata.image.height
+        fullWidth = full.metadata.image.width
+      }
+
       let previewURL = ''
       let fileURL = ''
       let fileType = ''
@@ -933,6 +954,8 @@ const validUIMessagetoMessage = (
         fileType,
         fileURL,
         fileURLCached,
+        fullHeight,
+        fullWidth,
         hasBeenEdited: m.superseded,
         inlineVideoPlayable,
         isCollapsed: m.isCollapsed,
@@ -991,6 +1014,8 @@ const validUIMessagetoMessage = (
     case T.RPCChat.MessageType.edit: // fallthrough
     case T.RPCChat.MessageType.delete: // fallthrough
     case T.RPCChat.MessageType.deletehistory: // fallthrough
+      // make deleted so we can cleanup placeholders
+      return makeMessageDeleted({...common})
     default:
       return
   }
@@ -1035,7 +1060,7 @@ const outboxUIMessagetoMessage = (
       const title = o.title
       const fileName = o.filename
       let previewURL = ''
-      let pre
+      let pre: T.Chat.PreviewSpec
       if (o.preview) {
         previewURL =
           o.preview.location && o.preview.location.ltyp === T.RPCChat.PreviewLocationTyp.url
@@ -1121,10 +1146,6 @@ const errorUIMessagetoMessage = (
     ordinal: T.Chat.numberToOrdinal(o.messageID),
     timestamp: o.ctime,
   })
-}
-
-export const journeyCardTypeToType = invert(T.RPCChat.JourneycardType) as {
-  [K in T.RPCChat.JourneycardType]: keyof typeof T.RPCChat.JourneycardType
 }
 
 const journeycardUIMessageToMessage = (
@@ -1276,66 +1297,6 @@ export const pathToAttachmentType = (path: string) => {
 export const isSpecialMention = (s: string) => ['here', 'channel', 'everyone'].includes(s)
 
 export const specialMentions = ['here', 'channel', 'everyone']
-
-// TODO maybe its better to avoid merging at all and just deal with it at the component level. we pay for merging
-// on non visible items so the cost might be higher
-export const mergeMessage = (old: T.Chat.Message | undefined, msg: T.Chat.Message): T.Chat.Message => {
-  if (!old) {
-    return msg
-  }
-
-  // only merge if its the same id and type
-  if (old.id !== msg.id || old.type !== msg.type) {
-    return msg
-  }
-
-  const m = msg as {[key: string]: any}
-  let toRet = {...m}
-
-  // if all props are the same then just use old
-  let allSame = true as boolean
-  Object.keys(old).forEach(key => {
-    const o = old as {[key: string]: any}
-    switch (key) {
-      case 'mentionsChannelName':
-      case 'reactions':
-      case 'mentionsAt':
-      case 'audioAmps':
-        if (C.shallowEqual([...o[key]], [...m[key]])) {
-          toRet[key] = o[key]
-        } else {
-          allSame = false
-        }
-        break
-      case 'bodySummary':
-      case 'decoratedText':
-      case 'text':
-        if (o[key]?.stringValue?.() === m[key]?.stringValue?.()) {
-          toRet[key] = o[key]
-        } else {
-          allSame = false
-        }
-        break
-      case 'unfurls':
-        if (isEqual(m[key], old[key])) {
-          toRet[key] = old[key]
-        } else {
-          allSame = false
-        }
-        break
-      default:
-        if (o[key] === m[key]) {
-          toRet[key] = o[key]
-        } else {
-          allSame = false
-        }
-    }
-  })
-  if (allSame) {
-    toRet = old
-  }
-  return toRet as T.Chat.Message
-}
 
 export const upgradeMessage = (
   old: T.Immutable<T.Chat.Message>,

@@ -10,15 +10,15 @@ const {isDirectory} = KB2.functions
 
 const AVATAR_CONTAINER_SIZE = 300
 
-const validDrag = (e: React.DragEvent<any>) => {
-  return Array.prototype.map.call(e.dataTransfer.types, t => t).includes('Files')
+const validDrag = (e: React.DragEvent) => {
+  return Array.from(e.dataTransfer.types)
+    .map(t => t)
+    .includes('Files')
 }
 
-const getFile = async (fileList: {length?: number} | undefined): Promise<string> => {
-  const paths: Array<string> = fileList?.length
-    ? Array.prototype.map.call(fileList, f => f.path)
-    : ([] as any)
-  if (!paths.length) {
+const getFile = async (fileList: FileList | undefined): Promise<string> => {
+  const paths = fileList?.length ? Array.from(fileList).map(f => f.path) : undefined
+  if (!paths?.length) {
     return ''
   }
   for (const path of paths) {
@@ -27,7 +27,7 @@ const getFile = async (fileList: {length?: number} | undefined): Promise<string>
       if (isDir) {
         return ''
       }
-    } catch (e) {}
+    } catch {}
   }
   return paths.pop() ?? ''
 }
@@ -75,14 +75,14 @@ const EditAvatar = (p: Props) => {
   const onImageLoad = () => {
     setLoading('loaded')
   }
-  const onDrop = (e: React.DragEvent<any>) => {
+  const onDrop = (e: React.DragEvent) => {
     const f = async () => {
-      setDropping(false)
-      setSerror(false)
-      setLoading('loading')
       if (!validDrag(e)) {
         return
       }
+      setDropping(false)
+      setSerror(false)
+      setLoading('loading')
       const img = await getFile(e.dataTransfer.files)
       if (img) {
         setImageSource(img)
@@ -154,9 +154,10 @@ const EditAvatar = (p: Props) => {
       <div
         className={Kb.Styles.classNames({dropping: dropping})}
         onDrop={onDrop}
-        style={
-          Kb.Styles.collapseStyles([styles.container, createdTeam && styles.paddingTopForCreatedTeam]) as any
-        }
+        style={Kb.Styles.collapseStylesDesktop([
+          styles.container,
+          createdTeam && styles.paddingTopForCreatedTeam,
+        ])}
       >
         {type === 'team' && createdTeam && !wizard && (
           <Kb.Box style={styles.createdBanner}>
@@ -188,7 +189,13 @@ const EditAvatar = (p: Props) => {
             style={styles.hidden}
             type="file"
           />
-          <Kb.ZoomableImage dragPan={true} src={imageSource} onChanged={onChanged} onLoaded={onImageLoad} />
+          <Kb.ZoomableImage
+            dragPan={true}
+            src={imageSource}
+            onChanged={onChanged}
+            onLoaded={onImageLoad}
+            boxCacheKey="avatar"
+          />
           {!loading && (
             <Kb.Icon
               className="icon"

@@ -15,6 +15,7 @@ import {isLinux, isDarwin} from '@/constants/platform'
 import {type _InnerMenuItem} from '@/common-adapters/floating-menu/menu-layout'
 import {useUploadCountdown} from '@/fs/footer/use-upload-countdown'
 import type {DeserializeProps} from './remote-serializer.desktop'
+import {DarkCSSInjector} from '@/desktop/renderer/dark-injector.desktop'
 
 const {hideWindow, ctlQuit} = KB2.functions
 
@@ -204,11 +205,13 @@ const IconBar = (p: Props & {showBadges?: boolean}) => {
           : null}
       </Kb.Box>
       <Kb.Box
-        style={{
-          ...Kb.Styles.desktopStyles.clickable,
-          marginRight: Kb.Styles.globalMargins.tiny,
-          position: 'relative',
-        }}
+        style={Kb.Styles.platformStyles({
+          isElectron: {
+            ...Kb.Styles.desktopStyles.clickable,
+            marginRight: Kb.Styles.globalMargins.tiny,
+            position: 'relative',
+          } as const,
+        })}
       >
         <Kb.Icon
           color={
@@ -327,21 +330,21 @@ const MenubarRender = (p: Props) => {
 
   const darkMode = C.useDarkModeState(s => s.isDarkMode())
 
-  let content: React.ReactNode = null
+  let content: React.ReactNode
   if (daemonHandshakeState === 'done' && loggedIn) {
     content = <LoggedIn {...p} />
   } else {
     content = <LoggedOut daemonHandshakeState={daemonHandshakeState} loggedIn={loggedIn} />
   }
 
+  React.useEffect(() => {
+    document.body.classList.add('isWidget')
+  }, [])
+
   return (
     <Kb.Styles.DarkModeContext.Provider value={darkMode}>
-      <Kb.Box2
-        direction="vertical"
-        style={styles.widgetContainer}
-        className={darkMode ? 'darkMode' : 'lightMode'}
-        key={darkMode ? 'darkMode' : 'light'}
-      >
+      <DarkCSSInjector />
+      <Kb.Box2 direction="vertical" style={styles.widgetContainer} key={darkMode ? 'darkMode' : 'light'}>
         {isDarwin && <ArrowTick />}
         <IconBar {...p} showBadges={loggedIn} />
         {content}
@@ -387,7 +390,11 @@ const BadgeIcon = (p: {tab: Tabs; countMap: ReadonlyMap<string, number>; openApp
   }
 
   return (
-    <Kb.Box style={{...Kb.Styles.desktopStyles.clickable, position: 'relative'}}>
+    <Kb.Box
+      style={Kb.Styles.platformStyles({
+        isElectron: {...Kb.Styles.desktopStyles.clickable, position: 'relative'},
+      })}
+    >
       <Kb.Icon
         color={
           Kb.Styles.isDarkMode()

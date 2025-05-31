@@ -257,7 +257,7 @@ export const inboxUIItemToConversationMeta = (
   const minWriterRoleEnum = i.convSettings?.minWriterRoleInfo
     ? i.convSettings.minWriterRoleInfo.role
     : undefined
-  let minWriterRole = (minWriterRoleEnum && C.Teams.teamRoleByEnum[minWriterRoleEnum]) || 'reader'
+  let minWriterRole = minWriterRoleEnum !== undefined ? C.Teams.teamRoleByEnum[minWriterRoleEnum] : 'reader'
   if (minWriterRole === 'none') {
     // means nothing. set it to reader.
     minWriterRole = 'reader'
@@ -267,10 +267,10 @@ export const inboxUIItemToConversationMeta = (
   const conversationIDKey = T.Chat.stringToConversationIDKey(i.convID)
   let pinnedMsg: T.Chat.PinnedMessageInfo | undefined
   if (i.pinnedMsg) {
-    const CSConstants = require('./convostate')
     const username = C.useCurrentUserState.getState().username
     const devicename = C.useCurrentUserState.getState().deviceName
-    const getLastOrdinal = () => CSConstants.getConvoState(conversationIDKey).messageOrdinals?.at(-1) ?? 0
+    const getLastOrdinal = () =>
+      C.getConvoState(conversationIDKey).messageOrdinals?.at(-1) ?? T.Chat.numberToOrdinal(0)
     const message = Message.uiMessageToMessage(
       conversationIDKey,
       i.pinnedMsg.message,

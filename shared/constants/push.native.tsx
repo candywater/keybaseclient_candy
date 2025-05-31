@@ -46,13 +46,14 @@ export const _useState = Z.createZustand<State>((set, get) => {
       }
     })
 
-  const requestPermissionsFromNative: () => Promise<{
+  type ReqType = Promise<{
     alert: boolean
     badge: boolean
     sound: boolean
-  }> = async () => {
+  }>
+  const requestPermissionsFromNative: () => ReqType = async () => {
     if (isIOS) {
-      const perm = await (PushNotificationIOS.requestPermissions() as any)
+      const perm = await (PushNotificationIOS.requestPermissions() as ReqType)
       return perm
     } else {
       const on = await androidRequestPushPermissions()
@@ -84,7 +85,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
           payload: unboxPayload,
           shouldAck: false,
         })
-      } catch (e) {
+      } catch {
         logger.info('[Push] failed to unbox message from payload')
       }
     }

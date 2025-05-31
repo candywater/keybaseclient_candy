@@ -52,7 +52,14 @@ export const makeInboxSearchInfo = (): T.Chat.InboxSearchInfo => ({
   textStatus: 'initial',
 })
 
-export const getInboxSearchSelected = (inboxSearch: T.Immutable<T.Chat.InboxSearchInfo>) => {
+const getInboxSearchSelected = (
+  inboxSearch: T.Immutable<T.Chat.InboxSearchInfo>
+):
+  | undefined
+  | {
+      conversationIDKey: T.Chat.ConversationIDKey
+      query?: string
+    } => {
   const {selectedIndex, nameResults, botsResults, openTeamsResults, textResults} = inboxSearch
   const firstTextResultIdx = botsResults.length + openTeamsResults.length + nameResults.length
   const firstOpenTeamResultIdx = nameResults.length
@@ -67,7 +74,7 @@ export const getInboxSearchSelected = (inboxSearch: T.Immutable<T.Chat.InboxSear
       }
     }
   } else if (selectedIndex < firstTextResultIdx) {
-    return null
+    return
   } else if (selectedIndex >= firstTextResultIdx) {
     const result = textResults[selectedIndex - firstTextResultIdx]
     if (result) {
@@ -77,8 +84,7 @@ export const getInboxSearchSelected = (inboxSearch: T.Immutable<T.Chat.InboxSear
       }
     }
   }
-
-  return null
+  return
 }
 
 export const isTextOrAttachment = (
@@ -193,6 +199,27 @@ export const clampImageSize = (width: number, height: number, maxWidth: number, 
     height: Math.ceil(newHeight),
     width: Math.ceil(newWidth),
   }
+}
+
+export const scalePreviewToFullDimensions = (
+  previewWidth: number,
+  previewHeight: number,
+  fullWidth: number,
+  fullHeight: number
+) => {
+  const previewAspectRatio = previewWidth / previewHeight
+  const fullAspectRatio = fullWidth / fullHeight
+
+  let scaleFactor: number
+  if (previewAspectRatio > fullAspectRatio) {
+    scaleFactor = fullHeight / previewHeight
+  } else {
+    scaleFactor = fullWidth / previewWidth
+  }
+
+  return previewAspectRatio > 1
+    ? {width: Math.ceil(previewWidth * scaleFactor)}
+    : {height: Math.ceil(previewHeight * scaleFactor)}
 }
 
 export const zoomImage = (width: number, height: number, maxThumbSize: number) => {
@@ -313,7 +340,7 @@ const initialStore: Store = {
   userReacjis: defaultUserReacjis,
 }
 
-export type State = Store & {
+export interface State extends Store {
   dispatch: {
     badgesUpdated: (bigTeamBadgeCount: number, smallTeamBadgeCount: number) => void
     clearMetas: () => void
@@ -1435,8 +1462,8 @@ export const _useState = Z.createZustand<State>((set, get) => {
         if (!wasChat && !isChat) {
           return
         }
-        const pParams: undefined | {conversationIDKey?: T.Chat.ConversationIDKey} = p?.params
-        const nParams: undefined | {conversationIDKey?: T.Chat.ConversationIDKey} = n?.params
+        const pParams = p?.params as undefined | {conversationIDKey?: T.Chat.ConversationIDKey}
+        const nParams = n?.params as undefined | {conversationIDKey?: T.Chat.ConversationIDKey}
         const wasID = pParams?.conversationIDKey
         const isID = nParams?.conversationIDKey
 
@@ -1482,8 +1509,8 @@ export const _useState = Z.createZustand<State>((set, get) => {
       const maybeChatTabSelected = () => {
         if (Router2.getTab(prev) !== Tabs.chatTab && Router2.getTab(next) === Tabs.chatTab) {
           const n = Router2.getVisibleScreen(next)
-          const nParams: undefined | {conversationIDKey?: T.Chat.ConversationIDKey} = n?.params
-          const isID: string | undefined = nParams?.conversationIDKey
+          const nParams = n?.params as undefined | {conversationIDKey?: T.Chat.ConversationIDKey}
+          const isID = nParams?.conversationIDKey
           isID && C.getConvoState(isID).dispatch.tabSelected()
         }
       }
@@ -1711,7 +1738,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
             path: 'ui.inboxSmallRows',
             value: {i: inboxNumSmallRows, isNull: false},
           })
-        } catch (_) {}
+        } catch {}
       }
       C.ignorePromise(f())
     },

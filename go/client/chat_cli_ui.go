@@ -41,7 +41,7 @@ func (n *ChatCLINotifications) ChatAttachmentUploadStart(ctx context.Context,
 		return nil
 	}
 	w := n.terminal.ErrorWriter()
-	fmt.Fprintf(w, "Attachment upload "+ColorString(n.G(), "green", "starting")+"\n")
+	fmt.Fprintf(w, "%s", "Attachment upload "+ColorString(n.G(), "green", "starting")+"\n")
 	return nil
 }
 
@@ -100,7 +100,10 @@ func (n *ChatCLINotifications) ChatArchiveProgress(ctx context.Context,
 	if n.noOutput {
 		return nil
 	}
-	percent := int((100 * arg.MessagesComplete) / arg.MessagesTotal)
+	percent := 100
+	if arg.MessagesTotal > 0 {
+		percent = int((100 * arg.MessagesComplete) / arg.MessagesTotal)
+	}
 	if n.lastProgressPercent == 0 || percent == 100 || percent-n.lastProgressPercent >= 10 {
 		w := n.terminal.ErrorWriter()
 		fmt.Fprintf(w, "Archival download progress %d%% (%d of %d messages archived)\n", percent,
@@ -206,7 +209,7 @@ func (c *ChatCLIUI) renderSearchHit(ctx context.Context, searchHit chat1.ChatSea
 				// Splice the match into the result with a color highlight. We
 				// can't do a direct string replacement since the match might
 				// be a substring of the color text.
-				escapedHitText = escapedHitText[:i] + ColorString(c.G(), "red", escapedHit) + escapedHitText[j:]
+				escapedHitText = escapedHitText[:i] + ColorString(c.G(), "red", "%s", escapedHit) + escapedHitText[j:]
 				totalOffset += colorStrOffset
 			}
 			return terminalescaper.Clean(getMsgPrefix(msg)) + escapedHitText
@@ -386,7 +389,7 @@ func (c *ChatCLIUI) ChatStellarDataConfirm(ctx context.Context, arg chat1.ChatSt
 func (c *ChatCLIUI) ChatStellarDataError(ctx context.Context, arg chat1.ChatStellarDataErrorArg) (bool, error) {
 	w := c.terminal.ErrorWriter()
 	msg := "Failed to obtain Stellar payment information, aborting send"
-	fmt.Fprintf(w, msg+"\n")
+	fmt.Fprintf(w, "%s", msg+"\n")
 	return false, errors.New(msg)
 }
 

@@ -7,13 +7,13 @@ const featureOn = (key: keyof FeatureFlags) => features.includes(key)
 
 const ff: FeatureFlags = {
   admin: __DEV__,
-  archive: false,
+  archive: true,
 }
 
 // load overrides
 Object.keys(ff).forEach(_k => {
-  const k: keyof FeatureFlags = _k as any
-  ff[k] = featureOn(k as keyof FeatureFlags) || ff[k] || false
+  const k = _k as keyof FeatureFlags
+  ff[k] = featureOn(k) || ff[k] || false
 })
 
 if (__DEV__) {

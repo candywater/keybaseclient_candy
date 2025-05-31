@@ -8,7 +8,7 @@ export const useData = (initialOrdinal: T.Chat.Ordinal) => {
   const conversationIDKey = C.useChatContext(s => s.id)
   const [ordinal, setOrdinal] = React.useState(initialOrdinal)
 
-  const message = C.useChatContext(s => {
+  const message: T.Chat.MessageAttachment = C.useChatContext(s => {
     const m = s.messageMap.get(ordinal)
     return m?.type === 'attachment' ? m : blankMessage
   })
@@ -40,8 +40,8 @@ export const useData = (initialOrdinal: T.Chat.Ordinal) => {
   const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
   const showInfoPanel = C.useChatContext(s => s.dispatch.showInfoPanel)
   const attachmentDownload = C.useChatContext(s => s.dispatch.attachmentDownload)
-  const {downloadPath, fileURL} = message
-  const {previewHeight, previewURL, previewWidth, title, transferProgress} = message
+  const {downloadPath, fileURL: path, fullHeight, fullWidth, fileType} = message
+  const {previewHeight, previewURL: previewPath, previewWidth, title, transferProgress} = message
   const {height: clampedHeight, width: clampedWidth} = C.Chat.clampImageSize(
     previewWidth,
     previewHeight,
@@ -49,6 +49,7 @@ export const useData = (initialOrdinal: T.Chat.Ordinal) => {
     maxHeight
   )
   const isVideo = C.Chat.isVideoAttachment(message)
+  const showPreview = !fileType.includes('png')
   const onAllMedia = () => showInfoPanel(true, 'attachments')
   const onClose = () => navigateUp()
   const onDownloadAttachment = message.downloadPath
@@ -61,7 +62,6 @@ export const useData = (initialOrdinal: T.Chat.Ordinal) => {
     ? () => openLocalPathInSystemFileManagerDesktop?.(downloadPath)
     : undefined
 
-  const path = fileURL || previewURL
   const progress = transferProgress
   const progressLabel = downloadPath
     ? undefined
@@ -70,6 +70,8 @@ export const useData = (initialOrdinal: T.Chat.Ordinal) => {
       : undefined
 
   return {
+    fullHeight,
+    fullWidth,
     isVideo,
     message,
     onAllMedia,
@@ -81,9 +83,57 @@ export const useData = (initialOrdinal: T.Chat.Ordinal) => {
     ordinal,
     path,
     previewHeight: clampedHeight,
+    previewPath,
     previewWidth: clampedWidth,
     progress,
     progressLabel,
+    showPreview,
     title: message.decoratedText ? message.decoratedText.stringValue() : title,
   }
+}
+
+// if we've seen it its likely cached so lets just always just show it and never fallback
+const seenPaths = new Set<string>()
+// preload full and return ''. If too much time passes show preview. Show full when loaded
+export const usePreviewFallback = (
+  path: string,
+  previewPath: string,
+  isVideo: boolean,
+  showPreview: boolean,
+  preload: (path: string, onLoad: () => void, onError: () => void) => void
+) => {
+  const [imgSrc, setImgSrc] = React.useState('')
+  const canUseFallback = path && previewPath && !isVideo && showPreview
+
+  React.useEffect(() => {
+    const onLoad = () => {
+      clearTimeout(id)
+      seenPaths.add(path)
+      setImgSrc(path)
+    }
+    const onError = () => {
+      clearTimeout(id)
+      setImgSrc(previewPath)
+    }
+
+    preload(path, onLoad, onError)
+
+    const id = setTimeout(() => {
+      setImgSrc(previewPath)
+    }, 300)
+
+    return () => {
+      clearTimeout(id)
+    }
+  }, [path, previewPath, isVideo, preload])
+
+  if (seenPaths.has(path)) {
+    return path
+  }
+
+  if (!canUseFallback) {
+    return path || previewPath
+  }
+
+  return imgSrc
 }

@@ -7,7 +7,7 @@ import ClickableBox from './clickable-box'
 import Text from './text'
 import * as Styles from '@/styles'
 import type {Props} from './with-tooltip'
-import {View, Dimensions} from 'react-native'
+import {View, useWindowDimensions} from 'react-native'
 
 // This uses a similar mechanism to relative-popup-hoc.desktop.js. It's only
 // ever used for tooltips on mobile for now. If we end up needing relative
@@ -31,7 +31,10 @@ type Dims = {
 
 const FloatingBox = (props: {children: React.ReactNode; style: Styles.StylesCrossPlatform}) => (
   <Kb.Portal hostName="popup-root">
-    <Kb.Box pointerEvents="box-none" style={[Styles.globalStyles.fillAbsolute, props.style]}>
+    <Kb.Box
+      pointerEvents="box-none"
+      style={Styles.collapseStyles([Styles.globalStyles.fillAbsolute, props.style])}
+    >
       {props.children}
     </Kb.Box>
   </Kb.Portal>
@@ -49,13 +52,21 @@ const WithTooltip = (props: Props) => {
     setVisible(false)
   }, 3000)
   const isMounted = C.useIsMounted()
+  const {width: screenWidth, height: screenHeight} = useWindowDimensions()
+
+  // since this uses portals we need to hide if we're hidden else we can get stuck showing if our render is frozen
+  C.Router2.useSafeFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        setVisible(false)
+      }
+    }, [])
+  )
+
   const _onClick = () => {
     if (!clickableRef.current || !tooltipRef.current || visible) {
       return
     }
-
-    const screenWidth = Dimensions.get('window').width
-    const screenHeight = Dimensions.get('window').height
 
     Promise.all([
       new Promise<Dims>(resolve => {
@@ -96,12 +107,12 @@ const WithTooltip = (props: Props) => {
   }
 
   if (!props.showOnPressMobile || props.disabled) {
-    return <View style={props.containerStyle as any}>{props.children}</View>
+    return <View style={Styles.castStyleNative(props.containerStyle)}>{props.children}</View>
   }
 
   return (
     <>
-      <View style={props.containerStyle as any} ref={clickableRef} collapsable={false}>
+      <View style={Styles.castStyleNative(props.containerStyle)} ref={clickableRef} collapsable={false}>
         <Kb.ClickableBox onClick={_onClick}>{props.children}</Kb.ClickableBox>
       </View>
       <FloatingBox style={animatedStyle}>

@@ -8,7 +8,7 @@
 //   icon: Kb.IconType
 //   title: string
 //   subTitle?: string
-//   style?: Object
+//   style?: object
 //   children?: any
 // }
 
@@ -20,7 +20,7 @@
 //       onClick={onClick}
 //     >
 //       <div style={styles.iconContainer}>
-//         <div className="register-background" style={styles.iconBackground as any} />
+//         <div className="register-background" style={styles.iconBackground } />
 //         <Kb.Icon
 //           className="register-icon"
 //           type={icon}

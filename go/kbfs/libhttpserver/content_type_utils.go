@@ -70,10 +70,13 @@ var supportedImgMimeTypes = map[string]bool{
 	"image/jpeg": true,
 	"image/gif":  true,
 	"image/webp": true,
+	"image/heic": true,
+	"image/heif": true,
 }
 
 func getGUIFileContext(contentTypeRaw, contentDispositionRaw string) (
-	viewType keybase1.GUIViewType, invariance string) {
+	viewType keybase1.GUIViewType, invariance string,
+) {
 	contentTypeProcessed := beforeSemicolon(contentTypeRaw)
 	disposition := beforeSemicolon(contentDispositionRaw)
 
@@ -224,4 +227,6 @@ var additionalMimeTypes = map[string]string{
 	".rss":   textPlainUtf8,
 	".tcl":   textPlainUtf8,
 	".tk":    textPlainUtf8,
+	".heic":  "image/heic",
+	".heif":  "image/heic",
 }

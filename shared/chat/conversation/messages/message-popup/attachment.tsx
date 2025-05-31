@@ -25,17 +25,13 @@ const PopAttach = (ownProps: OwnProps) => {
   const clearModals = C.useRouterState(s => s.dispatch.clearModals)
   const showInfoPanel = C.useChatContext(s => s.dispatch.showInfoPanel)
 
-  const loadMoreMessages = C.useChatContext(s => s.dispatch.loadMoreMessages)
+  const loadMessagesCentered = C.useChatContext(s => s.dispatch.loadMessagesCentered)
 
   const onJump = React.useCallback(() => {
-    m &&
-      loadMoreMessages({
-        centeredMessageID: {conversationIDKey: m.conversationIDKey, highlightMode: 'always', messageID: m.id},
-        reason: 'jumpAttachment',
-      })
+    m && loadMessagesCentered(m.id, 'always')
     showInfoPanel(false, 'attachments')
     clearModals()
-  }, [m, loadMoreMessages, showInfoPanel, clearModals])
+  }, [m, loadMessagesCentered, showInfoPanel, clearModals])
 
   const onAllMedia = () => {
     clearModals()
@@ -52,7 +48,11 @@ const PopAttach = (ownProps: OwnProps) => {
   const _onSaveAttachment = React.useCallback(() => {
     messageAttachmentNativeSave(ordinal)
   }, [messageAttachmentNativeSave, ordinal])
-  const onSaveAttachment = C.isMobile && attachmentType === 'image' ? _onSaveAttachment : undefined
+
+  const onSaveAttachment =
+    C.isMobile && (attachmentType === 'image' || C.Chat.isImageViewable(message))
+      ? _onSaveAttachment
+      : undefined
 
   const _onShareAttachment = React.useCallback(() => {
     messageAttachmentNativeShare(ordinal)
@@ -102,9 +102,9 @@ const PopAttach = (ownProps: OwnProps) => {
     ...(topSection.length ? ['Divider' as const] : []),
     ...itemMedia,
     ...itemCopyLink,
+    ...itemEdit,
     ...itemReply,
     ...itemForward,
-    ...itemEdit,
     ...itemDownload,
     ...itemJump,
     ...itemUnread,

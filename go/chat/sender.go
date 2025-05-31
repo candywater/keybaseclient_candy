@@ -162,9 +162,8 @@ func (s *BlockingSender) addPrevPointersAndCheckConvID(ctx context.Context, msg 
 		} else if attempt >= maxAttempts || reachedLast {
 			s.Debug(ctx, "Could not find previous messages for prev pointers (of %v), after %v attempts. Giving up.", len(thread.Messages), attempt)
 			break
-		} else {
-			s.Debug(ctx, "Could not find previous messages for prev pointers (of %v), attempt: %v of %v, retrying", len(thread.Messages), attempt, maxAttempts)
 		}
+		s.Debug(ctx, "Could not find previous messages for prev pointers (of %v), attempt: %v of %v, retrying", len(thread.Messages), attempt, maxAttempts)
 		attempt++
 	}
 
@@ -657,7 +656,7 @@ func (s *BlockingSender) handleEmojis(ctx context.Context, uid gregor1.UID,
 	return msg, nil
 }
 
-func (s *BlockingSender) getUsernamesForMentions(ctx context.Context, uid gregor1.UID,
+func (s *BlockingSender) getUsernamesForMentions(ctx context.Context, _ gregor1.UID,
 	conv *chat1.ConversationLocal) (res []string, err error) {
 	if conv == nil {
 		return nil, nil
@@ -1104,7 +1103,10 @@ func (s *BlockingSender) getSigningKeyPair(ctx context.Context) (kp libkb.NaclSi
 // Logs but does not return errors. Assets may be left undeleted.
 func (s *BlockingSender) deleteAssets(ctx context.Context, convID chat1.ConversationID, assets []chat1.Asset) error {
 	// get s3 params from server
-	params, err := s.getRi().GetS3Params(ctx, convID)
+	params, err := s.getRi().GetS3Params(ctx, chat1.GetS3ParamsArg{
+		ConversationID: convID,
+		TempCreds:      true,
+	})
 	if err != nil {
 		s.G().Log.Warning("error getting s3 params: %s", err)
 		return nil
@@ -1126,8 +1128,9 @@ func (s *BlockingSender) deleteAssets(ctx context.Context, convID chat1.Conversa
 // Sign implements github.com/keybase/go/chat/s3.Signer interface.
 func (s *BlockingSender) Sign(payload []byte) ([]byte, error) {
 	arg := chat1.S3SignArg{
-		Payload: payload,
-		Version: 1,
+		Payload:   payload,
+		Version:   1,
+		TempCreds: true,
 	}
 	return s.getRi().S3Sign(context.Background(), arg)
 }
@@ -1141,9 +1144,9 @@ func (s *BlockingSender) presentUIItem(ctx context.Context, uid gregor1.UID, con
 }
 
 func (s *BlockingSender) Send(ctx context.Context, convID chat1.ConversationID,
-	msg chat1.MessagePlaintext, clientPrev chat1.MessageID,
-	outboxID *chat1.OutboxID, sendOpts *chat1.SenderSendOptions, prepareOpts *chat1.SenderPrepareOptions) (obid chat1.OutboxID, boxed *chat1.MessageBoxed, err error) {
-	defer s.Trace(ctx, &err, fmt.Sprintf("Send(%s)", convID))()
+	msg chat1.MessagePlaintext, _ chat1.MessageID,
+	_ *chat1.OutboxID, sendOpts *chat1.SenderSendOptions, prepareOpts *chat1.SenderPrepareOptions) (obid chat1.OutboxID, boxed *chat1.MessageBoxed, err error) {
+	defer s.Trace(ctx, &err, "Send(%s)", convID)()
 	defer utils.SuspendComponent(ctx, s.G(), s.G().InboxSource)()
 
 	// Get conversation metadata first. If we can't find it, we will just attempt to join

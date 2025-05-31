@@ -10,7 +10,7 @@ const Kb = {
   Styles,
 }
 
-const ClickableBox = React.forwardRef<MeasureRef, Props>(function ClickableBoxInner(props: Props, ref: any) {
+const ClickableBox = React.forwardRef<MeasureRef, Props>(function ClickableBoxInner(props, ref) {
   const {feedback = true, onClick, onPressIn, onPressOut, onLongPress} = props
   const {style, activeOpacity, children} = props
 
@@ -18,7 +18,9 @@ const ClickableBox = React.forwardRef<MeasureRef, Props>(function ClickableBoxIn
     ref,
     () => {
       // we don't use this in mobile for now, and likely never
-      return {}
+      return {
+        divRef: {current: null},
+      }
     },
     []
   )
@@ -58,11 +60,7 @@ const ClickableBox = React.forwardRef<MeasureRef, Props>(function ClickableBoxIn
         console.warn("Passed onPress*/on*Press with no onPress, which isn't supported on the native side")
       }
     }
-    return (
-      <View style={style} ref={ref}>
-        {children}
-      </View>
-    )
+    return <View style={style}>{children}</View>
   }
 })
 
@@ -73,9 +71,9 @@ const styles = Kb.Styles.styleSheetCreate(() => ({
 export default ClickableBox
 
 export const ClickableBox2 = (p: Props2) => {
-  const {onLongPress, onClick, children, style} = p
+  const {onLongPress, onClick, children, hitSlop, style} = p
   return (
-    <Pressable onLongPress={onLongPress} onPress={onClick} style={style}>
+    <Pressable onLongPress={onLongPress} onPress={onClick} style={style} hitSlop={hitSlop}>
       {children}
     </Pressable>
   )

@@ -4,7 +4,7 @@ import capitalize from 'lodash/capitalize'
 import {errors as transportErrors} from 'framed-msgpack-rpc'
 import RPCError from './rpcerror'
 
-function isRPCErrorLike(err: Object): err is RPCErrorLike {
+function isRPCErrorLike(err: object): err is RPCErrorLike {
   return Object.hasOwn(err, 'desc') && Object.hasOwn(err, 'code')
 }
 
@@ -96,8 +96,8 @@ export function isEOFError(error: RPCError | Error) {
   return (
     isRPCError(error) &&
     error.code &&
-    error.code === transportErrors['EOF'] &&
-    error.message === transportErrors.msg[error.code]
+    (error.code as number) === transportErrors['EOF'] &&
+    error.message === transportErrors.msg[transportErrors['EOF']]
   )
 }
 

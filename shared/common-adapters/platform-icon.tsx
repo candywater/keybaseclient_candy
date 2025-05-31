@@ -7,7 +7,7 @@ type Props = {
   platform: T.More.PlatformsExpandedType
   overlay: IconType
   overlayColor?: string
-  style?: Object
+  style?: object
 }
 
 type IconSpec = {
@@ -37,7 +37,7 @@ function _specsForMobileOrDesktop() {
     twitter: {icon: isMobile ? 'icon-twitter-logo-64' : 'icon-twitter-logo-48'},
     web: {icon: isMobile ? 'icon-website-64' : 'icon-website-48'},
     zcash: {icon: isMobile ? 'icon-zcash-logo-64' : 'icon-zcash-logo-48'},
-  } as any
+  } as const
 }
 
 const getSpecForPlatform = (platform: T.More.PlatformsExpandedType): IconSpec => {

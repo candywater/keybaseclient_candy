@@ -1,7 +1,7 @@
 import * as T from '@/constants/types'
 import Logger from './ring-logger'
 import noop from 'lodash/noop'
-import {hasEngine} from '../engine/require'
+import type {hasEngine as HasEngineType} from '../engine/require'
 import {isMobile} from '@/constants/platform'
 import {requestIdleCallback} from '@/util/idle-callback'
 
@@ -111,11 +111,12 @@ class AggregateLoggerImpl {
     if (!isMobile) {
       // don't want main node thread making these calls
       try {
+        const {hasEngine} = require('../engine/require') as {hasEngine: typeof HasEngineType}
         if (!hasEngine()) {
-          return Promise.resolve()
+          return await Promise.resolve()
         }
-      } catch (_) {
-        return Promise.resolve()
+      } catch {
+        return await Promise.resolve()
       }
     }
 

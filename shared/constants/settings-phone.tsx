@@ -36,7 +36,7 @@ export const getE164 = (phoneNumber: string, countryCode?: string) => {
       return null
     }
     return phoneUtil.format(parsed, PhoneNumberFormat.E164)
-  } catch (e) {
+  } catch {
     return null
   }
 }
@@ -96,7 +96,7 @@ const initialStore: Store = {
   verificationState: undefined,
 }
 
-export type State = Store & {
+export interface State extends Store {
   dispatch: {
     addPhoneNumber: (phoneNumber: string, searchable: boolean) => void
     clearAddedPhone: () => void

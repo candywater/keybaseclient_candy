@@ -1,5 +1,5 @@
 // Entry point to the chrome part of the app
-import Main from '../../app/main.desktop'
+import Main from '@/app/main.desktop'
 // order of the above must NOT change. needed for patching / hot loading to be correct
 import * as C from '@/constants'
 import * as React from 'react'
@@ -53,11 +53,11 @@ const setupApp = () => {
   C.initListeners()
   eng.listenersAreReady()
 
-  ipcRendererOn?.('KBdispatchAction', (_: any, action: RemoteGen.Actions) => {
+  ipcRendererOn?.('KBdispatchAction', (_: unknown, action: unknown) => {
     setTimeout(() => {
       try {
-        C.useConfigState.getState().dispatch.eventFromRemoteWindows(action)
-      } catch (_) {}
+        C.useConfigState.getState().dispatch.eventFromRemoteWindows(action as RemoteGen.Actions)
+      } catch {}
     }, 0)
   })
 
@@ -140,7 +140,7 @@ const setupHMR = () => {
     try {
       const {default: NewMain} = require('../../app/main.desktop') as {default: typeof NewMainType}
       render(NewMain)
-    } catch (_) {}
+    } catch {}
   }
 
   module.hot.accept(['../../app/main.desktop'], refreshMain)

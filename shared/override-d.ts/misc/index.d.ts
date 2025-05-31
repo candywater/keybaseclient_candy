@@ -6,16 +6,6 @@ declare module 'react-native/Libraries/Image/AssetRegistry' {
   type PackagerAsset = {[key: string]: unknown}
 }
 
-declare module '@react-spring/rafz' {
-  type frameLoop = any
-  var raf: {
-    now: any
-    batchedUpdates: any
-  }
-  type Timeout = any
-  type Rafz = any
-}
-
 declare module 'qrcode-generator' {
   const gen: (
     n: number,
@@ -50,11 +40,11 @@ declare module 'emoji-datasource-apple/img/apple/sheets/64.png' {
 
 declare module 'react-is' {
   import * as React from 'react'
-  export function isValidElementType(value: any): value is React.ElementType
+  export function isValidElementType(value: unknown): value is React.ElementType
 }
 
 declare module 'fs-extra' {
-  import type {StatSyncFn, copyFileSync} from 'fs'
+  import type {StatSyncFn} from 'fs'
   export const copy: (src: string, dst: string) => Promise<void>
   export const copySync: (src: string, dst: string, options?: {dereference?: boolean}) => void
   export const removeSync: (src: string) => void
@@ -84,4 +74,26 @@ declare module 'url-parse' {
     password: string
   }
   export default URLParse
+}
+
+declare module 'emoji-datasource-apple' {
+  type EmojiSkinTone = '1F3FA' | '1F3FB' | '1F3FC' | '1F3FD' | '1F3FE' | '1F3FF'
+  export type EmojiData = {
+    category: string
+    name?: string
+    obsoleted_by?: string
+    short_name: string
+    short_names: Array<string>
+    sort_order: number
+    skin_variations?: {[K in EmojiSkinTone]?: {unified?: string}}
+    teamname?: string
+    unified: string
+    non_qualified: string
+    userEmojiRenderStock?: string
+    userEmojiRenderUrl?: string
+    sheet_x: number
+    sheet_y: number
+  }
+  const data: Array<EmojiData>
+  export default data
 }

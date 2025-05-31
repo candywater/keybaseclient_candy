@@ -189,9 +189,9 @@ export const waitingKey = 'tracker2:waitingKey'
 export const profileLoadWaitingKey = 'tracker2:profileLoad'
 export const nonUserProfileLoadWaitingKey = 'tracker2:nonUserProfileLoad'
 
-export const getDetails = (state: State, username: string) =>
+export const getDetails = (state: State, username: string): T.Tracker.Details =>
   state.usernameToDetails.get(username) || noDetails
-export const getNonUserDetails = (state: State, username: string) =>
+export const getNonUserDetails = (state: State, username: string): T.Tracker.NonUserDetails =>
   state.usernameToNonUserDetails.get(username) || noNonUserDetails
 
 export const guiIDToUsername = (state: State, guiID: string) => {
@@ -217,7 +217,7 @@ const initialStore: Store = {
   usernameToNonUserDetails: new Map(),
 }
 
-export type State = Store & {
+export interface State extends Store {
   dispatch: {
     changeFollow: (guiID: string, follow: boolean) => void
     closeTracker: (guiID: string) => void
@@ -266,7 +266,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
         try {
           await T.RPCGen.identify3Identify3FollowUserRpcPromise({follow, guiID}, waitingKey)
           get().dispatch.updateResult(guiID, 'valid', `Successfully ${follow ? 'followed' : 'unfollowed'}!`)
-        } catch (_) {
+        } catch {
           get().dispatch.updateResult(guiID, 'error', `Failed to ${follow ? 'follow' : 'unfollow'}`)
         }
       }
@@ -305,7 +305,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
         try {
           await T.RPCGen.identify3Identify3IgnoreUserRpcPromise({guiID}, waitingKey)
           get().dispatch.updateResult(guiID, 'valid', `Successfully ignored`)
-        } catch (_) {
+        } catch {
           get().dispatch.updateResult(guiID, 'error', `Failed to ignore`)
         }
       }
@@ -533,7 +533,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
               det.blocked = blockState.blocked
             } else {
               det.hidFromFollowers = blockState.blocked
-              blockState.blocked && d.followers && d.followers.delete(username)
+              blockState.blocked && d.followers?.delete(username)
             }
           })
         })

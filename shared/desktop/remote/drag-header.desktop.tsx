@@ -6,17 +6,16 @@ export type Props = {
   icon?: boolean
   title?: string
   onClose?: () => void
-  style?: Object
+  style?: object
   children?: React.ReactNode
   windowDragging?: boolean
-  type: HeaderType
+  type?: HeaderType
 }
 
 class DragHeader extends React.Component<Props> {
-  static defaultProps = {type: 'Default', windowDragging: true}
-
   renderDefault() {
-    const maybeWindowDraggingStyle = this.props.windowDragging ? Kb.Styles.desktopStyles.windowDragging : {}
+    const maybeWindowDraggingStyle =
+      this.props.windowDragging ?? true ? Kb.Styles.desktopStyles.windowDragging : {}
     return (
       <div
         style={
@@ -41,7 +40,8 @@ class DragHeader extends React.Component<Props> {
   }
 
   renderStrong() {
-    const maybeWindowDraggingStyle = this.props.windowDragging ? Kb.Styles.desktopStyles.windowDragging : {}
+    const maybeWindowDraggingStyle =
+      this.props.windowDragging ?? true ? Kb.Styles.desktopStyles.windowDragging : {}
     return (
       <div
         style={
@@ -74,7 +74,7 @@ class DragHeader extends React.Component<Props> {
   }
 
   render() {
-    if (this.props.type === 'Default') {
+    if ((this.props.type ?? 'Default') === 'Default') {
       return this.renderDefault()
     } else {
       return this.renderStrong()
@@ -83,18 +83,20 @@ class DragHeader extends React.Component<Props> {
 }
 
 const styles = {
-  closeIcon: Kb.Styles.collapseStyles([
-    Kb.Styles.desktopStyles.windowDraggingClickable,
-    Kb.Styles.desktopStyles.clickable,
-  ] as any),
-  container: Kb.Styles.collapseStyles([
-    Kb.Styles.globalStyles.flexBoxRow,
-    Kb.Styles.desktopStyles.noSelect,
-    {
+  closeIcon: Kb.Styles.platformStyles({
+    isElectron: {
+      ...Kb.Styles.desktopStyles.windowDraggingClickable,
+      ...Kb.Styles.desktopStyles.clickable,
+    },
+  }),
+  container: Kb.Styles.platformStyles({
+    isElectron: {
+      ...Kb.Styles.globalStyles.flexBoxRow,
+      ...Kb.Styles.desktopStyles.noSelect,
       paddingLeft: 10,
       paddingRight: 10,
     },
-  ] as any),
+  }),
   defaultContainer: {
     paddingBottom: 6,
     paddingTop: 6,

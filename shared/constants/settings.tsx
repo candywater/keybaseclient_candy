@@ -22,7 +22,7 @@ export const settingsAboutTab = 'settingsTabs.aboutTab'
 export const settingsAdvancedTab = 'settingsTabs.advancedTab'
 export const settingsArchiveTab = 'settingsTabs.archiveTab'
 export const settingsChatTab = 'settingsTabs.chatTab'
-export const settingsCryptoTab = 'settingsTabs:cryptoTab'
+export const settingsCryptoTab = 'settingsTabs.cryptoTab'
 export const settingsDevicesTab = 'settingsTabs.devicesTab'
 export const settingsDisplayTab = 'settingsTabs.displayTab'
 export const settingsFeedbackTab = 'settingsTabs.feedbackTab'
@@ -76,7 +76,7 @@ const initialStore: Store = {
   proxyData: undefined,
 }
 
-export type State = Store & {
+export interface State extends Store {
   dispatch: {
     checkPassword: (password: string) => void
     dbNuke: () => void
@@ -105,11 +105,7 @@ export const _useState = Z.createZustand<State>(set => {
       return
     }
 
-    if (
-      maybeLoadAppLinkOnce ||
-      !C.useConfigState.getState().startup.link ||
-      !C.useConfigState.getState().startup.link.endsWith('/phone-app')
-    ) {
+    if (maybeLoadAppLinkOnce || !C.useConfigState.getState().startup.link.endsWith('/phone-app')) {
       return
     }
     maybeLoadAppLinkOnce = true
@@ -164,7 +160,7 @@ export const _useState = Z.createZustand<State>(set => {
           set(s => {
             s.lockdownModeEnabled = result.status
           })
-        } catch (_) {
+        } catch {
           set(s => {
             s.lockdownModeEnabled = undefined
           })
@@ -271,7 +267,7 @@ export const _useState = Z.createZustand<State>(set => {
           set(s => {
             s.lockdownModeEnabled = enabled
           })
-        } catch (_) {
+        } catch {
           set(s => {
             s.lockdownModeEnabled = undefined
           })

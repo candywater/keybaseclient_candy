@@ -14,8 +14,8 @@ import {mapGetEnsureValue} from '@/util/map'
 
 export const teamRoleTypes = ['reader', 'writer', 'admin', 'owner'] as const
 
-export const rpcMemberStatusToStatus = invert(T.RPCGen.TeamMemberStatus) as {
-  [K in T.RPCGen.TeamMemberStatus]: keyof typeof T.RPCGen.TeamMemberStatus
+export const rpcMemberStatusToStatus = invert(T.RPCGen.TeamMemberStatus) as unknown as {
+  [K in keyof typeof T.RPCGen.TeamMemberStatus as (typeof T.RPCGen.TeamMemberStatus)[K]]: K
 }
 
 // Waiting keys
@@ -71,7 +71,7 @@ export const rpcDetailsToMemberInfos = (
   const infos: Array<[string, T.Teams.MemberInfo]> = []
   members.forEach(({fullName, joinTime, needsPUK, status, username, role}) => {
     const maybeRole = teamRoleByEnum[role]
-    if (!maybeRole || maybeRole === 'none') {
+    if (maybeRole === 'none') {
       return
     }
     infos.push([
@@ -115,15 +115,9 @@ export const getTeamChannelInfo = (
   conversationIDKey: T.Chat.ConversationIDKey
 ) => state.channelInfo.get(teamID)?.get(conversationIDKey) ?? emptyTeamChannelInfo
 
-export const teamRoleByEnum = ((m: {[K in T.Teams.MaybeTeamRoleType]: T.RPCGen.TeamRole}) => {
-  const mInv: {[K in T.RPCGen.TeamRole]?: T.Teams.MaybeTeamRoleType} = {}
-  for (const roleStr in m) {
-    const role = roleStr as T.Teams.TeamRoleType
-    const e = m[role]
-    mInv[e] = role
-  }
-  return mInv
-})(T.RPCGen.TeamRole)
+export const teamRoleByEnum = invert(T.RPCGen.TeamRole) as unknown as {
+  [K in keyof typeof T.RPCGen.TeamRole as (typeof T.RPCGen.TeamRole)[K]]: K
+}
 
 /* eslint-disable sort-keys */
 const teamRoleToCompare = {
@@ -168,7 +162,7 @@ export const rpcTeamRoleMapAndVersionToTeamRoleMap = (
       ret.roles.set(key, {
         implicitAdmin:
           value.implicitRole === T.RPCGen.TeamRole.admin || value.implicitRole === T.RPCGen.TeamRole.owner,
-        role: teamRoleByEnum[value.role] || 'none',
+        role: teamRoleByEnum[value.role],
       })
     }
   }
@@ -638,7 +632,7 @@ export const teamListToMeta = (
         isMember: t.role !== T.RPCGen.TeamRole.none,
         isOpen: t.isOpenTeam,
         memberCount: t.memberCount,
-        role: teamRoleByEnum[t.role] || 'none',
+        role: teamRoleByEnum[t.role],
         showcasing: t.isMemberShowcased,
         teamname: t.fqName,
       },
@@ -658,7 +652,7 @@ const annotatedInvitesToInviteDetails = (
 
       const {invites, inviteLinks} = invitesAndLinks
       const role = teamRoleByEnum[teamInvite.role]
-      if (!role || role === 'none') {
+      if (role === 'none') {
         return invitesAndLinks
       }
 
@@ -715,7 +709,7 @@ export const emptyTeamDetails: T.Teams.TeamDetails = {
 export const emptyTeamSettings = Object.freeze(emptyTeamDetails.settings)
 
 export const annotatedTeamToDetails = (t: T.RPCGen.AnnotatedTeam): T.Teams.TeamDetails => {
-  const maybeOpenJoinAs = teamRoleByEnum[t.settings.joinAs] ?? 'reader'
+  const maybeOpenJoinAs = teamRoleByEnum[t.settings.joinAs]
   const members = new Map<string, T.Teams.MemberInfo>()
   t.members?.forEach(member => {
     const {fullName, needsPUK, status, username} = member
@@ -725,7 +719,7 @@ export const annotatedTeamToDetails = (t: T.RPCGen.AnnotatedTeam): T.Teams.TeamD
       joinTime: member.joinTime || undefined,
       needsPUK,
       status: rpcMemberStatusToStatus[status],
-      type: !maybeRole || maybeRole === 'none' ? 'reader' : maybeRole,
+      type: maybeRole === 'none' ? 'reader' : maybeRole,
       username,
     })
   })
@@ -870,7 +864,7 @@ export const consumeTeamTreeMembershipValue = (
 ): T.Teams.TreeloaderSparseMemberInfo => {
   return {
     joinTime: value.joinTime ?? undefined,
-    type: teamRoleByEnum[value.role] || 'none',
+    type: teamRoleByEnum[value.role],
   }
 }
 
@@ -885,7 +879,7 @@ export const maybeGetSparseMemberInfo = (state: State, teamID: string, username:
   return state.treeLoaderTeamIDToSparseMemberInfos.get(teamID)?.get(username)
 }
 
-export const countValidInviteLinks = (inviteLinks: ReadonlyArray<T.Teams.InviteLink>): Number => {
+export const countValidInviteLinks = (inviteLinks: ReadonlyArray<T.Teams.InviteLink>): number => {
   return inviteLinks.reduce((t, inviteLink) => {
     if (inviteLink.isValid) {
       return t + 1
@@ -1009,7 +1003,7 @@ const initialStore: Store = {
   treeLoaderTeamIDToSparseMemberInfos: new Map(),
 }
 
-export type State = Store & {
+export interface State extends Store {
   dispatch: {
     dynamic: {
       respondToInviteLink?: (accept: boolean) => void
@@ -1434,7 +1428,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
               [teamWaitingKey(teamID), addUserToTeamsWaitingKey(user)]
             )
             teamsAddedTo.push(team)
-          } catch (error) {
+          } catch {
             errorAddingTo.push(team)
           }
         }
@@ -1924,7 +1918,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
               logger.error(error.message)
             }
           }
-        } catch (_) {}
+        } catch {}
         set(s => {
           s.teamIDToRetentionPolicy.set(teamID, retentionPolicy)
         })
@@ -1983,7 +1977,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
       const f = async () => {
         try {
           await T.RPCGen.teamsTeamIgnoreRequestRpcPromise({name: teamname, username}, teamWaitingKey(teamID))
-        } catch (_) {}
+        } catch {}
       }
       C.ignorePromise(f())
     },
@@ -2112,12 +2106,12 @@ export const _useState = Z.createZustand<State>((set, get) => {
                   C.useRouterState.getState().dispatch.navigateAppend('teamInviteLinkJoin', true)
                 }
                 set(s => {
-                  s.dispatch.dynamic.respondToInviteLink = accept => {
+                  s.dispatch.dynamic.respondToInviteLink = C.wrapErrors((accept: boolean) => {
                     set(s => {
                       s.dispatch.dynamic.respondToInviteLink = undefined
                     })
                     response.result(accept)
-                  }
+                  })
                 })
               },
             },
@@ -2565,7 +2559,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
         const newName = {parts: _newName.split('.')}
         try {
           await T.RPCGen.teamsTeamRenameRpcPromise({newName, prevName}, teamRenameWaitingKey)
-        } catch (_) {
+        } catch {
           // err displayed from waiting store in component
         }
       }
