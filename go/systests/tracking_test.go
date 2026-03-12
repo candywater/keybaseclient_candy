@@ -4,6 +4,7 @@
 package systests
 
 import (
+	"context"
 	"testing"
 
 	"github.com/keybase/client/go/client"
@@ -12,7 +13,6 @@ import (
 	"github.com/keybase/client/go/service"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
 	"github.com/stretchr/testify/require"
-	context "golang.org/x/net/context"
 )
 
 type trackingUI struct {
@@ -23,8 +23,7 @@ func (n *trackingUI) GetIdentifyTrackUI() libkb.IdentifyUI {
 	return &identifyUI{}
 }
 
-type identifyUI struct {
-}
+type identifyUI struct{}
 
 func (*identifyUI) Confirm(libkb.MetaContext, *keybase1.IdentifyOutcome) (keybase1.ConfirmResult, error) {
 	return keybase1.ConfirmResult{
@@ -32,36 +31,47 @@ func (*identifyUI) Confirm(libkb.MetaContext, *keybase1.IdentifyOutcome) (keybas
 		RemoteConfirmed:   true,
 	}, nil
 }
+
 func (*identifyUI) Start(libkb.MetaContext, string, keybase1.IdentifyReason, bool) error {
 	return nil
 }
+
 func (*identifyUI) FinishWebProofCheck(libkb.MetaContext, keybase1.RemoteProof, keybase1.LinkCheckResult) error {
 	return nil
 }
+
 func (*identifyUI) FinishSocialProofCheck(libkb.MetaContext, keybase1.RemoteProof, keybase1.LinkCheckResult) error {
 	return nil
 }
+
 func (*identifyUI) DisplayCryptocurrency(libkb.MetaContext, keybase1.Cryptocurrency) error {
 	return nil
 }
+
 func (*identifyUI) DisplayStellarAccount(libkb.MetaContext, keybase1.StellarAccount) error {
 	return nil
 }
+
 func (*identifyUI) DisplayKey(libkb.MetaContext, keybase1.IdentifyKey) error {
 	return nil
 }
+
 func (*identifyUI) ReportLastTrack(libkb.MetaContext, *keybase1.TrackSummary) error {
 	return nil
 }
+
 func (*identifyUI) LaunchNetworkChecks(libkb.MetaContext, *keybase1.Identity, *keybase1.User) error {
 	return nil
 }
+
 func (*identifyUI) DisplayTrackStatement(libkb.MetaContext, string) error {
 	return nil
 }
+
 func (*identifyUI) DisplayUserCard(libkb.MetaContext, keybase1.UserCard) error {
 	return nil
 }
+
 func (*identifyUI) ReportTrackToken(libkb.MetaContext, keybase1.TrackToken) error {
 	return nil
 }
@@ -69,9 +79,11 @@ func (*identifyUI) SetStrict(b bool) {}
 func (*identifyUI) Cancel(libkb.MetaContext) error {
 	return nil
 }
+
 func (*identifyUI) Finish(libkb.MetaContext) error {
 	return nil
 }
+
 func (*identifyUI) Dismiss(libkb.MetaContext, string, keybase1.DismissReason) error {
 	return nil
 }
@@ -204,7 +216,7 @@ func TestTrackingNotifications(t *testing.T) {
 		case arg := <-nh.trackingCh:
 			tAliceUID := keybase1.UID("295a7eea607af32040647123732bc819")
 			tc.G.Log.Debug("Got tracking changed notification (%#v)", arg)
-			if "t_alice" == arg.Username {
+			if arg.Username == "t_alice" {
 				if !tAliceUID.Equal(arg.Uid) {
 					t.Fatalf("Bad UID back: %s != %s", tAliceUID, arg.Uid)
 				}

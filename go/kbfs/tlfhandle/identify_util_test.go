@@ -5,6 +5,7 @@
 package tlfhandle
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -17,7 +18,6 @@ import (
 	"github.com/keybase/client/go/libkb"
 	"github.com/keybase/client/go/protocol/keybase1"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 type testIdentifier struct {
@@ -31,7 +31,8 @@ type testIdentifier struct {
 func (ti *testIdentifier) Identify(
 	ctx context.Context, assertion, reason string,
 	_ keybase1.OfflineAvailability) (
-	kbname.NormalizedUsername, keybase1.UserOrTeamID, error) {
+	kbname.NormalizedUsername, keybase1.UserOrTeamID, error,
+) {
 	ei := GetExtendedIdentify(ctx)
 	userInfo, ok := ti.assertionsBrokenTracks[assertion]
 	if ok {
@@ -67,7 +68,8 @@ func (ti *testIdentifier) Identify(
 }
 
 func (ti *testIdentifier) NormalizeSocialAssertion(
-	ctx context.Context, assertion string) (keybase1.SocialAssertion, error) {
+	ctx context.Context, assertion string,
+) (keybase1.SocialAssertion, error) {
 	socialAssertion, isSocialAssertion := externals.NormalizeSocialAssertionStatic(ctx, assertion)
 	if !isSocialAssertion {
 		return keybase1.SocialAssertion{}, fmt.Errorf("Invalid social assertion")
@@ -77,7 +79,8 @@ func (ti *testIdentifier) NormalizeSocialAssertion(
 
 func (ti *testIdentifier) IdentifyImplicitTeam(
 	_ context.Context, assertions, suffix string, ty tlf.Type, _ string,
-	_ keybase1.OfflineAvailability) (idutil.ImplicitTeamInfo, error) {
+	_ keybase1.OfflineAvailability,
+) (idutil.ImplicitTeamInfo, error) {
 	// TODO: canonicalize name.
 	name := assertions
 	if suffix != "" {
@@ -102,7 +105,8 @@ func (ti *testIdentifier) IdentifyImplicitTeam(
 }
 
 func makeNugAndTIForTest() (
-	idutiltest.NormalizedUsernameGetter, *testIdentifier) {
+	idutiltest.NormalizedUsernameGetter, *testIdentifier,
+) {
 	return idutiltest.NormalizedUsernameGetter{
 			keybase1.MakeTestUID(1).AsUserOrTeam(): "alice",
 			keybase1.MakeTestUID(2).AsUserOrTeam(): "bob",

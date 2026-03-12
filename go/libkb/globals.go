@@ -17,6 +17,7 @@
 package libkb
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -29,7 +30,6 @@ import (
 	logger "github.com/keybase/client/go/logger"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
 	clockwork "github.com/keybase/clockwork"
-	context "golang.org/x/net/context"
 )
 
 var IsIPad bool // Set by bind's Init.
@@ -554,7 +554,6 @@ func (g *GlobalContext) ConfigureAPI() error {
 // in them. It can be called from either configureMemCachesLocked (via logout or flush),
 // or via Shutdown. In either case, callers must hold g.cacheMu.
 func (g *GlobalContext) shutdownCachesLocked() {
-
 	// shutdown and nil out any existing caches.
 	if g.trackCache != nil {
 		g.trackCache.Shutdown()
@@ -595,7 +594,6 @@ func (g *GlobalContext) LinkCache() *LinkCache {
 }
 
 func (g *GlobalContext) configureMemCachesLocked(isFlush bool) {
-
 	g.shutdownCachesLocked()
 
 	g.IDLocktab = NewLockTable()
@@ -1012,7 +1010,7 @@ func (g *GlobalContext) GetGpgClient() *GpgCLI {
 }
 
 func (g *GlobalContext) GetMyUID() keybase1.UID {
-	// Prefer ActiveDevice, that's the prefered way
+	// Prefer ActiveDevice, that's the preferred way
 	// to figure out what the current user's UID is.
 	uid := g.ActiveDevice.UID()
 	if uid.Exists() {

@@ -1,17 +1,18 @@
-import * as C from '@/constants'
-import * as Container from '@/util/container'
 import * as React from 'react'
+import * as Teams from '@/constants/teams'
 import type * as T from '@/constants/types'
 import useContacts, {type Contact} from '../common/use-contacts.native'
 import {InviteByContact, type ContactRowProps} from './index.native'
 import {useTeamDetailsSubscribe} from '../subscriber'
+import {useSafeNavigation} from '@/util/safe-navigation'
+import {getE164} from '@/constants/settings-phone'
 
 // Seitan invite names (labels) look like this: "[name] ([phone number])". Try
 // to derive E164 phone number based on seitan invite name and user's region.
 const extractPhoneNumber = (name: string, region: string): string => {
   const matches = /\((.*)\)/.exec(name)
   const maybeNumber = matches?.[1]?.replace(/[^0-9+]/g, '')
-  return (maybeNumber && C.SettingsPhone.getE164(maybeNumber, region)) ?? ''
+  return (maybeNumber && getE164(maybeNumber, region)) ?? ''
 }
 
 // Extract either emails or phone numbers from team invites, to match to
@@ -45,17 +46,17 @@ type Props = {
 const TeamInviteByContact = (props: Props) => {
   const {teamID} = props
   const {contacts, region, errorMessage} = useContacts()
-  const teamname = C.useTeamsState(s => C.Teams.getTeamMeta(s, teamID).teamname)
-  const invites = C.useTeamsState(s => s.teamDetails.get(teamID) ?? C.Teams.emptyTeamDetails).invites
+  const teamname = Teams.useTeamsState(s => Teams.getTeamMeta(s, teamID).teamname)
+  const invites = Teams.useTeamsState(s => s.teamDetails.get(teamID) ?? Teams.emptyTeamDetails).invites
 
   useTeamDetailsSubscribe(teamID)
 
-  const nav = Container.useSafeNavigation()
+  const nav = useSafeNavigation()
 
   const [selectedRole, setSelectedRole] = React.useState('writer' as T.Teams.TeamRoleType)
 
-  const loadingInvites = C.useTeamsState(s => s.teamNameToLoadingInvites.get(teamname))
-  const resetErrorInEmailInvite = C.useTeamsState(s => s.dispatch.resetErrorInEmailInvite)
+  const loadingInvites = Teams.useTeamsState(s => s.teamNameToLoadingInvites.get(teamname))
+  const resetErrorInEmailInvite = Teams.useTeamsState(s => s.dispatch.resetErrorInEmailInvite)
   const onBack = React.useCallback(() => {
     nav.safeNavigateUp()
     resetErrorInEmailInvite()
@@ -67,8 +68,8 @@ const TeamInviteByContact = (props: Props) => {
     },
     [setSelectedRole]
   )
-  const inviteToTeamByEmail = C.useTeamsState(s => s.dispatch.inviteToTeamByEmail)
-  const inviteToTeamByPhone = C.useTeamsState(s => s.dispatch.inviteToTeamByPhone)
+  const inviteToTeamByEmail = Teams.useTeamsState(s => s.dispatch.inviteToTeamByEmail)
+  const inviteToTeamByPhone = Teams.useTeamsState(s => s.dispatch.inviteToTeamByPhone)
 
   const onInviteContact = React.useCallback(
     (contact: Contact) => {
@@ -92,7 +93,7 @@ const TeamInviteByContact = (props: Props) => {
     [inviteToTeamByPhone, inviteToTeamByEmail, resetErrorInEmailInvite, selectedRole, teamID, teamname]
   )
 
-  const removePendingInvite = C.useTeamsState(s => s.dispatch.removePendingInvite)
+  const removePendingInvite = Teams.useTeamsState(s => s.dispatch.removePendingInvite)
   const onCancelInvite = React.useCallback(
     (inviteID: string) => {
       resetErrorInEmailInvite()

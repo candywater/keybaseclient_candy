@@ -1,13 +1,13 @@
 package systests
 
 import (
+	"context"
 	"testing"
 
 	"github.com/keybase/client/go/libkb"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
 	"github.com/keybase/client/go/teams"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func findMember(user *smuUser, members []keybase1.TeamMemberDetails) *keybase1.TeamMemberDetails {
@@ -200,11 +200,12 @@ func TestTeamListOpenTeams(t *testing.T) {
 	check := func(list *keybase1.AnnotatedTeamList) {
 		require.Equal(t, 2, len(list.Teams))
 		for _, teamInfo := range list.Teams {
-			if teamInfo.TeamID == id1 {
+			switch teamInfo.TeamID {
+			case id1:
 				require.False(t, teamInfo.IsOpenTeam)
-			} else if teamInfo.TeamID == id2 {
+			case id2:
 				require.True(t, teamInfo.IsOpenTeam)
-			} else {
+			default:
 				t.Fatalf("Unexpected team name %v", teamInfo)
 			}
 

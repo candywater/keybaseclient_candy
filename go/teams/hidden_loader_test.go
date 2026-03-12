@@ -1,13 +1,13 @@
 package teams
 
 import (
+	"context"
 	"testing"
 
 	"github.com/keybase/client/go/engine"
 	"github.com/keybase/client/go/teams/hidden"
 
 	"github.com/keybase/clockwork"
-	"golang.org/x/net/context"
 
 	"github.com/keybase/client/go/libkb"
 	"github.com/keybase/client/go/protocol/keybase1"
@@ -125,6 +125,7 @@ func retryTestNTimes(t *testing.T, n int, f func(t *testing.T) bool) {
 	}
 	t.Errorf("Test did not succeed any of the %v times", n)
 }
+
 func TestHiddenLoadSucceedsIfServerDoesntCommitLinks(t *testing.T) {
 	retryTestNTimes(t, 5, testHiddenLoadSucceedsIfServerDoesntCommitLinks)
 }

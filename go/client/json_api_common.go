@@ -1,14 +1,13 @@
 package client
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
-
-	"golang.org/x/net/context"
 
 	"github.com/keybase/cli"
 	"github.com/keybase/client/go/libcmdline"
@@ -215,7 +214,6 @@ func (c *cmdAPI) decode(ctx context.Context, r io.Reader, w io.Writer, h handler
 	}
 
 	return nil
-
 }
 
 // encodeResult JSON encodes a successful result to the wr writer.

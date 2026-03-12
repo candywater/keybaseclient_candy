@@ -13,26 +13,28 @@ import {initDesktopStyles} from '@/styles/index.desktop'
 import {isWindows} from '@/constants/platform'
 import KB2 from '@/util/electron.desktop'
 import {debugWarning} from '@/util/debug-warning'
-
+import {useConfigState} from '@/constants/config'
 import type {default as NewMainType} from '../../app/main.desktop'
-
 import {setServiceDecoration} from '@/common-adapters/markdown/react'
 import ServiceDecoration from '@/common-adapters/markdown/service-decoration'
+import {useDarkModeState} from '@/constants/darkmode'
+import {initPlatformListener} from '@/constants/platform-specific'
 setServiceDecoration(ServiceDecoration)
 
 const {ipcRendererOn, requestWindowsStartService, appStartedUp} = KB2.functions
 
 // node side plumbs through initial pref so we avoid flashes
-const darkModeFromNode = window.location.search.match(/darkModePreference=(alwaysLight|alwaysDark|system)/)
-const {setDarkModePreference} = C.useDarkModeState.getState().dispatch
+const darkModeFromNode = window.location.search.match(/darkMode=(light|dark)/)
+const setSystemDarkMode = useDarkModeState.getState().dispatch.setSystemDarkMode
 
 if (darkModeFromNode) {
   const dm = darkModeFromNode[1]
   switch (dm) {
-    case 'alwaysLight':
-    case 'alwaysDark':
-    case 'system':
-      setDarkModePreference(dm, false)
+    case 'light':
+      setSystemDarkMode(false)
+      break
+    case 'dark':
+      setSystemDarkMode(true)
       break
     default:
   }
@@ -50,13 +52,13 @@ const setupApp = () => {
   const eng = makeEngine(batch, () => {
     // do nothing we wait for the remote version from node
   })
-  C.initListeners()
+  initPlatformListener()
   eng.listenersAreReady()
 
   ipcRendererOn?.('KBdispatchAction', (_: unknown, action: unknown) => {
     setTimeout(() => {
       try {
-        C.useConfigState.getState().dispatch.eventFromRemoteWindows(action as RemoteGen.Actions)
+        useConfigState.getState().dispatch.eventFromRemoteWindows(action as RemoteGen.Actions)
       } catch {}
     }, 0)
   })
@@ -92,22 +94,10 @@ const FontLoader = () => (
   </div>
 )
 
-const DarkCSSInjector = () => {
-  const isDark = C.useDarkModeState(s => s.isDarkMode())
-  const [lastIsDark, setLastIsDark] = React.useState<boolean | undefined>()
-  if (lastIsDark !== isDark) {
-    setLastIsDark(isDark)
-    // inject it in body so modals get darkMode also
-    if (isDark) {
-      document.body.classList.add('darkMode')
-      document.body.classList.remove('lightMode')
-    } else {
-      document.body.classList.remove('darkMode')
-      document.body.classList.add('lightMode')
-    }
-  }
-  return null
-}
+const UseStrict = true as boolean
+const WRAP = UseStrict
+  ? ({children}: {children: React.ReactNode}) => <React.StrictMode>{children}</React.StrictMode>
+  : ({children}: {children: React.ReactNode}) => <>{children}</>
 
 const render = (Component = Main) => {
   const root = document.getElementById('root')
@@ -118,16 +108,15 @@ const render = (Component = Main) => {
   // Wrap Root here if you want the app to be strict, it currently doesn't work with react-native-web
   // until 0.19.1+ lands. I tried this when it just did but there's other issues so we have to keep it off
   // else all nav stuff is broken
-  // <React.StrictMode>
-  // </React.StrictMode>
   ReactDOM.createRoot(root).render(
-    <Root>
-      <DarkCSSInjector />
-      <FontLoader />
-      <div style={{display: 'flex', flex: 1}}>
-        <Component />
-      </div>
-    </Root>
+    <WRAP>
+      <Root>
+        <FontLoader />
+        <div style={{display: 'flex', flex: 1}}>
+          <Component />
+        </div>
+      </Root>
+    </WRAP>
   )
 }
 

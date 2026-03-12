@@ -26,8 +26,10 @@ type SaltpackRecipientKeyfinderEngine struct {
 	SaltpackSymmetricKeys []libkb.SaltpackReceiverSymmetricKey
 }
 
-var _ libkb.Engine2 = (*SaltpackRecipientKeyfinderEngine)(nil)
-var _ libkb.SaltpackRecipientKeyfinderEngineInterface = (*SaltpackRecipientKeyfinderEngine)(nil)
+var (
+	_ libkb.Engine2                                   = (*SaltpackRecipientKeyfinderEngine)(nil)
+	_ libkb.SaltpackRecipientKeyfinderEngineInterface = (*SaltpackRecipientKeyfinderEngine)(nil)
+)
 
 // SaltpackRecipientKeyfinderEngine creates a SaltpackRecipientKeyfinderEngine engine.
 func NewSaltpackRecipientKeyfinderEngineAsInterface(arg libkb.SaltpackRecipientKeyfinderArg) libkb.SaltpackRecipientKeyfinderEngineInterface {
@@ -171,7 +173,7 @@ func (e *SaltpackRecipientKeyfinderEngine) identifyAndAddUserRecipient(m libkb.M
 	err = e.AddDeviceAndPaperKeys(m, upk)
 	err2 := e.addPUKOrImplicitTeamKeys(m, upk)
 	// If we managed to add at least one key for upk, we are happy.
-	if (!(e.Arg.UseDeviceKeys || e.Arg.UsePaperKeys) || err != nil) && (!e.Arg.UseEntityKeys || err2 != nil) {
+	if ((!e.Arg.UseDeviceKeys && !e.Arg.UsePaperKeys) || err != nil) && (!e.Arg.UseEntityKeys || err2 != nil) {
 		return libkb.PickFirstError(err, err2)
 	}
 	return nil
@@ -263,7 +265,6 @@ func (e *SaltpackRecipientKeyfinderEngine) lookupAndAddImplicitTeamKeys(m libkb.
 	}
 
 	team, _, impTeamName, err := teams.LookupOrCreateImplicitTeam(m.Ctx(), m.G(), m.CurrentUsername().String()+","+validSocialAssertionOrExistingUser, false)
-
 	if err != nil {
 		return err
 	}

@@ -1,17 +1,20 @@
 import * as C from '@/constants'
+import {useConfigState} from '@/constants/config'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import * as T from '@/constants/types'
-import type {Section as _Section} from '@/common-adapters/section-list'
 import {keybaseFM} from '@/constants/whats-new'
-import {isAndroid} from '@/constants/platform'
 import SettingsItem from './sub-nav/settings-item'
-import WhatsNewIcon from '../whats-new/icon/container'
+import WhatsNewIcon from '../whats-new/icon'
 import noop from 'lodash/noop'
+import {useSettingsContactsState} from '@/constants/settings-contacts'
+import * as Settings from '@/constants/settings'
+import {usePushState} from '@/constants/push'
+import {useNotifState} from '@/constants/notifications'
 
 const PerfRow = () => {
   const [toSubmit, setToSubmit] = React.useState('')
-  const ref = React.useRef<Kb.PlainInput>(null)
+  const ref = React.useRef<Kb.PlainInputRef>(null)
 
   return (
     <Kb.Box2
@@ -48,25 +51,23 @@ const PerfRow = () => {
   )
 }
 
-type Section = _Section<
-  {
-    badgeNumber?: number
-    text: string
-    icon?: Kb.IconType
-    onClick: () => void
-    iconComponent?: (a: {}) => React.ReactElement
-    subText?: string
-    textColor?: string
-  },
-  {title: string}
->
+type Item = {
+  badgeNumber?: number
+  text: string
+  icon?: Kb.IconType
+  onClick: () => void
+  iconComponent?: (a: object) => React.ReactElement
+  subText?: string
+  textColor?: string
+}
+type Section = Omit<Kb.SectionType<Item>, 'renderItem'>
 
 function SettingsNav() {
-  const badgeNumbers = C.useNotifState(s => s.navBadges)
-  const badgeNotifications = C.usePushState(s => !s.hasPermissions)
-  const statsShown = C.useConfigState(s => !!s.runtimeStats)
+  const badgeNumbers = useNotifState(s => s.navBadges)
+  const badgeNotifications = usePushState(s => !s.hasPermissions)
+  const statsShown = useConfigState(s => !!s.runtimeStats)
   const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
-  const contactsLabel = C.useSettingsContactsState(s =>
+  const contactsLabel = useSettingsContactsState(s =>
     s.importEnabled ? 'Phone contacts' : 'Import phone contacts'
   )
 
@@ -77,37 +78,37 @@ function SettingsNav() {
         {
           icon: 'iconfont-nav-2-crypto',
           onClick: () => {
-            navigateAppend(C.Settings.settingsCryptoTab)
+            navigateAppend(Settings.settingsCryptoTab)
           },
           text: 'Crypto',
-        },
-        {
-          badgeNumber: badgeNumbers.get(C.Tabs.gitTab),
-          icon: 'iconfont-nav-2-git',
-          onClick: () => {
-            navigateAppend(C.Settings.settingsGitTab)
-          },
-          text: 'Git',
         },
         {
           badgeNumber: badgeNumbers.get(C.Tabs.devicesTab),
           icon: 'iconfont-nav-2-devices',
           onClick: () => {
-            navigateAppend(C.Settings.settingsDevicesTab)
+            navigateAppend(Settings.settingsDevicesTab)
           },
           text: 'Devices',
         },
         {
+          badgeNumber: badgeNumbers.get(C.Tabs.gitTab),
+          icon: 'iconfont-nav-2-git',
+          onClick: () => {
+            navigateAppend(Settings.settingsGitTab)
+          },
+          text: 'Git',
+        },
+        {
           icon: 'iconfont-nav-2-wallets',
           onClick: () => {
-            navigateAppend(C.Settings.settingsWalletsTab)
+            navigateAppend(Settings.settingsWalletsTab)
           },
           text: 'Wallet',
         },
         {
           iconComponent: WhatsNewIcon,
           onClick: () => {
-            navigateAppend(C.Settings.settingsWhatsNewTab)
+            navigateAppend(Settings.settingsWhatsNewTab)
           },
           subText: `What's new?`,
           text: keybaseFM,
@@ -120,46 +121,64 @@ function SettingsNav() {
         {
           badgeNumber: badgeNumbers.get(C.Tabs.settingsTab),
           onClick: () => {
-            navigateAppend(C.Settings.settingsAccountTab)
+            navigateAppend(Settings.settingsAccountTab)
           },
-          text: 'Your account',
+          text: 'Account',
         },
         {
           onClick: () => {
-            navigateAppend(C.Settings.settingsChatTab)
+            navigateAppend(Settings.settingsAdvancedTab)
+          },
+          text: 'Advanced',
+        },
+        {
+          onClick: () => {
+            navigateAppend(Settings.settingsArchiveTab)
+          },
+          text: 'Backup',
+        },
+        {
+          onClick: () => {
+            navigateAppend(Settings.settingsChatTab)
           },
           text: 'Chat',
         },
         {
           onClick: () => {
-            navigateAppend(C.Settings.settingsContactsTab)
+            navigateAppend(Settings.settingsDisplayTab)
           },
-          text: contactsLabel,
+          text: 'Display',
         },
         {
           onClick: () => {
-            navigateAppend(C.Settings.settingsFsTab)
+            navigateAppend(Settings.settingsFeedbackTab)
+          },
+          text: 'Feedback',
+        },
+        {
+          onClick: () => {
+            navigateAppend(Settings.settingsFsTab)
           },
           text: 'Files',
         },
         {
+          onClick: () => {
+            navigateAppend(Settings.settingsContactsTab)
+          },
+          text: contactsLabel,
+        },
+        {
           badgeNumber: badgeNotifications ? 1 : 0,
           onClick: () => {
-            navigateAppend(C.Settings.settingsNotificationsTab)
+            navigateAppend(Settings.settingsNotificationsTab)
           },
           text: 'Notifications',
         },
-        {
-          onClick: () => {
-            navigateAppend(C.Settings.settingsDisplayTab)
-          },
-          text: 'Display',
-        },
-        ...(isAndroid
+        ...(C.isAndroid
           ? [
               {
                 onClick: () => {
-                  navigateAppend(C.Settings.settingsScreenprotectorTab)
+                  navigateAppend(Settings.settingsScreenprotectorTab)
                 },
                 text: 'Screen protector',
               } as const,
@@ -172,31 +191,13 @@ function SettingsNav() {
       data: [
         {
           onClick: () => {
-            navigateAppend(C.Settings.settingsAboutTab)
+            navigateAppend(Settings.settingsAboutTab)
           },
           text: 'About',
         },
         {
           onClick: () => {
-            navigateAppend(C.Settings.settingsFeedbackTab)
-          },
-          text: 'Feedback',
-        },
-        {
-          onClick: () => {
-            navigateAppend(C.Settings.settingsAdvancedTab)
-          },
-          text: 'Advanced',
-        },
-        {
-          onClick: () => {
-            navigateAppend(C.Settings.settingsArchiveTab)
-          },
-          text: 'Archive',
-        },
-        {
-          onClick: () => {
-            navigateAppend(C.Settings.settingsLogOutTab)
+            navigateAppend(Settings.settingsLogOutTab)
           },
           text: 'Sign out',
           textColor: Kb.Styles.globalColors.red,
@@ -215,7 +216,9 @@ function SettingsNav() {
         if (item.text === 'perf') {
           return <PerfRow />
         }
-        return item.text ? <SettingsItem {...item} /> : null
+        return item.text ? (
+          <SettingsItem {...item} type={item.text} onClick={() => item.onClick()} selected={false} />
+        ) : null
       }}
       renderSectionHeader={({section: {title}}) =>
         title ? (

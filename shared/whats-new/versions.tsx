@@ -1,10 +1,10 @@
 import * as C from '@/constants'
-import * as React from 'react'
+import {encryptTab} from '@/constants/crypto/util'
+import type * as React from 'react'
 import * as Kb from '@/common-adapters'
-import * as Platform from '@/constants/platform'
-import {encryptTab} from '@/constants/crypto'
 import {keybaseFM} from '@/constants/whats-new'
 import NewFeatureRow from './new-feature-row'
+import {settingsCryptoTab, settingsDisplayTab} from '@/constants/settings/util'
 
 export type VersionProps = {
   seen: boolean
@@ -64,7 +64,11 @@ export const Last = ({seen}: VersionProps) => {
           </Kb.Box2>
           <Kb.Text type="BodySmall" allowFontScaling={true}>
             Keybase now supports custom emoji{' '}
-            <Kb.Emoji allowFontScaling={true} size={Kb.Styles.globalMargins.small} emojiName=":sparkles:" />
+            <Kb.NativeEmoji
+              allowFontScaling={true}
+              size={Kb.Styles.globalMargins.small}
+              emojiName=":sparkles:"
+            />
           </Kb.Text>
         </Kb.Box2>
       </NewFeatureRow>
@@ -78,24 +82,24 @@ export const LastLast = ({seen, onNavigate, onNavigateExternal}: VersionProps) =
       <VersionTitle title="Previous releases" />
       <NewFeatureRow image="release-5.3.0-ipad" noSeparator={true} seen={seen}>
         Keybase for iPad is here!{' '}
-        <Kb.Emoji allowFontScaling={true} size={Kb.Styles.globalMargins.small} emojiName=":sparkles:" />{' '}
+        <Kb.NativeEmoji allowFontScaling={true} size={Kb.Styles.globalMargins.small} emojiName=":sparkles:" />{' '}
         Download it from the App Store.
       </NewFeatureRow>
       <NewFeatureRow image="release-5.3.0-open-teams" seen={seen}>
         You can now search for open teams using chat search
-        {Platform.isElectron ? (Platform.isDarwin ? ` (⌘K)` : ` (ctrl-K)`) : null} in Chat.
+        {C.isElectron ? (C.isDarwin ? ` (⌘K)` : ` (ctrl-K)`) : null} in Chat.
       </NewFeatureRow>
       <NewFeatureRow
         image="release-5.2.0-crypto"
         noSeparator={true}
         onPrimaryButtonClick={() => {
-          onNavigate(Platform.isMobile ? C.Settings.settingsCryptoTab : encryptTab)
+          onNavigate(C.isMobile ? settingsCryptoTab : encryptTab)
         }}
         primaryButtonText="Try it"
         seen={seen}
       >
         Encrypt, decrypt, sign, and verify all from within Keybase.{' '}
-        <Kb.Emoji
+        <Kb.NativeEmoji
           allowFontScaling={true}
           size={Kb.Styles.globalMargins.small}
           emojiName=":closed_lock_with_key:"
@@ -113,8 +117,9 @@ export const LastLast = ({seen, onNavigate, onNavigateExternal}: VersionProps) =
         for commits with GitHub Bot, create new issues in JIRA, and more, all without leaving Keybase.
       </NewFeatureRow>
       <NewFeatureRow seen={seen} image="release-5.1.0-blocking">
-        We heard you. You can now block and report spammers from the chat conversation or from people's
-        profiles.
+        {
+          "We heard you. You can now block and report spammers from the chat conversation or from people's profiles."
+        }
       </NewFeatureRow>
       <NewFeatureRow seen={seen} image="release-4.7.0-fast-user-switching">
         You can now quickly switch between all your signed in accounts from the user menu.
@@ -130,7 +135,7 @@ export const LastLast = ({seen, onNavigate, onNavigateExternal}: VersionProps) =
         image="release-4.7.0-dark-mode"
         primaryButtonText="Open display settings"
         onPrimaryButtonClick={() => {
-          onNavigate(C.Settings.settingsDisplayTab)
+          onNavigate(settingsDisplayTab)
         }}
       >
         Dark mode is here! You can access theme settings under the Display section in Settings.
@@ -148,12 +153,12 @@ export const LastLast = ({seen, onNavigate, onNavigateExternal}: VersionProps) =
       >
         You can now start a conversation with a phone number or email address.
         {` `}
-        <Kb.Emoji allowFontScaling={true} size={Kb.Styles.globalMargins.small} emojiName=":phone:" />
+        <Kb.NativeEmoji allowFontScaling={true} size={Kb.Styles.globalMargins.small} emojiName=":phone:" />
       </NewFeatureRow>
       <NewFeatureRow seen={seen} image={'release-4.7.0-pinned-messages'}>
         Chat admins can now pin messages.
         {` `}
-        <Kb.Emoji size={Kb.Styles.globalMargins.small} emojiName=":pushpin:" />
+        <Kb.NativeEmoji size={Kb.Styles.globalMargins.small} emojiName=":pushpin:" />
       </NewFeatureRow>
       <NewFeatureRow seen={seen} image={'release-4.7.0-keybase-fm'}>
         Listen to

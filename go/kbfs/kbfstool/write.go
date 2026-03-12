@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -13,7 +14,6 @@ import (
 	"github.com/keybase/client/go/kbfs/fsrpc"
 	"github.com/keybase/client/go/kbfs/idutil"
 	"github.com/keybase/client/go/kbfs/libkbfs"
-	"golang.org/x/net/context"
 )
 
 type nodeWriter struct {
@@ -40,7 +40,7 @@ func (nw *nodeWriter) Write(p []byte) (n int, err error) {
 
 func writeHelper(ctx context.Context, config libkbfs.Config, args []string) (err error) {
 	flags := flag.NewFlagSet("kbfs write", flag.ContinueOnError)
-	append := flags.Bool("a", false, "Append to an existing file instead of truncating it.")
+	appendMode := flags.Bool("a", false, "Append to an existing file instead of truncating it.")
 	verbose := flags.Bool("v", false, "Print extra status output.")
 	err = flags.Parse(args)
 	if err != nil {
@@ -112,12 +112,12 @@ func writeHelper(ctx context.Context, config libkbfs.Config, args []string) (err
 			return err
 		}
 	} else {
-		if *append {
+		if *appendMode {
 			if *verbose {
 				fmt.Fprintf(os.Stderr, "Appending to %s\n", p)
 			}
 
-			off = int64(de.Size)
+			off = int64(de.Size) //nolint:gosec // G115: File sizes are bounded by filesystem limits
 		} else {
 			if *verbose {
 				fmt.Fprintf(os.Stderr, "Truncating %s\n", p)

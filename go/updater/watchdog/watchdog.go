@@ -24,8 +24,10 @@ const (
 	ExitAllOnSuccess ExitOn = "all"
 )
 
-const terminationDelay = 200 * time.Millisecond
-const heartbealDelay = 1 * time.Hour
+const (
+	terminationDelay = 200 * time.Millisecond
+	heartbealDelay   = 1 * time.Hour
+)
 
 // Program is a program at path with arguments
 type Program struct {
@@ -97,7 +99,7 @@ func (p *Program) dieIfRunning(log Log) bool {
 
 func (p *Program) Run(log Log, _ chan struct{}) (err error) {
 	p.dieIfRunning(log)
-	cmd := exec.Command(p.Path, p.Args...)
+	cmd := exec.Command(p.Path, p.Args...) //nolint:gosec // G204: Path/Args are keybase binary paths from config, used for process monitoring
 	if err = cmd.Start(); err != nil {
 		log.Errorf("Error starting %#v, err: %s", p, err.Error())
 		return err

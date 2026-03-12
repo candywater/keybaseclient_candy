@@ -2,8 +2,10 @@ import * as Kb from '@/common-adapters'
 import type {AcceptedInvite, PendingInvite} from '@/constants/settings-invites'
 import * as React from 'react'
 import SubHeading from '../subheading'
-import type {Props} from '.'
 import * as dateFns from 'date-fns'
+import * as C from '@/constants'
+import {useProfileState} from '@/constants/profile'
+import {useState as useSettingsInvitesState} from '@/constants/settings-invites'
 
 // Like intersperse but takes a function to define the separator
 function intersperseFn<A, B>(
@@ -14,125 +16,133 @@ function intersperseFn<A, B>(
     return arr
   }
 
-  const toReturn = new Array(arr.length * 2 - 1)
-  toReturn[0] = arr[0]
+  const toReturn = new Array<A | B>(arr.length * 2 - 1)
+  toReturn[0] = arr[0]!
   for (let i = 1; i < arr.length; i++) {
     toReturn[i * 2 - 1] = separatorFn(i, arr[i]!, arr)
-    toReturn[i * 2] = arr[i]
+    toReturn[i * 2] = arr[i]!
   }
   return toReturn
 }
 
-type State = {
-  inviteEmail: string
-  inviteMessage: string
-  showMessageField: boolean
-}
-
-class Invites extends React.Component<Props, State> {
-  state: State
-
-  constructor(props: Props) {
-    super(props)
-    this.state = {
-      inviteEmail: props.inviteEmail,
-      inviteMessage: props.inviteMessage,
-      showMessageField: props.showMessageField,
-    }
-  }
-
-  componentDidMount() {
-    this.props.onRefresh()
-  }
-
-  componentWillUnmount() {
-    if (this.props.error) this.props.onClearError()
-  }
-
-  _handleChangeEmail(inviteEmail: string) {
-    this.setState(s => ({
-      inviteEmail,
-      showMessageField: s.showMessageField || inviteEmail.length > 0,
+const Invites = () => {
+  const invitesState = useSettingsInvitesState(
+    C.useShallow(s => ({
+      acceptedInvites: s.acceptedInvites,
+      error: s.error,
+      loadInvites: s.dispatch.loadInvites,
+      pendingInvites: s.pendingInvites,
+      reclaimInvite: s.dispatch.reclaimInvite,
+      resetError: s.dispatch.resetError,
+      sendInvite: s.dispatch.sendInvite,
     }))
-    if (this.props.error) this.props.onClearError()
+  )
+  const {acceptedInvites, error, loadInvites, pendingInvites} = invitesState
+  const {reclaimInvite, resetError, sendInvite} = invitesState
+  const waitingForResponse = C.Waiting.useAnyWaiting(C.waitingKeySettingsGeneric)
+  const onClearError = resetError
+  const onGenerateInvitation = sendInvite
+  const onReclaimInvitation = reclaimInvite
+  const onRefresh = loadInvites
+  const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
+  const onSelectPendingInvite = (invite: PendingInvite) => {
+    navigateAppend({props: {email: invite.email, link: invite.url}, selected: 'inviteSent'})
+  }
+  const onSelectUser = useProfileState(s => s.dispatch.showUserProfile)
+
+  const [inviteEmail, setInviteEmail] = React.useState('')
+  const [inviteMessage, setInviteMessage] = React.useState('')
+  const [showMessageField, setShowMessageField] = React.useState(false)
+
+  React.useEffect(() => {
+    onRefresh()
+  }, [onRefresh])
+
+  React.useEffect(() => {
+    return () => {
+      onClearError()
+    }
+  }, [error, onClearError])
+
+  const handleChangeEmail = (email: string) => {
+    setInviteEmail(email)
+    setShowMessageField(showMessageField || email.length > 0)
+    if (error) onClearError()
   }
 
-  _invite() {
-    this.props.onGenerateInvitation(this.state.inviteEmail, this.state.inviteMessage)
+  const invite = () => {
+    onGenerateInvitation(inviteEmail, inviteMessage)
   }
 
-  render() {
-    const props = this.props
-    return (
-      <Kb.Box style={{...Kb.Styles.globalStyles.flexBoxColumn, flex: 1}}>
-        {!!this.props.error && (
-          <Kb.Banner color="red">
-            <Kb.BannerParagraph bannerColor="red" content={this.props.error} />
-          </Kb.Banner>
-        )}
-        <Kb.Box
-          style={Kb.Styles.platformStyles({
-            isElectron: {
-              ...Kb.Styles.globalStyles.flexBoxColumn,
-              flex: 1,
-              overflow: 'auto',
-              padding: Kb.Styles.globalMargins.medium,
-            },
-          })}
-        >
-          <Kb.Box2 direction="vertical" gap="small" style={styles.container}>
+  return (
+    <Kb.Box style={{...Kb.Styles.globalStyles.flexBoxColumn, flex: 1}}>
+      {!!error && (
+        <Kb.Banner color="red">
+          <Kb.BannerParagraph bannerColor="red" content={error} />
+        </Kb.Banner>
+      )}
+      <Kb.Box
+        style={Kb.Styles.platformStyles({
+          isElectron: {
+            ...Kb.Styles.globalStyles.flexBoxColumn,
+            flex: 1,
+            overflow: 'auto',
+            padding: Kb.Styles.globalMargins.medium,
+          },
+        })}
+      >
+        <Kb.Box2 direction="vertical" gap="small" style={styles.container}>
+          <Kb.LabeledInput
+            placeholder="Friend's email (optional)"
+            value={inviteEmail}
+            onChangeText={handleChangeEmail}
+            style={{marginBottom: 0}}
+          />
+          {showMessageField && (
             <Kb.LabeledInput
-              placeholder="Friend's email (optional)"
-              value={this.state.inviteEmail}
-              onChangeText={inviteEmail => this._handleChangeEmail(inviteEmail)}
-              style={{marginBottom: 0}}
+              placeholder="Message (optional)"
+              multiline={true}
+              value={inviteMessage}
+              onChangeText={setInviteMessage}
             />
-            {this.state.showMessageField && (
-              <Kb.LabeledInput
-                placeholder="Message (optional)"
-                multiline={true}
-                value={this.state.inviteMessage}
-                onChangeText={inviteMessage => this.setState({inviteMessage})}
-              />
-            )}
-            <Kb.Button
-              label="Generate invitation"
-              onClick={() => this._invite()}
-              waiting={props.waitingForResponse}
-              style={{alignSelf: 'center', marginTop: Kb.Styles.globalMargins.medium}}
-            />
-          </Kb.Box2>
-          {props.pendingInvites.length > 0 && (
-            <Kb.Box style={{...Kb.Styles.globalStyles.flexBoxColumn, flexShrink: 0, marginBottom: 16}}>
-              <SubHeading>Pending invites ({props.pendingInvites.length})</SubHeading>
-              {intersperseDividers(
-                props.pendingInvites.map(invite => (
-                  <PendingInviteItem
-                    invite={invite}
-                    key={invite.id}
-                    onReclaimInvitation={id => props.onReclaimInvitation(id)}
-                    onSelectPendingInvite={invite => props.onSelectPendingInvite(invite)}
-                  />
-                ))
-              )}
-            </Kb.Box>
           )}
-          <Kb.Box style={{...Kb.Styles.globalStyles.flexBoxColumn, flexShrink: 0}}>
-            <SubHeading>Accepted invites ({props.acceptedInvites.length})</SubHeading>
+          <Kb.Button
+            label="Generate invitation"
+            onClick={invite}
+            waiting={waitingForResponse}
+            style={{alignSelf: 'center', marginTop: Kb.Styles.globalMargins.medium}}
+          />
+        </Kb.Box2>
+        {pendingInvites.length > 0 && (
+          <Kb.Box style={{...Kb.Styles.globalStyles.flexBoxColumn, flexShrink: 0, marginBottom: 16}}>
+            <SubHeading>Pending invites ({pendingInvites.length})</SubHeading>
             {intersperseDividers(
-              props.acceptedInvites.map(invite => (
-                <AcceptedInviteItem
-                  key={invite.id}
+              pendingInvites.map(invite => (
+                <PendingInviteItem
                   invite={invite}
-                  onClick={() => props.onSelectUser(invite.username)}
+                  key={invite.id}
+                  onReclaimInvitation={id => onReclaimInvitation(id)}
+                  onSelectPendingInvite={invite => onSelectPendingInvite(invite)}
                 />
               ))
             )}
           </Kb.Box>
+        )}
+        <Kb.Box style={{...Kb.Styles.globalStyles.flexBoxColumn, flexShrink: 0}}>
+          <SubHeading>Accepted invites ({acceptedInvites.length})</SubHeading>
+          {intersperseDividers(
+            acceptedInvites.map(invite => (
+              <AcceptedInviteItem
+                key={invite.id}
+                invite={invite}
+                onClick={() => onSelectUser(invite.username)}
+              />
+            ))
+          )}
         </Kb.Box>
       </Kb.Box>
-    )
-  }
+    </Kb.Box>
+  )
 }
 
 function intersperseDividers(arr: Array<React.ReactNode>) {

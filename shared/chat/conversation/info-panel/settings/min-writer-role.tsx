@@ -1,5 +1,6 @@
-import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Kb from '@/common-adapters'
+import * as Teams from '@/constants/teams'
 import * as React from 'react'
 import * as Style from '@/styles'
 import type * as T from '@/constants/types'
@@ -9,15 +10,15 @@ import {indefiniteArticle} from '@/util/string'
 const positionFallbacks = ['bottom center'] as const
 
 const MinWriterRole = () => {
-  const meta = C.useChatContext(s => s.meta)
+  const meta = Chat.useChatContext(s => s.meta)
   const {teamname, minWriterRole} = meta
 
-  const canPerform = C.useTeamsState(s => (teamname ? C.Teams.getCanPerform(s, teamname) : undefined))
+  const canPerform = Teams.useTeamsState(s => (teamname ? Teams.getCanPerform(s, teamname) : undefined))
   const canSetMinWriterRole = canPerform ? canPerform.setMinWriterRole : false
 
   const [saving, setSaving] = React.useState(false)
   const [selected, setSelected] = React.useState(minWriterRole)
-  const setMinWriterRole = C.useChatContext(s => s.dispatch.setMinWriterRole)
+  const setMinWriterRole = Chat.useChatContext(s => s.dispatch.setMinWriterRole)
 
   const onSetNewRole = (role: T.Teams.TeamRoleType) => setMinWriterRole(role)
   const selectRole = (role: T.Teams.TeamRoleType) => {
@@ -42,7 +43,7 @@ const MinWriterRole = () => {
     }
   }
 
-  const items = C.Teams.teamRoleTypes.map(role => ({
+  const items = Teams.teamRoleTypes.map(role => ({
     isSelected: role === minWriterRole,
     onClick: () => selectRole(role),
     title: upperFirst(role),
@@ -102,12 +103,7 @@ const Dropdown = (p: DropdownProps) => {
         <Kb.Icon type="iconfont-caret-down" inheritColor={true} fontSize={7} sizeType="Tiny" />
       </Kb.ClickableBox>
       {popup}
-      <Kb.SaveIndicator
-        saving={saving}
-        style={styles.saveIndicator}
-        minSavingTimeMs={300}
-        savedTimeoutMs={2500}
-      />
+      <Kb.SaveIndicator saving={saving} style={styles.saveIndicator} />
     </>
   )
 }

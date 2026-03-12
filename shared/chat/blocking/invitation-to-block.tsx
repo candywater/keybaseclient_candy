@@ -1,28 +1,29 @@
-import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
+import {useProfileState} from '@/constants/profile'
 import * as Kb from '@/common-adapters'
-import * as Styles from '@/styles'
-import * as Container from '@/util/container'
+import {useSafeNavigation} from '@/util/safe-navigation'
+import {useCurrentUserState} from '@/constants/current-user'
 
 const BlockButtons = () => {
-  const nav = Container.useSafeNavigation()
-  const conversationIDKey = C.useChatContext(s => s.id)
+  const nav = useSafeNavigation()
+  const conversationIDKey = Chat.useChatContext(s => s.id)
 
-  const team = C.useChatContext(s => s.meta.teamname)
-  const teamID = C.useChatContext(s => s.meta.teamID)
-  const blockButtonInfo = C.useChatState(s => {
+  const team = Chat.useChatContext(s => s.meta.teamname)
+  const teamID = Chat.useChatContext(s => s.meta.teamID)
+  const blockButtonInfo = Chat.useChatState(s => {
     const blockButtonsMap = s.blockButtonsMap
     return teamID ? blockButtonsMap.get(teamID) : undefined
   })
-  const participantInfo = C.useChatContext(s => s.participants)
-  const currentUser = C.useCurrentUserState(s => s.username)
-  const showUserProfile = C.useProfileState(s => s.dispatch.showUserProfile)
-  const dismissBlockButtons = C.useChatContext(s => s.dispatch.dismissBlockButtons)
+  const participantInfo = Chat.useChatContext(s => s.participants)
+  const currentUser = useCurrentUserState(s => s.username)
+  const showUserProfile = useProfileState(s => s.dispatch.showUserProfile)
+  const dismissBlockButtons = Chat.useChatContext(s => s.dispatch.dismissBlockButtons)
   if (!blockButtonInfo) {
     return null
   }
   const adder = blockButtonInfo.adder
   const others = (team ? participantInfo.all : participantInfo.name).filter(
-    person => person !== currentUser && person !== adder && !C.Chat.isAssertion(person)
+    person => person !== currentUser && person !== adder && !Chat.isAssertion(person)
   )
 
   const onViewProfile = () => showUserProfile(adder)
@@ -42,8 +43,8 @@ const BlockButtons = () => {
 
   const buttonRow = (
     <Kb.ButtonBar
-      fullWidth={Styles.isMobile}
-      direction={Styles.isMobile ? 'column' : 'row'}
+      fullWidth={Kb.Styles.isMobile}
+      direction={Kb.Styles.isMobile ? 'column' : 'row'}
       style={styles.button}
     >
       <Kb.WaveButton
@@ -80,7 +81,7 @@ const BlockButtons = () => {
       />
     </Kb.ButtonBar>
   )
-  return Styles.isMobile ? (
+  return Kb.Styles.isMobile ? (
     <Kb.Box2
       direction="vertical"
       centerChildren={true}
@@ -111,15 +112,15 @@ const BlockButtons = () => {
 
 export default BlockButtons
 
-const styles = Styles.styleSheetCreate(
+const styles = Kb.Styles.styleSheetCreate(
   () =>
     ({
-      button: Styles.platformStyles({
+      button: Kb.Styles.platformStyles({
         isElectron: {
           width: '',
         },
         isMobile: {
-          ...Styles.padding(0, Styles.globalMargins.small),
+          ...Kb.Styles.padding(0, Kb.Styles.globalMargins.small),
         },
       }),
       buttonContainer: {maxWidth: 322},
@@ -129,17 +130,17 @@ const styles = Styles.styleSheetCreate(
         marginLeft: 57,
       },
       dismissContainer: {
-        backgroundColor: Styles.globalColors.blueGrey,
-        paddingBottom: Styles.globalMargins.xsmall,
-        paddingTop: Styles.globalMargins.xsmall,
+        backgroundColor: Kb.Styles.globalColors.blueGrey,
+        paddingBottom: Kb.Styles.globalMargins.xsmall,
+        paddingTop: Kb.Styles.globalMargins.xsmall,
         position: 'relative',
       },
       dismissIcon: {
         position: 'absolute',
-        right: Styles.globalMargins.small,
+        right: Kb.Styles.globalMargins.small,
         top: -1,
       },
-      waveButton: Styles.platformStyles({
+      waveButton: Kb.Styles.platformStyles({
         isElectron: {
           width: '',
         },

@@ -6,6 +6,7 @@
 package engine
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -14,7 +15,6 @@ import (
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
 	"github.com/keybase/clockwork"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func TestLoadDeviceKeyNew(t *testing.T) {
@@ -493,7 +493,6 @@ func TestLoadAfterAcctResetCORE6943(t *testing.T) {
 
 	// Make sure that we can load the eldest key from the previous subchain
 	_, _, _, err = tc.G.GetUPAKLoader().LoadKeyV2(context.TODO(), fu.UID(), upak1.Base.DeviceKeys[0].KID)
-
 	if err != nil {
 		t.Fatal("Failed to load a UID/KID combo from first incarnation")
 	}

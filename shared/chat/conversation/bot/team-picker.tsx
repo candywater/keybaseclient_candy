@@ -1,11 +1,11 @@
 import * as C from '@/constants'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
-import * as Styles from '@/styles'
 import * as T from '@/constants/types'
 import {Avatars, TeamAvatar} from '@/chat/avatars'
 import debounce from 'lodash/debounce'
 import logger from '@/logger'
+import {useBotsState} from '@/constants/bots'
 
 type Props = {botUsername: string}
 
@@ -48,7 +48,7 @@ const BotTeamPicker = (props: Props) => {
     })
   }
 
-  const getFeaturedBots = C.useBotsState(s => s.dispatch.getFeaturedBots)
+  const getFeaturedBots = useBotsState(s => s.dispatch.getFeaturedBots)
   C.useOnMountOnce(() => {
     getFeaturedBots()
   })
@@ -73,7 +73,7 @@ const BotTeamPicker = (props: Props) => {
     <Kb.Modal
       onClose={onClose}
       header={{
-        leftButton: Styles.isMobile ? (
+        leftButton: Kb.Styles.isMobile ? (
           <Kb.Text type="BodyBigLink" onClick={onClose}>
             {'Cancel'}
           </Kb.Text>
@@ -96,7 +96,7 @@ const BotTeamPicker = (props: Props) => {
         </Kb.Box2>
         <Kb.Box2 direction="vertical" fullWidth={true} style={styles.container}>
           {error.length > 0 ? (
-            <Kb.Text type="Body" style={{alignSelf: 'center', color: Styles.globalColors.redDark}}>
+            <Kb.Text type="Body" style={{alignSelf: 'center', color: Kb.Styles.globalColors.redDark}}>
               {error}
             </Kb.Text>
           ) : (
@@ -113,31 +113,31 @@ const BotTeamPicker = (props: Props) => {
   )
 }
 
-const styles = Styles.styleSheetCreate(
+const styles = Kb.Styles.styleSheetCreate(
   () =>
     ({
-      container: Styles.platformStyles({
+      container: Kb.Styles.platformStyles({
         isElectron: {
           height: 450,
         },
       }),
-      results: Styles.platformStyles({
+      results: Kb.Styles.platformStyles({
         common: {
-          paddingLeft: Styles.globalMargins.tiny,
-          paddingRight: Styles.globalMargins.tiny,
+          paddingLeft: Kb.Styles.globalMargins.tiny,
+          paddingRight: Kb.Styles.globalMargins.tiny,
         },
         isMobile: {
-          paddingBottom: Styles.globalMargins.tiny,
+          paddingBottom: Kb.Styles.globalMargins.tiny,
         },
       }),
-      searchFilter: Styles.platformStyles({
+      searchFilter: Kb.Styles.platformStyles({
         common: {
-          marginBottom: Styles.globalMargins.xsmall,
-          marginTop: Styles.globalMargins.tiny,
+          marginBottom: Kb.Styles.globalMargins.xsmall,
+          marginTop: Kb.Styles.globalMargins.tiny,
         },
         isElectron: {
-          marginLeft: Styles.globalMargins.small,
-          marginRight: Styles.globalMargins.small,
+          marginLeft: Kb.Styles.globalMargins.small,
+          marginRight: Kb.Styles.globalMargins.small,
         },
       }),
     }) as const

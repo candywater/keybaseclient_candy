@@ -2,107 +2,64 @@ import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import {urlsToImgSet} from '@/common-adapters/icon.desktop'
 import type {Props} from '.'
-import SharedTimer, {type SharedTimerID} from '@/util/shared-timers'
 import {getAssetPath} from '@/constants/platform.desktop'
-
-const copyChildren = (children: React.ReactNode): React.ReactNode =>
-  React.Children.map(children, child => (child ? React.cloneElement(child as any) : child))
+import {useColorScheme} from 'react-native'
 
 export const animationDuration = 2000
 
-const retainedHeights = new Set<string>()
+const ExplodingHeightRetainer = (p: Props) => {
+  const {retainHeight, explodedBy, style, children, messageKey} = p
+  const boxRef = React.useRef<Kb.MeasureRef | null>(null)
+  const [animating, setAnimating] = React.useState(false)
+  const [height, setHeight] = React.useState(17)
 
-type State = {
-  animating: boolean
-  children?: React.ReactNode
-  height: number
-}
+  const lastRetainHeight = React.useRef(retainHeight)
 
-class ExplodingHeightRetainer extends React.PureComponent<Props, State> {
-  _boxRef = React.createRef<Kb.MeasureRef>()
-  state = {
-    animating: false,
-    children: this.props.retainHeight ? null : copyChildren(this.props.children), // no children if we already exploded
-    height: 17,
-  }
-  timerID?: SharedTimerID
-
-  static getDerivedStateFromProps(nextProps: Props, _: State) {
-    return nextProps.retainHeight ? null : {children: copyChildren(nextProps.children)}
-  }
-
-  componentDidUpdate(prevProps: Props) {
-    if (this.props.retainHeight) {
-      if (!prevProps.retainHeight) {
-        // destroy local copy of children when animation finishes
-        this.setState({animating: true}, () => {
-          this.timerID && SharedTimer.removeObserver(this.props.messageKey, this.timerID)
-          this.timerID = SharedTimer.addObserver(() => this.setState({animating: false, children: null}), {
-            key: this.props.messageKey,
-            ms: animationDuration,
-          })
-        })
+  React.useEffect(() => {
+    if (lastRetainHeight.current === retainHeight) return
+    lastRetainHeight.current = retainHeight
+    if (retainHeight) {
+      setAnimating(true)
+      const timerID = setTimeout(() => setAnimating(false), animationDuration)
+      return () => {
+        clearTimeout(timerID)
       }
-      return
     }
+    return undefined
+  }, [retainHeight, messageKey])
 
-    this.setHeight()
-  }
-
-  private setHeight() {
-    const measure = this._boxRef.current?.measure
-    if (!measure) return
-
-    const m = measure()
-    if (!m) return
-
-    const {height} = m
-    if (height && height !== this.state.height) {
-      retainedHeights.add(this.props.messageKey)
-      this.setState({height})
+  React.useEffect(() => {
+    const m = boxRef.current?.measure?.()
+    if (m) {
+      m.height && setHeight(m.height)
     }
-  }
+  }, [])
 
-  componentWillUnmount() {
-    this.timerID && SharedTimer.removeObserver(this.props.messageKey, this.timerID)
-  }
-
-  private _setBoxRef = (r: null | Kb.MeasureRef) => {
-    this._boxRef = {current: r}
-    this.setHeight()
-  }
-
-  render() {
-    return (
-      <Kb.Box2Measure
-        direction="vertical"
-        style={Kb.Styles.collapseStyles([
-          styles.container,
-          this.props.style,
-          // paddingRight is to compensate for the message menu
-          // to make sure we don't rewrap text when showing the animation
-          this.props.retainHeight && {
-            height: this.state.height,
-            paddingRight: 28,
-            position: 'relative',
-          },
-        ])}
-        ref={this._setBoxRef}
-      >
-        {this.state.children}
-        <Ashes
-          doneExploding={!this.state.animating}
-          exploded={this.props.retainHeight}
-          explodedBy={this.props.explodedBy}
-          height={this.state.height}
-        />
-      </Kb.Box2Measure>
-    )
-  }
+  return (
+    <Kb.Box2Measure
+      direction="vertical"
+      style={Kb.Styles.collapseStyles([
+        styles.container,
+        style,
+        // paddingRight is to compensate for the message menu
+        // to make sure we don't rewrap text when showing the animation
+        retainHeight && {
+          height,
+          paddingRight: 28,
+          position: 'relative',
+        },
+      ])}
+      ref={boxRef}
+    >
+      {retainHeight ? null : children}
+      <Ashes doneExploding={!animating} exploded={retainHeight} explodedBy={explodedBy} height={height} />
+    </Kb.Box2Measure>
+  )
 }
 
 const Ashes = (props: {doneExploding: boolean; exploded: boolean; explodedBy?: string; height: number}) => {
   const {doneExploding, explodedBy, exploded, height} = props
+  const isDarkMode = useColorScheme() === 'dark'
   let explodedTag: React.ReactNode = null
   if (doneExploding) {
     explodedTag = explodedBy ? (
@@ -131,7 +88,25 @@ const Ashes = (props: {doneExploding: boolean; exploded: boolean; explodedBy?: s
   return (
     <div
       className={Kb.Styles.classNames('ashbox', {'full-width': exploded})}
-      style={Kb.Styles.castStyleDesktop(styles.ashBox)}
+      style={Kb.Styles.castStyleDesktop(
+        Kb.Styles.collapseStyles([
+          styles.ashBox,
+          Kb.Styles.platformStyles({
+            isElectron: {
+              backgroundImage:
+                (isDarkMode
+                  ? urlsToImgSet(
+                      {'68': getAssetPath('images', 'icons', 'dark-pattern-ashes-desktop-400-68.png')},
+                      68
+                    )
+                  : urlsToImgSet(
+                      {'68': getAssetPath('images', 'icons', 'pattern-ashes-desktop-400-68.png')},
+                      68
+                    )) ?? '',
+            },
+          }),
+        ])
+      )}
     >
       {exploded && explodedTag}
       <FlameFront height={height} stop={doneExploding} />
@@ -139,7 +114,8 @@ const Ashes = (props: {doneExploding: boolean; exploded: boolean; explodedBy?: s
   )
 }
 
-const FlameFront = (props: {height: number; stop: boolean}) => {
+const FlameFront = React.memo(function FlameFront(props: {height: number; stop: boolean}) {
+  const isDarkMode = useColorScheme() === 'dark'
   if (props.stop) {
     return null
   }
@@ -148,11 +124,7 @@ const FlameFront = (props: {height: number; stop: boolean}) => {
   for (let i = 0; i < numBoxes; i++) {
     children.push(
       <Kb.Box key={String(i)} style={styles.flame}>
-        <Kb.Animation
-          animationType={Kb.Styles.isDarkMode() ? 'darkExploding' : 'exploding'}
-          width={64}
-          height={64}
-        />
+        <Kb.Animation animationType={isDarkMode ? 'darkExploding' : 'exploding'} width={64} height={64} />
       </Kb.Box>
     )
   }
@@ -161,12 +133,7 @@ const FlameFront = (props: {height: number; stop: boolean}) => {
       {children}
     </Kb.Box>
   )
-}
-
-const explodedIllustrationUrl = () =>
-  Kb.Styles.isDarkMode()
-    ? urlsToImgSet({'68': getAssetPath('images', 'icons', 'dark-pattern-ashes-desktop-400-68.png')}, 68)
-    : urlsToImgSet({'68': getAssetPath('images', 'icons', 'pattern-ashes-desktop-400-68.png')}, 68)
+})
 
 const styles = Kb.Styles.styleSheetCreate(
   () =>
@@ -174,7 +141,6 @@ const styles = Kb.Styles.styleSheetCreate(
       ashBox: Kb.Styles.platformStyles({
         isElectron: {
           backgroundColor: Kb.Styles.globalColors.white, // exploded messages don't have hover effects and we need to cover the message
-          backgroundImage: explodedIllustrationUrl() ?? undefined,
           backgroundRepeat: 'repeat',
           backgroundSize: '400px 68px',
           bottom: 0,

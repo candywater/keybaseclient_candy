@@ -1,10 +1,10 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
-import * as Platforms from '@/constants/platform'
 
 const HeaderNewChatButton = () => {
-  const hide = C.useChatState(
+  const hide = Chat.useChatState(
     s =>
       s.inboxHasLoaded &&
       !!s.inboxLayout &&
@@ -21,7 +21,7 @@ const HeaderNewChatButton = () => {
       <Kb.Box2
         direction="vertical"
         style={styles.rainbowButtonContainer}
-        tooltip={`(${Platforms.shortcutSymbol}N)`}
+        tooltip={`(${C.shortcutSymbol}N)`}
         className="tooltip-right"
       >
         <Kb.Box2 direction="vertical" style={styles.gradientContainer} pointerEvents="none">
@@ -31,7 +31,7 @@ const HeaderNewChatButton = () => {
           <Kb.Box style={styles.gradientGreen} />
         </Kb.Box2>
         <Kb.Button
-          label={'New chat'}
+          label="New chat"
           mode="Primary"
           onClick={onNewChat}
           small={true}
@@ -51,13 +51,20 @@ const styles = Kb.Styles.styleSheetCreate(
         marginLeft: Kb.Styles.globalMargins.small,
         marginRight: Kb.Styles.globalMargins.small,
       },
-      gradientContainer: {
-        bottom: 0,
-        left: 0,
-        position: 'absolute',
-        right: 0,
-        top: 0,
-      },
+      gradientContainer: Kb.Styles.platformStyles({
+        isElectron: {
+          height: '100%',
+          position: 'absolute',
+          width: '100%',
+        },
+        isMobile: {
+          bottom: Kb.Styles.isAndroid ? 5 : 0,
+          left: 0,
+          position: 'absolute',
+          right: 0,
+          top: 0,
+        },
+      }),
       gradientGreen: Kb.Styles.platformStyles({
         common: {
           backgroundColor: '#3AFFAC',

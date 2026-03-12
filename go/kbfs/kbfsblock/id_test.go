@@ -7,7 +7,6 @@ package kbfsblock
 import (
 	"encoding/binary"
 	"math"
-	"math/rand"
 	"testing"
 
 	"github.com/keybase/client/go/kbfs/kbfscodec"
@@ -66,7 +65,6 @@ func TestTemporaryIDRandom(t *testing.T) {
 
 // Test that MakeRandomIDInRange returns items in the range specified.
 func TestRandomIDInRange(t *testing.T) {
-	rand.Seed(1)
 	idToInt := func(id ID) uint64 {
 		idBytes := id.Bytes()[1:9]
 		return binary.BigEndian.Uint64(idBytes)
@@ -93,7 +91,7 @@ func TestRandomIDInRange(t *testing.T) {
 		id, err := MakeRandomIDInRange(0, 1.0, UseMathRandForTest)
 		require.NoError(t, err)
 		asInt := idToInt(id)
-		buckets[asInt>>60]++
+		buckets[asInt>>60]++ //nolint:gosec // G602: Test asserts range is valid
 	}
 	t.Log("Buckets:")
 	for i, v := range buckets {

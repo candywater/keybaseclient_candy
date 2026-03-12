@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"testing"
@@ -13,18 +14,19 @@ import (
 	"github.com/keybase/client/go/protocol/chat1"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 type errorClient struct{}
 
 func (e errorClient) Call(_ context.Context, method string, _ interface{},
-	_ interface{}, _ time.Duration) error {
+	_ interface{}, _ time.Duration,
+) error {
 	return fmt.Errorf("errorClient: Call %s", method)
 }
 
 func (e errorClient) CallCompressed(_ context.Context, method string, _ interface{},
-	_ interface{}, _ rpc.CompressionType, _ time.Duration) error {
+	_ interface{}, _ rpc.CompressionType, _ time.Duration,
+) error {
 	return fmt.Errorf("errorClient: Call %s", method)
 }
 
@@ -123,5 +125,4 @@ func TestFetchRetry(t *testing.T) {
 	case <-time.After(20 * time.Second):
 		require.Fail(t, "no inbox full stale received")
 	}
-
 }

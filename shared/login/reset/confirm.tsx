@@ -1,12 +1,14 @@
 import * as C from '@/constants'
+import * as AutoReset from '@/constants/autoreset'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import * as T from '@/constants/types'
+import {useState as useRecoverState} from '@/constants/recover-password'
 
 const ConfirmReset = () => {
-  const hasWallet = C.useAutoResetState(s => s.hasWallet)
-  const error = C.useAutoResetState(s => s.error)
-  const submitResetPassword = C.useRecoverState(s => s.dispatch.dynamic.submitResetPassword)
+  const hasWallet = AutoReset.useAutoResetState(s => s.hasWallet)
+  const error = AutoReset.useAutoResetState(s => s.error)
+  const submitResetPassword = useRecoverState(s => s.dispatch.dynamic.submitResetPassword)
   const onContinue = React.useCallback(() => {
     submitResetPassword?.(T.RPCGen.ResetPromptResponse.confirmReset)
   }, [submitResetPassword])
@@ -43,7 +45,7 @@ const ConfirmReset = () => {
               onClick={onContinue}
               type="Danger"
               fullWidth={true}
-              waitingKey={C.AutoReset.actuallyResetWaitingKey}
+              waitingKey={C.waitingKeyAutoresetActuallyReset}
             />
             <Kb.Button label="Close" onClick={onClose} type="Dim" fullWidth={true} />
           </Kb.ButtonBar>
@@ -92,7 +94,7 @@ const ConfirmReset = () => {
                 labelComponent={
                   <Kb.Text type="Body" style={Kb.Styles.globalStyles.flexOne}>
                     You will <Kb.Text type="BodyExtrabold">lose access to your wallet funds</Kb.Text> if you
-                    haven't backed up your Stellar private keys outside of Keybase.
+                    haven&apos;t backed up your Stellar private keys outside of Keybase.
                   </Kb.Text>
                 }
                 checked={checkWallet}

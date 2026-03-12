@@ -6,6 +6,7 @@ package libkb
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base32"
@@ -39,7 +40,6 @@ import (
 	"github.com/keybase/clockwork"
 	"github.com/keybase/go-codec/codec"
 	jsonw "github.com/keybase/go-jsonw"
-	"golang.org/x/net/context"
 )
 
 // PrereleaseBuild can be set at compile time for prerelease builds.
@@ -131,7 +131,6 @@ func NameTrim(s string) string {
 			return -1
 		}
 		return r
-
 	}
 	return strings.Map(strip, s)
 }
@@ -552,9 +551,11 @@ func CTrace(ctx context.Context, log logger.Logger, msg string, err *error, cl c
 func (g *GlobalContext) Trace(msg string, err *error) func() {
 	return Trace(g.Log.CloneWithAddedDepth(1), msg, err)
 }
+
 func (g *GlobalContext) CTrace(ctx context.Context, msg string, err *error) func() {
 	return CTrace(ctx, g.Log.CloneWithAddedDepth(1), msg, err, g.Clock())
 }
+
 func (g *GlobalContext) CPerfTrace(ctx context.Context, msg string, err *error) func() {
 	return CTrace(ctx, g.PerfLog, msg, err, g.Clock())
 }
@@ -1166,7 +1167,8 @@ func isEmptyThrottleData(arg interface{}) bool {
 }
 
 func ThrottleBatch(f func(interface{}), batcher func(interface{}, interface{}) interface{},
-	reset func() interface{}, delay time.Duration, leadingFire bool) (func(interface{}), func()) {
+	reset func() interface{}, delay time.Duration, leadingFire bool,
+) (func(interface{}), func()) {
 	var lock sync.Mutex
 	var closeLock sync.Mutex
 	var lastCalled time.Time

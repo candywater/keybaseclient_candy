@@ -1,36 +1,36 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
-import Banner from '../bottom-banner/container'
+import Banner from '../bottom-banner'
 import InputArea from '../input-area/container'
 import InvitationToBlock from '@/chat/blocking/invitation-to-block'
 import ListArea from '../list-area'
-import PinnedMessage from '../pinned-message/container'
+import PinnedMessage from '../pinned-message'
 import ThreadLoadStatus from '../load-status'
-import ThreadSearch from '../search/container'
+import ThreadSearch from '../search'
 import {readImageFromClipboard} from '@/util/clipboard.desktop'
 import '../conversation.css'
 import {indefiniteArticle} from '@/util/string'
 
 const Offline = () => (
   <Kb.Banner color="grey" small={true} style={styles.offline}>
-    Couldn't load all chat messages due to network connectivity. Retrying...
+    {"Couldn't load all chat messages due to network connectivity. Retrying..."}
   </Kb.Banner>
 )
 
 const LoadingLine = () => {
-  const conversationIDKey = C.useChatContext(s => s.id)
+  const conversationIDKey = Chat.useChatContext(s => s.id)
   const showLoader = C.Waiting.useAnyWaiting([
-    C.Chat.waitingKeyThreadLoad(conversationIDKey),
-    C.Chat.waitingKeyInboxSyncStarted,
+    C.waitingKeyChatThreadLoad(conversationIDKey),
+    C.waitingKeyChatInboxSyncStarted,
   ])
   return showLoader ? <Kb.LoadingLine /> : null
 }
 
-const hotKeys = ['mod+f']
 const Conversation = React.memo(function Conversation() {
-  const conversationIDKey = C.useChatContext(s => s.id)
-  const navigateAppend = C.Chat.useChatNavigateAppend()
+  const conversationIDKey = Chat.useChatContext(s => s.id)
+  const navigateAppend = Chat.useChatNavigateAppend()
   const onAttach = React.useCallback(
     (paths: Array<string>) => {
       const pathAndOutboxIDs = paths.map(p => ({path: p}))
@@ -41,17 +41,17 @@ const Conversation = React.memo(function Conversation() {
     },
     [navigateAppend]
   )
-  const showThreadSearch = C.useChatContext(s => s.threadSearchInfo.visible)
-  const cannotWrite = C.useChatContext(s => s.meta.cannotWrite)
-  const threadLoadedOffline = C.useChatContext(s => s.meta.offline)
-  const dragAndDropRejectReason = C.useChatContext(s => {
+  const showThreadSearch = Chat.useChatContext(s => s.threadSearchInfo.visible)
+  const cannotWrite = Chat.useChatContext(s => s.meta.cannotWrite)
+  const threadLoadedOffline = Chat.useChatContext(s => s.meta.offline)
+  const dragAndDropRejectReason = Chat.useChatContext(s => {
     const meta = s.meta
     const {cannotWrite, minWriterRole} = meta
     return cannotWrite
       ? `You must be at least ${indefiniteArticle(minWriterRole)} ${minWriterRole} to post.`
       : undefined
   })
-  const attachmentPasted = C.useChatContext(s => s.dispatch.attachmentPasted)
+  const attachmentPasted = Chat.useChatContext(s => s.dispatch.attachmentPasted)
   const onPaste = React.useCallback(
     (e: React.SyntheticEvent) => {
       readImageFromClipboard(e)
@@ -64,14 +64,14 @@ const Conversation = React.memo(function Conversation() {
     },
     [attachmentPasted]
   )
-  const toggleThreadSearch = C.useChatContext(s => s.dispatch.toggleThreadSearch)
+  const toggleThreadSearch = Chat.useChatContext(s => s.dispatch.toggleThreadSearch)
   const onToggleThreadSearch = React.useCallback(() => {
     toggleThreadSearch()
   }, [toggleThreadSearch])
+  Kb.useHotKey('mod+f', onToggleThreadSearch)
 
   return (
-    <div className="conversation" style={styles.container} onPaste={onPaste}>
-      <Kb.HotKey hotKeys={hotKeys} onHotKey={onToggleThreadSearch} />
+    <div className="conversation" style={styles.container} onPaste={onPaste} key={conversationIDKey}>
       <Kb.DragAndDrop
         onAttach={cannotWrite ? undefined : onAttach}
         fullHeight={true}
@@ -80,7 +80,7 @@ const Conversation = React.memo(function Conversation() {
       >
         {threadLoadedOffline && <Offline />}
         <Kb.Box2 direction="vertical" fullWidth={true} fullHeight={true} style={styles.innerContainer}>
-          <ListArea key={conversationIDKey} />
+          <ListArea />
           <Kb.Box2 direction="vertical" fullWidth={true} style={{left: 0, position: 'absolute', top: 0}}>
             <ThreadLoadStatus />
             {!showThreadSearch && <PinnedMessage />}

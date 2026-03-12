@@ -1,26 +1,31 @@
 import * as C from '@/constants'
-import * as Constants from '@/constants/fs'
 import * as React from 'react'
 import * as T from '@/constants/types'
 import * as Kb from '@/common-adapters'
 import {rowStyles} from './common'
+import {useFSState} from '@/constants/fs'
+import * as FS from '@/constants/fs'
 
 type Props = {
   editID: T.FS.EditID
 }
 
-const Editing = React.memo(function ({editID}: Props) {
-  const discardEdit = C.useFSState(s => s.dispatch.discardEdit)
+const Editing = React.memo(function Editing({editID}: Props) {
+  const {discardEdit, commitEdit, edit, setEditName} = useFSState(
+    C.useShallow(s => ({
+      commitEdit: s.dispatch.commitEdit,
+      discardEdit: s.dispatch.discardEdit,
+      edit: s.edits.get(editID) || FS.emptyNewFolder,
+      setEditName: s.dispatch.setEditName,
+    }))
+  )
+  const [filename, setFilename] = React.useState(edit.name)
   const onCancel = () => {
     discardEdit(editID)
   }
-  const commitEdit = C.useFSState(s => s.dispatch.commitEdit)
   const onSubmit = () => {
     commitEdit(editID)
   }
-  const edit = C.useFSState(s => s.edits.get(editID) || Constants.emptyNewFolder)
-  const [filename, setFilename] = React.useState(edit.name)
-  const setEditName = C.useFSState(s => s.dispatch.setEditName)
   React.useEffect(() => {
     setEditName(editID, filename)
   }, [editID, filename, setEditName])
@@ -67,7 +72,7 @@ const Editing = React.memo(function ({editID}: Props) {
             style={styles.button}
             small={true}
             label={edit.error ? 'Retry' : edit.type === T.FS.EditType.NewFolder ? 'Create' : 'Save'}
-            waitingKey={Constants.commitEditWaitingKey}
+            waitingKey={C.waitingKeyFSCommitEdit}
             onClick={onSubmit}
           />
           <Kb.Icon

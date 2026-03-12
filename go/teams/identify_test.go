@@ -1,11 +1,11 @@
 package teams
 
 import (
+	"context"
 	"testing"
 
 	"github.com/keybase/client/go/libkb"
 	"github.com/keybase/client/go/protocol/keybase1"
-	"golang.org/x/net/context"
 )
 
 func TestIdentifyLite(t *testing.T) {
@@ -18,7 +18,7 @@ func TestIdentifyLite(t *testing.T) {
 	}
 
 	// test identify by assertion only
-	var assertions = []string{"team:" + name, "tid:" + team.ID.String()}
+	assertions := []string{"team:" + name, "tid:" + team.ID.String()}
 	for _, assertion := range assertions {
 		au, err := libkb.ParseAssertionURL(tc.G.MakeAssertionContext(libkb.NewMetaContext(context.Background(), tc.G)), assertion, true)
 		if err != nil {

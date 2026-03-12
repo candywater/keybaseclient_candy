@@ -1,12 +1,13 @@
 import * as C from '@/constants'
-import Normal from './normal'
-import Preview from './preview/container'
-import ThreadSearch from '../search/container'
+import * as Chat from '@/constants/chat2'
+import Normal from './normal2'
+import Preview from './preview'
+import ThreadSearch from '../search'
 
 const InputAreaContainer = () => {
-  const conversationIDKey = C.useChatContext(s => s.id)
-  const showThreadSearch = C.useChatContext(s => s.threadSearchInfo.visible)
-  const {membershipType, resetParticipants, wasFinalizedBy} = C.useChatContext(
+  const conversationIDKey = Chat.useChatContext(s => s.id)
+  const showThreadSearch = Chat.useChatContext(s => s.threadSearchInfo.visible)
+  const {membershipType, resetParticipants, wasFinalizedBy} = Chat.useChatContext(
     C.useShallow(s => {
       const {membershipType, resetParticipants, wasFinalizedBy} = s.meta
       return {membershipType, resetParticipants, wasFinalizedBy}
@@ -15,8 +16,8 @@ const InputAreaContainer = () => {
 
   let noInput = resetParticipants.size > 0 || !!wasFinalizedBy
   if (
-    conversationIDKey === C.Chat.pendingWaitingConversationIDKey ||
-    conversationIDKey === C.Chat.pendingErrorConversationIDKey
+    conversationIDKey === Chat.pendingWaitingConversationIDKey ||
+    conversationIDKey === Chat.pendingErrorConversationIDKey
   ) {
     noInput = true
   }

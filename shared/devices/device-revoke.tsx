@@ -1,33 +1,34 @@
 import * as C from '@/constants'
-import * as Constants from '@/constants/devices'
+import {useConfigState} from '@/constants/config'
+import * as Devices from '@/constants/devices'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
 import * as T from '@/constants/types'
+import {settingsDevicesTab} from '@/constants/settings'
+import {useCurrentUserState} from '@/constants/current-user'
 
 type OwnProps = {deviceID: string}
 
-class EndangeredTLFList extends React.Component<{endangeredTLFs: Array<string>}> {
-  _renderTLFEntry = (index: number, tlf: string) => (
-    <Kb.Box2 direction="horizontal" key={index} gap="tiny" fullWidth={true} style={styles.row}>
-      <Kb.Text type="BodySemibold">•</Kb.Text>
-      <Kb.Text type="BodySemibold" selectable={true} style={styles.tlf}>
-        {tlf}
+const _renderTLFEntry = (index: number, tlf: string) => (
+  <Kb.Box2 direction="horizontal" key={index} gap="tiny" fullWidth={true} style={styles.row}>
+    <Kb.Text type="BodySemibold">•</Kb.Text>
+    <Kb.Text type="BodySemibold" selectable={true} style={styles.tlf}>
+      {tlf}
+    </Kb.Text>
+  </Kb.Box2>
+)
+const EndangeredTLFList = (props: {endangeredTLFs: Array<string>}) => {
+  if (!props.endangeredTLFs.length) return null
+  return (
+    <>
+      <Kb.Text center={true} type="Body">
+        You may lose access to these folders forever:
       </Kb.Text>
-    </Kb.Box2>
+      <Kb.Box2 direction="vertical" style={styles.listContainer}>
+        <Kb.List items={props.endangeredTLFs} renderItem={_renderTLFEntry} indexAsKey={true} />
+      </Kb.Box2>
+    </>
   )
-  render() {
-    if (!this.props.endangeredTLFs.length) return null
-    return (
-      <>
-        <Kb.Text center={true} type="Body">
-          You may lose access to these folders forever:
-        </Kb.Text>
-        <Kb.Box2 direction="vertical" style={styles.listContainer}>
-          <Kb.List items={this.props.endangeredTLFs} renderItem={this._renderTLFEntry} indexAsKey={true} />
-        </Kb.Box2>
-      </>
-    )
-  }
 }
 
 const ActionButtons = ({onCancel, onSubmit}: {onCancel: () => void; onSubmit: () => void}) => (
@@ -40,7 +41,7 @@ const ActionButtons = ({onCancel, onSubmit}: {onCancel: () => void; onSubmit: ()
       fullWidth={Kb.Styles.isMobile}
       type="Danger"
       label="Yes, delete it"
-      waitingKey={C.Devices.waitingKey}
+      waitingKey={C.waitingKeyDevices}
       onClick={onSubmit}
     />
     <Kb.Button fullWidth={Kb.Styles.isMobile} type="Dim" onClick={onCancel} label="Cancel" />
@@ -74,7 +75,7 @@ const loadEndangeredTLF = async (actingDevice: string, targetDevice: string) => 
   try {
     const tlfs = await T.RPCGen.rekeyGetRevokeWarningRpcPromise(
       {actingDevice, targetDevice},
-      C.Devices.waitingKey
+      C.waitingKeyDevices
     )
     return tlfs.endangeredTLFs?.map(t => t.name) ?? []
   } catch (e) {
@@ -84,9 +85,9 @@ const loadEndangeredTLF = async (actingDevice: string, targetDevice: string) => 
 }
 
 const useRevoke = (deviceID = '') => {
-  const d = C.useDevicesState(s => s.deviceMap.get(deviceID))
-  const load = C.useDevicesState(s => s.dispatch.load)
-  const username = C.useCurrentUserState(s => s.username)
+  const d = Devices.useDevicesState(s => s.deviceMap.get(deviceID))
+  const load = Devices.useDevicesState(s => s.dispatch.load)
+  const username = useCurrentUserState(s => s.username)
   const wasCurrentDevice = d?.currentDevice ?? false
   const navUpToScreen = C.useRouterState(s => s.dispatch.navUpToScreen)
   const deviceName = d?.name ?? ''
@@ -94,20 +95,20 @@ const useRevoke = (deviceID = '') => {
     const f = async () => {
       if (wasCurrentDevice) {
         try {
-          await T.RPCGen.loginDeprovisionRpcPromise({doRevoke: true, username}, C.Devices.waitingKey)
+          await T.RPCGen.loginDeprovisionRpcPromise({doRevoke: true, username}, C.waitingKeyDevices)
           load()
-          C.useConfigState.getState().dispatch.revoke(deviceName)
+          useConfigState.getState().dispatch.revoke(deviceName)
         } catch {}
       } else {
         try {
           await T.RPCGen.revokeRevokeDeviceRpcPromise(
             {deviceID, forceLast: false, forceSelf: false},
-            C.Devices.waitingKey
+            C.waitingKeyDevices
           )
           load()
-          C.useConfigState.getState().dispatch.revoke(deviceName)
+          useConfigState.getState().dispatch.revoke(deviceName)
           navUpToScreen(
-            C.isMobile ? (C.isTablet ? C.Tabs.settingsTab : C.Settings.settingsDevicesTab) : C.Tabs.devicesTab
+            C.isMobile ? (C.isTablet ? C.Tabs.settingsTab : settingsDevicesTab) : C.Tabs.devicesTab
           )
         } catch {}
       }
@@ -119,17 +120,17 @@ const useRevoke = (deviceID = '') => {
 const DeviceRevoke = (ownProps: OwnProps) => {
   const selectedDeviceID = ownProps.deviceID
   const [endangeredTLFs, setEndangeredTLFs] = React.useState(new Array<string>())
-  const device = C.useDevicesState(s => s.deviceMap.get(selectedDeviceID))
+  const device = Devices.useDevicesState(s => s.deviceMap.get(selectedDeviceID))
   const deviceID = device?.deviceID
   const deviceName = device?.name ?? ''
   const type = device?.type ?? 'desktop'
-  const iconNumber = Constants.useDeviceIconNumber(selectedDeviceID)
-  const waiting = C.Waiting.useAnyWaiting(C.Devices.waitingKey)
+  const iconNumber = Devices.useDeviceIconNumber(selectedDeviceID)
+  const waiting = C.Waiting.useAnyWaiting(C.waitingKeyDevices)
   const onSubmit = useRevoke(deviceID)
   const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
   const onCancel = navigateUp
 
-  const actingDevice = C.useCurrentUserState(s => s.deviceID)
+  const actingDevice = useCurrentUserState(s => s.deviceID)
   C.useOnMountOnce(() => {
     const f = async () => {
       const tlfs = await loadEndangeredTLF(actingDevice, selectedDeviceID)

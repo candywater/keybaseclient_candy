@@ -8,7 +8,6 @@ import {showDevTools} from '@/local-debug'
 import {guiConfigFilename, isDarwin, isWindows, defaultUseNativeFrame} from '@/constants/platform.desktop'
 import logger from '@/logger'
 import debounce from 'lodash/debounce'
-import {setupDevToolsExtensions} from './dev-tools.desktop'
 import {assetRoot, htmlPrefix} from './html-root.desktop'
 import KB2 from '@/util/electron.desktop'
 
@@ -91,8 +90,7 @@ const setupWindowEvents = (win: Electron.BrowserWindow) => {
 }
 
 const changeDock = (show: boolean) => {
-  const _dock = Electron.app.dock
-  const dock = _dock as typeof _dock | undefined
+  const dock = Electron.app.dock
   if (!dock) return
   if (show) {
     dock
@@ -112,7 +110,6 @@ export const hideDockIcon = () => changeDock(false)
 
 let useNativeFrame = defaultUseNativeFrame
 let isDarkMode = false
-let darkModePreference: undefined | 'system' | 'alwaysDark' | 'alwaysLight'
 let disableSpellCheck = false
 let disableScreenshot = false
 
@@ -146,31 +143,30 @@ const loadWindowState = () => {
 
     if (guiConfig?.ui) {
       const {
-        darkMode,
+        darkMode: _darkMode,
         disableSpellCheck: _disableSpellCheck,
         disableScreenshot: _disableScreenshot,
       } = guiConfig.ui
       disableSpellCheck = typeof _disableSpellCheck === 'boolean' ? _disableSpellCheck : disableSpellCheck
       disableScreenshot = typeof _disableScreenshot === 'boolean' ? _disableScreenshot : disableScreenshot
 
-      if (typeof darkMode === 'string') {
-        switch (darkMode) {
+      if (typeof _darkMode === 'string') {
+        switch (_darkMode) {
           case 'system':
-            darkModePreference = darkMode
             isDarkMode = KB2.constants.startDarkMode
+            Electron.nativeTheme.themeSource = 'system'
             break
           case 'alwaysDark':
-            darkModePreference = darkMode
             isDarkMode = true
+            Electron.nativeTheme.themeSource = 'dark'
             break
           case 'alwaysLight':
-            darkModePreference = darkMode
             isDarkMode = false
+            Electron.nativeTheme.themeSource = 'light'
             break
         }
       }
     } else {
-      darkModePreference = 'system'
       isDarkMode = KB2.constants.startDarkMode
     }
 
@@ -312,7 +308,7 @@ const MainWindow = () => {
   loadWindowState()
 
   // pass to main window
-  htmlFile = htmlFile + `?darkModePreference=${darkModePreference || ''}`
+  htmlFile = htmlFile + `?darkMode=${isDarkMode || ''}`
   const win = new Electron.BrowserWindow({
     backgroundColor: isDarkMode ? '#191919' : '#ffffff',
     frame: useNativeFrame,
@@ -336,10 +332,6 @@ const MainWindow = () => {
   })
 
   win.setContentProtection(disableScreenshot)
-
-  if (__DEV__ || __PROFILE__) {
-    setupDevToolsExtensions()
-  }
 
   win
     .loadURL(htmlFile)

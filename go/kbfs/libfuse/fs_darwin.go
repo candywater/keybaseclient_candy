@@ -8,6 +8,7 @@
 package libfuse
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,13 +16,13 @@ import (
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+
 	"github.com/keybase/client/go/kbfs/idutil"
 	"github.com/keybase/client/go/kbfs/libkbfs"
 	kbname "github.com/keybase/client/go/kbun"
 	"github.com/keybase/client/go/libkb"
 	"github.com/keybase/client/go/protocol/keybase1"
 	"github.com/keybase/client/go/utils"
-	"golang.org/x/net/context"
 )
 
 const (
@@ -127,7 +128,8 @@ type Trash struct {
 
 // Lookup implements the fs.NodeRequestLookuper interface for *Trash
 func (t *Trash) Lookup(ctx context.Context,
-	req *fuse.LookupRequest, resp *fuse.LookupResponse) (fs.Node, error) {
+	req *fuse.LookupRequest, resp *fuse.LookupResponse,
+) (fs.Node, error) {
 	if req.Name == strconv.Itoa(os.Getuid()) {
 		return &Alias{
 			realPath: fmt.Sprintf("../private/%s/.trash", t.kbusername),
@@ -138,7 +140,7 @@ func (t *Trash) Lookup(ctx context.Context,
 
 // Attr implements the fs.Node interface for *Trash
 func (t *Trash) Attr(ctx context.Context, a *fuse.Attr) error {
-	a.Mode = os.ModeDir | 0755
+	a.Mode = os.ModeDir | 0o755
 	return nil
 }
 

@@ -26,13 +26,13 @@ function PopupDialog(p: Props) {
         style={Styles.collapseStyles([styles.cover, styleCover])}
         onMouseUp={(e: React.MouseEvent) => {
           if (mouseDownOnCover) {
-            onClose && onClose()
+            onClose?.()
           }
-          onMouseUp && onMouseUp(e)
+          onMouseUp?.(e)
         }}
         onMouseDown={(e: React.MouseEvent) => {
           setMouseDownOnCover(true)
-          onMouseDown && onMouseDown(e)
+          onMouseDown?.(e)
         }}
         onMouseMove={onMouseMove}
       >
@@ -102,6 +102,7 @@ const styles = Styles.styleSheetCreate(() => ({
     ...Styles.globalStyles.flexBoxColumn,
     ...Styles.globalStyles.fillAbsolute,
     alignItems: 'center',
+    alignSelf: 'stretch',
     // bg handled up a level w css
     // backgroundColor: Styles.globalColors.black_50OrBlack_60,
     justifyContent: 'center',

@@ -1,7 +1,6 @@
+import type * as React from 'react'
+import * as Kb from '@/common-adapters'
 import * as C from '@/constants'
-import * as React from 'react'
-import {Box2, WaitingButton, ButtonBar} from '@/common-adapters'
-import {styleSheetCreate, isMobile, globalMargins, globalColors} from '@/styles'
 
 type Props = {
   children: React.ReactNode
@@ -9,18 +8,18 @@ type Props = {
 }
 
 export const Wrapper = (props: Props) => (
-  <Box2 direction="vertical" fullWidth={true} fullHeight={true}>
-    <Box2
+  <Kb.Box2 direction="vertical" fullWidth={true} fullHeight={true}>
+    <Kb.Box2
       direction="vertical"
       fullWidth={true}
       fullHeight={true}
       centerChildren={true}
       style={styles.wrapper}
-      gap={isMobile ? 'xtiny' : 'small'}
+      gap={Kb.Styles.isMobile ? 'xtiny' : 'small'}
     >
       {props.children}
-    </Box2>
-  </Box2>
+    </Kb.Box2>
+  </Kb.Box2>
 )
 
 export const ContinueButton = ({
@@ -32,24 +31,24 @@ export const ContinueButton = ({
   label?: string
   onClick: () => void
 }) => (
-  <ButtonBar fullWidth={true} style={styles.buttonBar}>
-    <WaitingButton
-      waitingKey={C.Signup.waitingKey}
+  <Kb.ButtonBar fullWidth={true} style={styles.buttonBar}>
+    <Kb.WaitingButton
+      waitingKey={C.waitingKeySignup}
       label={label || 'Continue'}
       disabled={disabled}
       fullWidth={true}
       onClick={onClick}
     />
-  </ButtonBar>
+  </Kb.ButtonBar>
 )
 
-const styles = styleSheetCreate(
+const styles = Kb.Styles.styleSheetCreate(
   () =>
     ({
-      avatar: {marginBottom: isMobile ? globalMargins.xtiny : 0},
-      buttonBar: {maxWidth: 460, padding: 0, paddingTop: globalMargins.medium},
+      avatar: {marginBottom: Kb.Styles.isMobile ? Kb.Styles.globalMargins.xtiny : 0},
+      buttonBar: {maxWidth: 460, padding: 0, paddingTop: Kb.Styles.globalMargins.medium},
       header: {
-        backgroundColor: globalColors.transparent,
+        backgroundColor: Kb.Styles.globalColors.transparent,
         borderBottomWidth: 0,
         left: 0,
         position: 'absolute',
@@ -60,6 +59,6 @@ const styles = styleSheetCreate(
       inputContainer: {alignItems: 'center', alignSelf: 'stretch'},
       inputErrorStyle: {minHeight: 0},
       inputInnerStyle: {width: '100%'},
-      wrapper: {paddingLeft: globalMargins.medium, paddingRight: globalMargins.medium},
+      wrapper: {paddingLeft: Kb.Styles.globalMargins.medium, paddingRight: Kb.Styles.globalMargins.medium},
     }) as const
 )

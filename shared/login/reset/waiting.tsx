@@ -3,7 +3,8 @@ import * as Kb from '@/common-adapters'
 import {SignupScreen} from '@/signup/common'
 import {addTicker, removeTicker} from '@/util/second-timer'
 import * as C from '@/constants'
-import * as Container from '@/util/container'
+import * as AutoReset from '@/constants/autoreset'
+import {useSafeNavigation} from '@/util/safe-navigation'
 import {formatDurationForAutoreset as formatDuration} from '@/util/timestamp'
 
 type Props = {pipelineStarted: boolean}
@@ -14,26 +15,27 @@ const formatTimeLeft = (endTime: number) => {
 
 const Waiting = (props: Props) => {
   const {pipelineStarted} = props
-  const endTime = C.useAutoResetState(s => s.endTime)
+  const endTime = AutoReset.useAutoResetState(s => s.endTime)
   const [formattedTime, setFormattedTime] = React.useState('a bit')
   const [hasSentAgain, setHasSentAgain] = React.useState(false)
   const [sendAgainSuccess, setSendAgainSuccess] = React.useState(false)
-  const nav = Container.useSafeNavigation()
+  const nav = useSafeNavigation()
   const onClose = React.useCallback(() => nav.safeNavigateAppend('login', true), [nav])
-  const resetAccount = C.useAutoResetState(s => s.dispatch.resetAccount)
+  const resetAccount = AutoReset.useAutoResetState(s => s.dispatch.resetAccount)
   const onSendAgain = React.useCallback(() => {
     setHasSentAgain(true)
     setSendAgainSuccess(false)
     resetAccount()
   }, [resetAccount])
-  const _sendAgainWaiting = C.Waiting.useAnyWaiting(C.AutoReset.enterPipelineWaitingKey)
+  const _sendAgainWaiting = C.Waiting.useAnyWaiting(C.waitingKeyAutoresetEnterPipeline)
   const sendAgainWaiting = hasSentAgain && _sendAgainWaiting
-  const prevSendAgainWaiting = Container.usePrevious(sendAgainWaiting)
+  const prevSendAgainWaitingRef = React.useRef(sendAgainWaiting)
   React.useEffect(() => {
-    if (prevSendAgainWaiting !== undefined && prevSendAgainWaiting && !sendAgainWaiting) {
+    if (prevSendAgainWaitingRef.current && !sendAgainWaiting) {
       setSendAgainSuccess(true)
     }
-  }, [prevSendAgainWaiting, sendAgainWaiting])
+    prevSendAgainWaitingRef.current = sendAgainWaiting
+  }, [sendAgainWaiting])
 
   React.useEffect(() => {
     if (!pipelineStarted) {

@@ -1,7 +1,10 @@
 import * as C from '@/constants'
 import * as React from 'react'
+import * as Teams from '@/constants/teams'
 import * as Kb from '@/common-adapters'
+import * as T from '@/constants/types'
 import openUrl from '@/util/open-url'
+import upperFirst from 'lodash/upperFirst'
 
 const openSubteamInfo = () => openUrl('https://book.keybase.io/docs/teams/design')
 
@@ -13,10 +16,11 @@ type Props = {
   onSubmit: (fullName: string, joinSubteam: boolean) => void
 }
 
-const CreateNewTeam = (props: Props) => {
+// used in chat too
+export const CreateNewTeam = (props: Props) => {
   const [name, setName] = React.useState('')
   const [joinSubteam, setJoinSubteam] = React.useState(true)
-  const waiting = C.Waiting.useAnyWaiting(C.Teams.teamCreationWaitingKey)
+  const waiting = C.Waiting.useAnyWaiting(C.waitingKeyTeamsCreation)
 
   const {baseTeam, onSubmit} = props
   const isSubteam = !!baseTeam
@@ -39,7 +43,7 @@ const CreateNewTeam = (props: Props) => {
         <>
           {!isSubteam ? (
             <Kb.Banner color="blue">
-              For security reasons, team names are unique and can't be changed, so choose carefully.
+              {"For security reasons, team names are unique and can't be changed, so choose carefully."}
             </Kb.Banner>
           ) : null}
           {isSubteam ? (
@@ -108,4 +112,30 @@ const styles = Kb.Styles.styleSheetCreate(() => ({
   }),
 }))
 
-export default CreateNewTeam
+type OwnProps = {subteamOf?: T.Teams.TeamID}
+
+const Container = (ownProps: OwnProps) => {
+  const subteamOf = ownProps.subteamOf ?? T.Teams.noTeamID
+  const baseTeam = Teams.useTeamsState(s => Teams.getTeamMeta(s, subteamOf).teamname)
+  const errorText = Teams.useTeamsState(s => upperFirst(s.errorInTeamCreation))
+  const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
+  const onCancel = () => {
+    navigateUp()
+  }
+  const resetErrorInTeamCreation = Teams.useTeamsState(s => s.dispatch.resetErrorInTeamCreation)
+  const createNewTeam = Teams.useTeamsState(s => s.dispatch.createNewTeam)
+  const onClearError = resetErrorInTeamCreation
+  const onSubmit = (teamname: string, joinSubteam: boolean) => {
+    createNewTeam(teamname, joinSubteam)
+  }
+  const props = {
+    baseTeam,
+    errorText,
+    onCancel,
+    onClearError,
+    onSubmit,
+  }
+  return <CreateNewTeam {...props} />
+}
+
+export default Container

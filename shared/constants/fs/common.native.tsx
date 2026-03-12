@@ -1,36 +1,38 @@
-import * as C from '..'
-import * as Constants from '@/constants/fs'
 import logger from '@/logger'
+import {ignorePromise} from '../utils'
+import {wrapErrors} from '@/util/debug'
 import * as T from '../types'
 import * as Styles from '@/styles'
+import * as FS from '@/constants/fs'
 import {launchImageLibraryAsync} from '@/util/expo-image-picker.native'
 import {saveAttachmentToCameraRoll, showShareActionSheet} from '../platform-specific'
+import {useFSState} from '.'
 
 export default function initNative() {
-  C.useFSState.setState(s => {
-    s.dispatch.dynamic.pickAndUploadMobile = C.wrapErrors(
+  useFSState.setState(s => {
+    s.dispatch.dynamic.pickAndUploadMobile = wrapErrors(
       (type: T.FS.MobilePickType, parentPath: T.FS.Path) => {
         const f = async () => {
           try {
             const result = await launchImageLibraryAsync(type, true, true)
             if (result.canceled) return
             result.assets.map(r =>
-              C.useFSState.getState().dispatch.upload(parentPath, Styles.unnormalizePath(r.uri))
+              useFSState.getState().dispatch.upload(parentPath, Styles.unnormalizePath(r.uri))
             )
           } catch (e) {
-            Constants.errorToActionOrThrow(e)
+            FS.errorToActionOrThrow(e)
           }
         }
-        C.ignorePromise(f())
+        ignorePromise(f())
       }
     )
 
-    s.dispatch.dynamic.finishedDownloadWithIntentMobile = C.wrapErrors(
+    s.dispatch.dynamic.finishedDownloadWithIntentMobile = wrapErrors(
       (downloadID: string, downloadIntent: T.FS.DownloadIntent, mimeType: string) => {
         const f = async () => {
-          const {downloads, dispatch} = C.useFSState.getState()
-          const downloadState = downloads.state.get(downloadID) || Constants.emptyDownloadState
-          if (downloadState === Constants.emptyDownloadState) {
+          const {downloads, dispatch} = useFSState.getState()
+          const downloadState = downloads.state.get(downloadID) || FS.emptyDownloadState
+          if (downloadState === FS.emptyDownloadState) {
             logger.warn('missing download', downloadID)
             return
           }
@@ -57,10 +59,10 @@ export default function initNative() {
                 return
             }
           } catch (err) {
-            Constants.errorToActionOrThrow(err)
+            FS.errorToActionOrThrow(err)
           }
         }
-        C.ignorePromise(f())
+        ignorePromise(f())
       }
     )
   })

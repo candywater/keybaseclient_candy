@@ -55,7 +55,7 @@ func (c *randomEvictedCache) entrySize(key Measurable, value Measurable) int {
 }
 
 func (c *randomEvictedCache) evictOneLocked() {
-	i := int(rand.Int63()) % len(c.keys)
+	i := int(rand.Int63()) % len(c.keys) //nolint:gosec // G404: Cache eviction selection, not security-sensitive
 	last := len(c.keys) - 1
 	var toRemove memoizedMeasurable
 	toRemove, c.keys[i] = c.keys[i], c.keys[last]
@@ -64,7 +64,7 @@ func (c *randomEvictedCache) evictOneLocked() {
 	c.keys = c.keys[:last]
 }
 
-// Get impelments the Cache interface.
+// Get implements the Cache interface.
 func (c *randomEvictedCache) Get(key Measurable) (data Measurable, ok bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -137,7 +137,7 @@ func NewLRUEvictedCache(maxBytes int) Cache {
 	return c
 }
 
-// Get impelments the Cache interface.
+// Get implements the Cache interface.
 func (c *lruEvictedCache) Get(key Measurable) (data Measurable, ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

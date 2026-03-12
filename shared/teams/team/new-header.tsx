@@ -1,14 +1,18 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as React from 'react'
+import * as Teams from '@/constants/teams'
 import * as Kb from '@/common-adapters'
-import * as Container from '@/util/container'
 import TeamMenu from './menu-container'
 import {pluralize} from '@/util/string'
 import {Activity, useActivityLevels, useTeamLinkPopup} from '../common'
 import type * as T from '@/constants/types'
+import {useSafeNavigation} from '@/util/safe-navigation'
+import {useCurrentUserState} from '@/constants/current-user'
+import {useTeamsState} from '@/constants/teams'
 
 const AddPeopleButton = ({teamID}: {teamID: T.Teams.TeamID}) => {
-  const startAddMembersWizard = C.useTeamsState(s => s.dispatch.startAddMembersWizard)
+  const startAddMembersWizard = useTeamsState(s => s.dispatch.startAddMembersWizard)
   const onAdd = () => startAddMembersWizard(teamID)
   return (
     <Kb.Button
@@ -23,15 +27,19 @@ const AddPeopleButton = ({teamID}: {teamID: T.Teams.TeamID}) => {
 }
 type FeatureTeamCardProps = {teamID: T.Teams.TeamID}
 const FeatureTeamCard = ({teamID}: FeatureTeamCardProps) => {
-  const setMemberPublicity = C.useTeamsState(s => s.dispatch.setMemberPublicity)
+  const {setJustFinishedAddMembersWizard, setMemberPublicity} = Teams.useTeamsState(
+    C.useShallow(s => ({
+      setJustFinishedAddMembersWizard: s.dispatch.setJustFinishedAddMembersWizard,
+      setMemberPublicity: s.dispatch.setMemberPublicity,
+    }))
+  )
   const onFeature = () => setMemberPublicity(teamID, true)
-  const setJustFinishedAddMembersWizard = C.useTeamsState(s => s.dispatch.setJustFinishedAddMembersWizard)
   const onNoThanks = React.useCallback(() => {
     setJustFinishedAddMembersWizard(false)
   }, [setJustFinishedAddMembersWizard])
   // Automatically dismisses this when the user navigates away
   React.useEffect(() => onNoThanks, [onNoThanks])
-  const waiting = C.Waiting.useAnyWaiting(C.Teams.setMemberPublicityWaitingKey(teamID))
+  const waiting = C.Waiting.useAnyWaiting(C.waitingKeyTeamsSetMemberPublicity(teamID))
   return (
     <Kb.Box2
       direction="vertical"
@@ -46,7 +54,7 @@ const FeatureTeamCard = ({teamID}: FeatureTeamCardProps) => {
         <Kb.Icon type="icon-illustration-teams-feature-profile-460-64" />
       </Kb.Box>
       <Kb.Text type="BodySemibold">Feature team on your profile?</Kb.Text>
-      <Kb.Text type="BodySmall">So your friends or coworkers know of your team's existence.</Kb.Text>
+      <Kb.Text type="BodySmall">{"So your friends or coworkers know of your team's existence."}</Kb.Text>
       <Kb.Box2 direction="horizontal" gap="xtiny" fullWidth={true}>
         <Kb.Button
           label="Yes, feature it"
@@ -84,14 +92,20 @@ const roleDisplay = {
 
 const HeaderTitle = (props: HeaderTitleProps) => {
   const {teamID} = props
-  const meta = C.useTeamsState(s => C.Teams.getTeamMeta(s, teamID))
-  const details = C.useTeamsState(s => s.teamDetails.get(teamID))
-  const yourOperations = C.useTeamsState(s => C.Teams.getCanPerformByID(s, teamID))
-  const justFinishedAddWizard = C.useTeamsState(s => s.addMembersWizard.justFinished)
+  const teamsState = Teams.useTeamsState(
+    C.useShallow(s => ({
+      activityLevel: s.activityLevels.teams.get(teamID) || 'none',
+      details: s.teamDetails.get(teamID),
+      justFinishedAddWizard: s.addMembersWizard.justFinished,
+      meta: Teams.getTeamMeta(s, teamID),
+      yourOperations: Teams.getCanPerformByID(s, teamID),
+    }))
+  )
+  const {activityLevel, details, justFinishedAddWizard} = teamsState
+  const {meta, yourOperations} = teamsState
   useActivityLevels()
-  const activityLevel = C.useTeamsState(s => s.activityLevels.teams.get(teamID) || 'none')
 
-  const callbacks = useHeaderCallbacks(teamID)
+  const {onEditAvatar, onRename, onAddSelf, onChat, onEditDescription} = useHeaderCallbacks(teamID)
   const makePopup = React.useCallback(
     (p: Kb.Popup2Parms) => {
       const {attachTo, hidePopup} = p
@@ -99,18 +113,18 @@ const HeaderTitle = (props: HeaderTitleProps) => {
     },
     [teamID]
   )
-  const teamMenu = Kb.usePopup2(makePopup)
+  const {showPopup: tmshowPopup, popupAnchor: tmpopupAnchor, popup: tmpopup} = Kb.usePopup2(makePopup)
 
   const avatar = (
     <Kb.Avatar
-      editable={!!callbacks.onEditAvatar}
-      onEditAvatarClick={callbacks.onEditAvatar}
+      editable={!!onEditAvatar}
+      onEditAvatarClick={onEditAvatar}
       teamname={meta.teamname}
       size={96}
       style={Kb.Styles.collapseStyles([
         styles.alignSelfFlexStart,
-        callbacks.onEditAvatar && styles.marginBottomRightTiny, // space for edit icon
-        callbacks.onEditAvatar && styles.clickable,
+        onEditAvatar && styles.marginBottomRightTiny, // space for edit icon
+        onEditAvatar && styles.clickable,
       ])}
     />
   )
@@ -133,7 +147,7 @@ const HeaderTitle = (props: HeaderTitleProps) => {
           <Kb.Text type="Header" lineClamp={3} style={styles.header} selectable={true}>
             {meta.teamname}
           </Kb.Text>
-          {!!callbacks.onRename && <Kb.Icon type="iconfont-edit" onClick={callbacks.onRename} />}
+          {!!onRename && <Kb.Icon type="iconfont-edit" onClick={onRename} />}
         </Kb.Box2>
         {meta.isOpen && (
           <Kb.Meta title="open" backgroundColor={Kb.Styles.globalColors.green} style={styles.openMeta} />
@@ -156,11 +170,7 @@ const HeaderTitle = (props: HeaderTitleProps) => {
                 {`You are ${roleDisplay[meta.role] || 'a member of'} this team. `}
               </Kb.Text>
               {meta.role === 'none' && (
-                <Kb.Text
-                  type="BodySmallSecondaryLink"
-                  onClick={callbacks.onAddSelf}
-                  style={styles.addSelfLink}
-                >
+                <Kb.Text type="BodySmallSecondaryLink" onClick={onAddSelf} style={styles.addSelfLink}>
                   Add yourself
                 </Kb.Text>
               )}
@@ -180,8 +190,8 @@ const HeaderTitle = (props: HeaderTitleProps) => {
           <Kb.Text
             type="Body"
             lineClamp={3}
-            onClick={callbacks.onEditDescription}
-            className={Kb.Styles.classNames({'hover-underline': !!callbacks.onEditDescription})}
+            onClick={onEditDescription}
+            className={Kb.Styles.classNames({'hover-underline': !!onEditDescription})}
             style={styles.clickable}
           >
             {details.description}
@@ -194,15 +204,15 @@ const HeaderTitle = (props: HeaderTitleProps) => {
         )}
         <Activity level={activityLevel} style={styles.activity} />
         <Kb.Box2 direction="horizontal" gap="tiny" alignItems="center" style={styles.rightActionsContainer}>
-          {meta.isMember && <Kb.Button label="Chat" onClick={callbacks.onChat} small={true} />}
+          {meta.isMember && <Kb.Button label="Chat" onClick={onChat} small={true} />}
           {yourOperations.editTeamDescription && (
-            <Kb.Button label="Edit" onClick={callbacks.onEditDescription} small={true} mode="Secondary" />
+            <Kb.Button label="Edit" onClick={onEditDescription} small={true} mode="Secondary" />
           )}
           <Kb.Button label="Share" onClick={showPopup} small={true} mode="Secondary" ref={popupAnchor} />
-          <Kb.Button mode="Secondary" small={true} ref={teamMenu.popupAnchor} onClick={teamMenu.showPopup}>
+          <Kb.Button mode="Secondary" small={true} ref={tmpopupAnchor} onClick={tmshowPopup}>
             <Kb.Icon type="iconfont-ellipsis" color={Kb.Styles.globalColors.blue} />
           </Kb.Button>
-          {teamMenu.popup}
+          {tmpopup}
         </Kb.Box2>
       </Kb.Box2>
       {popup}
@@ -271,18 +281,22 @@ const HeaderTitle = (props: HeaderTitleProps) => {
 export default HeaderTitle
 
 const useHeaderCallbacks = (teamID: T.Teams.TeamID) => {
-  const nav = Container.useSafeNavigation()
-  const meta = C.useTeamsState(s => C.Teams.getTeamMeta(s, teamID))
-  const yourUsername = C.useCurrentUserState(s => s.username)
-  const yourOperations = C.useTeamsState(s => C.Teams.getCanPerformByID(s, teamID))
-  const startAddMembersWizard = C.useTeamsState(s => s.dispatch.startAddMembersWizard)
-  const addMembersWizardPushMembers = C.useTeamsState(s => s.dispatch.addMembersWizardPushMembers)
+  const nav = useSafeNavigation()
+  const {addMembersWizardPushMembers, meta, startAddMembersWizard, yourOperations} = Teams.useTeamsState(
+    C.useShallow(s => ({
+      addMembersWizardPushMembers: s.dispatch.addMembersWizardPushMembers,
+      meta: Teams.getTeamMeta(s, teamID),
+      startAddMembersWizard: s.dispatch.startAddMembersWizard,
+      yourOperations: Teams.getCanPerformByID(s, teamID),
+    }))
+  )
+  const yourUsername = useCurrentUserState(s => s.username)
 
   const onAddSelf = () => {
     startAddMembersWizard(teamID)
     addMembersWizardPushMembers([{assertion: yourUsername, role: 'writer'}])
   }
-  const previewConversation = C.useChatState(s => s.dispatch.previewConversation)
+  const previewConversation = Chat.useChatState(s => s.dispatch.previewConversation)
   const onChat = () => previewConversation({reason: 'teamHeader', teamname: meta.teamname})
   const onEditAvatar = yourOperations.editTeamDescription
     ? () =>
@@ -294,16 +308,11 @@ const useHeaderCallbacks = (teamID: T.Teams.TeamID) => {
   const onRename = yourOperations.renameTeam
     ? () => nav.safeNavigateAppend({props: {teamname: meta.teamname}, selected: 'teamRename'})
     : undefined
-  const onManageInvites = () => nav.safeNavigateAppend({props: {teamID}, selected: 'teamInviteHistory'})
-  const onGenerateLink = () => nav.safeNavigateAppend({props: {teamID}, selected: 'teamInviteLinksGenerate'})
-
   return {
     onAddSelf,
     onChat,
     onEditAvatar,
     onEditDescription,
-    onGenerateLink,
-    onManageInvites,
     onRename,
   }
 }

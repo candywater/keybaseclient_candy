@@ -86,3 +86,7 @@ go/keybase_freebsd
 go/keybase_netbsd
 go/keybase_openbsd
 
+.cursor
+.claude
+.*-mcp
+CLAUDE.md

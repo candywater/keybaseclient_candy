@@ -1,9 +1,11 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Kb from '@/common-adapters'
+import * as Teams from '@/constants/teams'
 import * as React from 'react'
 import * as RowSizes from './sizes'
 import type * as T from '@/constants/types'
-import TeamMenu from '@/chat/conversation/info-panel/menu/container'
+import TeamMenu from '@/chat/conversation/info-panel/menu'
 
 type Props = {
   navKey: string
@@ -12,8 +14,15 @@ type Props = {
 }
 
 const BigTeamHeader = React.memo(function BigTeamHeader(props: Props) {
+  return (
+    <Chat.ChatProvider id={Chat.dummyConversationIDKey}>
+      <BigTeamHeaderImpl {...props} />
+    </Chat.ChatProvider>
+  )
+})
+const BigTeamHeaderImpl = (props: Props) => {
   const {teamID, teamname} = props
-  const badgeSubscribe = C.useTeamsState(s => !C.Teams.isTeamWithChosenChannels(s, teamname))
+  const badgeSubscribe = Teams.useTeamsState(s => !Teams.isTeamWithChosenChannels(s, teamname))
   const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
   const onClick = () => navigateAppend({props: {teamID}, selected: 'team'})
 
@@ -21,7 +30,7 @@ const BigTeamHeader = React.memo(function BigTeamHeader(props: Props) {
     (p: Kb.Popup2Parms) => {
       const {attachTo, hidePopup} = p
       return (
-        <C.ChatProvider id="" canBeNull={true}>
+        <Chat.ChatProvider id="" canBeNull={true}>
           <TeamMenu
             attachTo={attachTo}
             visible={true}
@@ -30,7 +39,7 @@ const BigTeamHeader = React.memo(function BigTeamHeader(props: Props) {
             hasHeader={true}
             isSmallTeam={false}
           />
-        </C.ChatProvider>
+        </Chat.ChatProvider>
       )
     },
     [teamID]
@@ -68,7 +77,7 @@ const BigTeamHeader = React.memo(function BigTeamHeader(props: Props) {
       </Kb.ClickableBox>
     </Kb.Box2>
   )
-})
+}
 
 const styles = Kb.Styles.styleSheetCreate(
   () =>

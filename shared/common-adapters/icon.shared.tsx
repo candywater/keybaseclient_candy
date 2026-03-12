@@ -94,7 +94,7 @@ const idealSizeMultMap: {[key: string]: MultMap} = {
 }
 
 const _getMultsMapCache: {[key: string]: MultMap} = {}
-export function getMultsMap(imgMap: {[size: string]: any}, targetSize: number): MultMap {
+export function getMultsMap(imgMap: {[size: string]: unknown}, targetSize: number): MultMap {
   const ssizes = Object.keys(imgMap)
 
   if (!ssizes.length) {
@@ -103,7 +103,7 @@ export function getMultsMap(imgMap: {[size: string]: any}, targetSize: number): 
 
   const sizeKey = targetSize + ']' + ssizes.join(':')
   if (_getMultsMapCache[sizeKey]) {
-    return _getMultsMapCache[sizeKey] || {}
+    return _getMultsMapCache[sizeKey]
   }
 
   const sizes = ssizes.map(s => parseInt(s, 10)).sort((a: number, b: number) => a - b)
@@ -138,13 +138,13 @@ export function getMultsMap(imgMap: {[size: string]: any}, targetSize: number): 
 function makePaddingStyles(): PaddingStyles {
   type Keys = keyof typeof Styles.globalMargins
   const keys = Object.keys(Styles.globalMargins) as unknown as Array<Keys>
-  return keys.reduce<PaddingStyles>(
+  return keys.reduce<Partial<PaddingStyles>>(
     (styles, paddingName) => ({
       ...styles,
       [paddingName]: {padding: Styles.globalMargins[paddingName]},
     }),
-    {} as unknown as PaddingStyles
-  )
+    {}
+  ) as PaddingStyles
 }
 
 type PaddingStyles = {

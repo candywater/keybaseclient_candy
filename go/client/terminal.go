@@ -96,10 +96,11 @@ func (t *Terminal) PromptYesNo(p string, def libkb.PromptDefault) (ret bool, err
 			ret = false
 			done = true
 		} else if libkb.IsEmpty(s) {
-			if def == libkb.PromptDefaultNo {
+			switch def {
+			case libkb.PromptDefaultNo:
 				ret = false
 				done = true
-			} else if def == libkb.PromptDefaultYes {
+			case libkb.PromptDefaultYes:
 				ret = true
 				done = true
 			}
@@ -118,7 +119,6 @@ func (t *Terminal) GetSize() (int, int) {
 }
 
 func (t *Terminal) GetSecret(arg *keybase1.SecretEntryArg) (res *keybase1.SecretEntryRes, err error) {
-
 	if err := t.open(); err != nil {
 		return nil, err
 	}

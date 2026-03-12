@@ -1,4 +1,5 @@
 import * as C from '@/constants'
+import * as Devices from '@/constants/devices'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
 import DeviceRow, {NewContext} from './row'
@@ -20,10 +21,10 @@ const splitAndSortDevices = (deviceMap: T.Immutable<Map<string, T.Devices.Device
 const itemHeight = {height: 48, type: 'fixed'} as const
 
 const ReloadableDevices = React.memo(function ReloadableDevices() {
-  const deviceMap = C.useDevicesState(s => s.deviceMap)
-  const waiting = C.Waiting.useAnyWaiting(C.Devices.waitingKey)
-  const {load: loadDevices, clearBadges} = C.useDevicesState(s => s.dispatch)
-  const storeSet = C.useDevicesState(s => s.isNew)
+  const deviceMap = Devices.useDevicesState(s => s.deviceMap)
+  const waiting = C.Waiting.useAnyWaiting(C.waitingKeyDevices)
+  const {load: loadDevices, clearBadges} = Devices.useDevicesState(s => s.dispatch)
+  const storeSet = Devices.useDevicesState(s => s.isNew)
   const {badged} = useLocalBadging(storeSet, clearBadges)
 
   const newlyChangedItemIds = badged
@@ -67,10 +68,12 @@ const ReloadableDevices = React.memo(function ReloadableDevices() {
   }, [loadDevices])
 
   const lastHasNewlyRevoked = React.useRef(hasNewlyRevoked)
-  if (lastHasNewlyRevoked.current !== hasNewlyRevoked) {
-    lastHasNewlyRevoked.current = hasNewlyRevoked
-    setRevokeExpanded(true)
-  }
+  React.useEffect(() => {
+    if (lastHasNewlyRevoked.current !== hasNewlyRevoked) {
+      lastHasNewlyRevoked.current = hasNewlyRevoked
+      setRevokeExpanded(true)
+    }
+  }, [hasNewlyRevoked])
   const renderItem = React.useCallback(
     (index: number, item: Item) => {
       if (item.type === 'revokedHeader') {
@@ -107,7 +110,7 @@ const ReloadableDevices = React.memo(function ReloadableDevices() {
   return (
     <Kb.Reloadable
       onBack={C.isMobile ? onBack : undefined}
-      waitingKeys={C.Devices.waitingKey}
+      waitingKeys={C.waitingKeyDevices}
       onReload={loadDevices}
       reloadOnMount={true}
       title=""
@@ -121,9 +124,9 @@ const ReloadableDevices = React.memo(function ReloadableDevices() {
           ) : null}
           {showPaperKeyNudge ? <PaperKeyNudge onAddDevice={() => onAddDevice(['paper key'])} /> : null}
           {waiting ? <Kb.ProgressIndicator style={styles.progress} /> : null}
-          <Kb.Box2 direction="vertical" fullWidth={true} style={{flexGrow: 1, flexShrink: 1}}>
+          <Kb.BoxGrow2>
             <Kb.List2 bounces={false} items={items} renderItem={renderItem} itemHeight={itemHeight} />
-          </Kb.Box2>
+          </Kb.BoxGrow2>
         </Kb.Box2>
       </NewContext.Provider>
     </Kb.Reloadable>

@@ -1,35 +1,42 @@
 import * as C from '@/constants'
-import * as Constants from '@/constants/fs'
 import * as Kb from '@/common-adapters'
 import * as Kbfs from '../common'
 import * as React from 'react'
 import * as T from '@/constants/types'
-import ConflictBanner from '../banner/conflict-banner-container'
+import ConflictBanner from '../banner/conflict-banner'
 import Footer from '../footer/footer'
 import OfflineFolder from './offline'
 import PublicReminder from '../banner/public-reminder'
 import Root from './root'
 import Rows from './rows/rows-container'
-import {asRows as resetBannerAsRows} from '../banner/reset-banner/container'
+import {asRows as resetBannerAsRows} from '../banner/reset-banner'
+import {useFSState} from '@/constants/fs'
+import * as FS from '@/constants/fs'
 
 type OwnProps = {path: T.FS.Path}
 
 const Container = (ownProps: OwnProps) => {
   const {path} = ownProps
-  const _kbfsDaemonStatus = C.useFSState(s => s.kbfsDaemonStatus)
-  const _pathItem = C.useFSState(s => Constants.getPathItem(s.pathItems, path))
-  const resetBannerType = C.useFSState(s => Constants.resetBannerType(s, path))
+  const {_kbfsDaemonStatus, _pathItem, resetBannerType} = useFSState(
+    C.useShallow(s => ({
+      _kbfsDaemonStatus: s.kbfsDaemonStatus,
+      _pathItem: FS.getPathItem(s.pathItems, path),
+      resetBannerType: FS.resetBannerType(s, path),
+    }))
+  )
   const props = {
-    offlineUnsynced: Constants.isOfflineUnsynced(_kbfsDaemonStatus, _pathItem, path),
+    offlineUnsynced: FS.isOfflineUnsynced(_kbfsDaemonStatus, _pathItem, path),
     path,
     resetBannerType,
     writable: _pathItem.writable,
   }
   return (
-    <Kb.Box2 direction="vertical" fullWidth={true} fullHeight={true}>
-      <Kbfs.Errs />
-      <BrowserContent {...props} />
-      <Footer path={props.path} />
+    <Kb.Box2 direction="vertical" fullWidth={true} style={{flexGrow: 1}}>
+      <Kb.KeyboardAvoidingView2>
+        <Kbfs.Errs />
+        <BrowserContent {...props} />
+        <Footer path={props.path} />
+      </Kb.KeyboardAvoidingView2>
     </Kb.Box2>
   )
 }
@@ -61,7 +68,7 @@ const DragAndDrop = React.memo(function DragAndDrop(p: {
   rejectReason?: string
 }) {
   const {children, path, rejectReason} = p
-  const uploadFromDragAndDrop = C.useFSState(s => s.dispatch.dynamic.uploadFromDragAndDropDesktop)
+  const uploadFromDragAndDrop = useFSState(s => s.dispatch.dynamic.uploadFromDragAndDropDesktop)
   const onAttach = React.useCallback(
     (localPaths: Array<string>) => uploadFromDragAndDrop?.(path, localPaths),
     [path, uploadFromDragAndDrop]
@@ -80,7 +87,7 @@ const DragAndDrop = React.memo(function DragAndDrop(p: {
 })
 
 const BrowserContent = React.memo(function BrowserContent(props: Props) {
-  const parsedPath = Constants.parsePath(props.path)
+  const parsedPath = FS.parsePath(props.path)
   if (parsedPath.kind === T.FS.PathKind.Root) {
     return (
       <DragAndDrop path={props.path} rejectReason="You can only drop files inside a folder.">

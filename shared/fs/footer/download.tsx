@@ -1,11 +1,11 @@
 import * as Kb from '@/common-adapters'
 import * as Kbfs from '../common'
 import * as C from '@/constants'
-import * as Constants from '@/constants/fs'
 import * as T from '@/constants/types'
 import DownloadWrapper from './download-wrapper'
 import {formatDurationFromNowTo} from '@/util/timestamp'
-import {isMobile} from '@/constants/platform'
+import * as FS from '@/constants/fs'
+import {useFSState} from '@/constants/fs'
 
 export type Props = {
   downloadID: string
@@ -32,16 +32,18 @@ const getProgress = (dlState: T.FS.DownloadState) => (
 
 const Download = (props: Props) => {
   const dlInfo = Kbfs.useFsDownloadInfo(props.downloadID)
-  const dlState = C.useFSState(s => s.downloads.state.get(props.downloadID) || Constants.emptyDownloadState)
-  const openLocalPathInSystemFileManagerDesktop = C.useFSState(
-    s => s.dispatch.dynamic.openLocalPathInSystemFileManagerDesktop
+  const {dlState, openLocalPathInSystemFileManagerDesktop, dismissDownload, cancelDownload} = useFSState(
+    C.useShallow(s => ({
+      cancelDownload: s.dispatch.cancelDownload,
+      dismissDownload: s.dispatch.dismissDownload,
+      dlState: s.downloads.state.get(props.downloadID) || FS.emptyDownloadState,
+      openLocalPathInSystemFileManagerDesktop: s.dispatch.dynamic.openLocalPathInSystemFileManagerDesktop,
+    }))
   )
   const open = dlState.localPath
     ? () => openLocalPathInSystemFileManagerDesktop?.(dlState.localPath)
     : () => {}
-  const dismissDownload = C.useFSState(s => s.dispatch.dismissDownload)
   const dismiss = () => dismissDownload(props.downloadID)
-  const cancelDownload = C.useFSState(s => s.dispatch.cancelDownload)
   const cancel = () => cancelDownload(props.downloadID)
   Kbfs.useFsWatchDownloadForMobile(props.downloadID, T.FS.DownloadIntent.None)
   return (
@@ -63,19 +65,19 @@ const Download = (props: Props) => {
         <Kb.Box2 direction="vertical" style={styles.nameAndProgress}>
           <Kb.Text
             type="BodySmallSemibold"
-            onClick={isMobile ? undefined : open}
+            onClick={C.isMobile ? undefined : open}
             style={styles.filename}
-            lineClamp={isMobile ? 1 : undefined}
+            lineClamp={C.isMobile ? 1 : undefined}
           >
             {dlInfo.filename}
           </Kb.Text>
-          {Constants.downloadIsOngoing(dlState) && getProgress(dlState)}
+          {FS.downloadIsOngoing(dlState) && getProgress(dlState)}
         </Kb.Box2>
         <Kb.Box2 direction="vertical" centerChildren={true} fullHeight={true}>
           <Kb.Icon
             type="iconfont-remove"
             color={Kb.Styles.globalColors.white}
-            onClick={!Constants.downloadIsOngoing(dlState) ? dismiss : cancel}
+            onClick={!FS.downloadIsOngoing(dlState) ? dismiss : cancel}
           />
         </Kb.Box2>
       </Kb.Box2>

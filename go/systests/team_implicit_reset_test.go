@@ -1,11 +1,11 @@
 package systests
 
 import (
+	"context"
 	"strings"
 	"testing"
 
-	"golang.org/x/net/context"
-
+	"github.com/keybase/client/go/ephemeral"
 	libkb "github.com/keybase/client/go/libkb"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
 	teams "github.com/keybase/client/go/teams"
@@ -195,6 +195,12 @@ func TestImplicitTeamResetAndSBSBringback(t *testing.T) {
 
 	bob := tt.addUser("bob")
 	t.Logf("Signed up bob (%s)", bob.username)
+	ekLibIface := bob.tc.G.GetEKLib()
+	ekLib, ok := ekLibIface.(*ephemeral.EKLib)
+	require.True(t, ok)
+	mctx := bob.MetaContext()
+	err := ekLib.Shutdown(mctx)
+	require.NoError(t, err)
 
 	// (1)
 	displayName := strings.Join([]string{ann.username, bob.username}, ",")
@@ -205,6 +211,16 @@ func TestImplicitTeamResetAndSBSBringback(t *testing.T) {
 	bob.kickTeamRekeyd()
 	bob.reset()                  // (2)
 	bob.loginAfterResetPukless() // (3)
+
+	// Disable background EK generation after login to prevent it from racing
+	// with the explicit perUserKeyUpgrade() call below.
+	t.Logf("Disabling background EK generation after login for bob")
+	ekLibIface = bob.tc.G.GetEKLib()
+	ekLib, ok = ekLibIface.(*ephemeral.EKLib)
+	require.True(t, ok)
+	mctx = bob.MetaContext()
+	err = ekLib.Shutdown(mctx)
+	require.NoError(t, err)
 
 	ann.reAddUserAfterReset(iteam, bob) // (4)
 
@@ -249,6 +265,7 @@ func testImplicitResetParameterized(t *testing.T, startPUK, getPUKAfter bool) {
 	t.Logf("impteam created for %q (id: %s)", displayName, iteam)
 
 	ann.kickTeamRekeyd()
+	bob.kickTeamRekeyd()
 	bob.reset()
 	if getPUKAfter {
 		// Bob resets and gets a PUK afterwards
@@ -256,6 +273,16 @@ func testImplicitResetParameterized(t *testing.T, startPUK, getPUKAfter bool) {
 	} else {
 		// Bob resets and does not get a PUK.
 		bob.loginAfterResetPukless()
+
+		// Disable background EK generation after login to prevent it from racing
+		// with the explicit perUserKeyUpgrade() call below.
+		t.Logf("Disabling background EK generation after login for bob")
+		ekLibIface := bob.tc.G.GetEKLib()
+		ekLib, ok := ekLibIface.(*ephemeral.EKLib)
+		require.True(t, ok)
+		mctx := bob.MetaContext()
+		err = ekLib.Shutdown(mctx)
+		require.NoError(t, err)
 	}
 
 	iteam2, err := ann.lookupImplicitTeam(false /* create */, displayName, false /* isPublic */)

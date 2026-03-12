@@ -1,7 +1,11 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as React from 'react'
+import * as Teams from '@/constants/teams'
+import {useTeamsState} from '@/constants/teams'
 import * as Kb from '@/common-adapters'
 import type * as T from '@/constants/types'
+import type {StylesCrossPlatform} from '@/styles'
 import SaveIndicator from '@/common-adapters/save-indicator'
 import {useConfirm} from './use-confirm'
 
@@ -60,9 +64,21 @@ const RetentionPicker = (p: Props) => {
   )
 
   const modalConfirmed = useConfirm(s => s.confirmed)
+  const modalOpen = useConfirm(s => s.modalOpen)
   const updateConfirm = useConfirm(s => s.dispatch.updateConfirm)
 
   const [lastConfirmed, setLastConfirmed] = React.useState<T.Retention.RetentionPolicy | undefined>(undefined)
+  const [lastModalOpen, setLastModalOpen] = React.useState(modalOpen)
+
+  React.useEffect(() => {
+    if (lastModalOpen !== modalOpen) {
+      setLastModalOpen(modalOpen)
+      if (!modalOpen) {
+        setInitialSelected()
+      }
+    }
+  }, [lastModalOpen, modalOpen, setInitialSelected])
+
   if (lastConfirmed !== modalConfirmed) {
     setTimeout(() => {
       setLastConfirmed(modalConfirmed)
@@ -107,24 +123,26 @@ const RetentionPicker = (p: Props) => {
   const lastPolicy = React.useRef(policy)
   const lastTeamPolicy = React.useRef(teamPolicy)
 
-  if (!policyEquals(policy, lastPolicy.current) || !policyEquals(teamPolicy, lastTeamPolicy.current)) {
-    if (policyEquals(policy, selected)) {
-      // we just got updated retention policy matching the selected one
-      setSaving(false)
-    } // we could show a notice that we received a new value in an else block
-    setInitialSelected(policy)
-  }
-  lastPolicy.current = policy
-  lastTeamPolicy.current = teamPolicy
+  React.useEffect(() => {
+    if (!policyEquals(policy, lastPolicy.current) || !policyEquals(teamPolicy, lastTeamPolicy.current)) {
+      if (policyEquals(policy, selected)) {
+        // we just got updated retention policy matching the selected one
+        setSaving(false)
+      } // we could show a notice that we received a new value in an else block
+      setInitialSelected(policy)
+    }
+    lastPolicy.current = policy
+    lastTeamPolicy.current = teamPolicy
+  }, [policy, teamPolicy, selected, setInitialSelected])
 
   const makePopup = React.useCallback(
     (p: Kb.Popup2Parms) => {
       const {attachTo, hidePopup} = p
 
       const makeItems = () => {
-        const policies = C.Teams.baseRetentionPolicies.slice()
+        const policies = Teams.baseRetentionPolicies.slice()
         if (showInheritOption) {
-          policies.unshift(C.Teams.retentionPolicies.policyInherit)
+          policies.unshift(Teams.retentionPolicies.policyInherit)
         }
         return policies.reduce<Kb.MenuItems>((arr, policy) => {
           switch (policy.type) {
@@ -219,9 +237,7 @@ const RetentionPicker = (p: Props) => {
         </Kb.Box2>
       )}
       {showOverrideNotice && <Kb.Text type="BodySmall">Individual channels can override this.</Kb.Text>}
-      {showSaveIndicator && (
-        <SaveIndicator saving={saving} style={styles.saveState} minSavingTimeMs={300} savedTimeoutMs={2500} />
-      )}
+      {showSaveIndicator && <SaveIndicator saving={saving} style={styles.saveState} />}
     </Kb.Box>
   )
 }
@@ -256,54 +272,57 @@ const RetentionDisplay = (
   )
 }
 
-const styles = Kb.Styles.styleSheetCreate(() => ({
-  displayHeading: {
-    marginBottom: 2,
-  },
-  heading: {
-    ...Kb.Styles.globalStyles.flexBoxRow,
-    alignItems: 'center',
-    marginBottom: Kb.Styles.globalMargins.tiny,
-  },
-  label: {
-    justifyContent: 'flex-start',
-    minHeight: Kb.Styles.isMobile ? 40 : 32,
-    paddingLeft: Kb.Styles.globalMargins.xsmall,
-  },
-  progressIndicator: {
-    height: 30,
-    marginTop: Kb.Styles.globalMargins.small,
-    width: 30,
-  },
-  retentionDropdown: Kb.Styles.platformStyles({
-    common: {
-      ...Kb.Styles.globalStyles.flexBoxRow,
-      alignItems: 'center',
-      borderColor: Kb.Styles.globalColors.grey,
-      borderRadius: Kb.Styles.borderRadius,
-      borderStyle: 'solid',
-      borderWidth: 1,
-      marginBottom: Kb.Styles.globalMargins.tiny,
-      minWidth: 220,
-      paddingRight: Kb.Styles.globalMargins.small,
-    },
-    isElectron: {
-      width: 220,
-    },
-  }),
-  saveState: Kb.Styles.platformStyles({
-    common: {
-      ...Kb.Styles.globalStyles.flexBoxRow,
-      alignItems: 'center',
-      height: 17,
-      justifyContent: 'center',
-      marginTop: Kb.Styles.globalMargins.tiny,
-    },
-    isMobile: {
-      height: Kb.Styles.globalMargins.medium,
-    },
-  }),
-}))
+const styles = Kb.Styles.styleSheetCreate(
+  () =>
+    ({
+      displayHeading: {
+        marginBottom: 2,
+      },
+      heading: {
+        ...Kb.Styles.globalStyles.flexBoxRow,
+        alignItems: 'center',
+        marginBottom: Kb.Styles.globalMargins.tiny,
+      },
+      label: {
+        justifyContent: 'flex-start',
+        minHeight: Kb.Styles.isMobile ? 40 : 32,
+        paddingLeft: Kb.Styles.globalMargins.xsmall,
+      },
+      progressIndicator: {
+        height: 30,
+        marginTop: Kb.Styles.globalMargins.small,
+        width: 30,
+      },
+      retentionDropdown: Kb.Styles.platformStyles({
+        common: {
+          ...Kb.Styles.globalStyles.flexBoxRow,
+          alignItems: 'center',
+          borderColor: Kb.Styles.globalColors.grey,
+          borderRadius: Kb.Styles.borderRadius,
+          borderStyle: 'solid',
+          borderWidth: 1,
+          marginBottom: Kb.Styles.globalMargins.tiny,
+          minWidth: 220,
+          paddingRight: Kb.Styles.globalMargins.small,
+        },
+        isElectron: {
+          width: 220,
+        },
+      }),
+      saveState: Kb.Styles.platformStyles({
+        common: {
+          ...Kb.Styles.globalStyles.flexBoxRow,
+          alignItems: 'center',
+          height: 17,
+          justifyContent: 'center',
+          marginTop: Kb.Styles.globalMargins.tiny,
+        },
+        isMobile: {
+          height: Kb.Styles.globalMargins.medium,
+        },
+      }),
+    }) as const
+)
 
 // Utilities for transforming retention policies <-> labels
 const policyToLabel = (p?: T.Retention.RetentionPolicy, parent?: T.Retention.RetentionPolicy) => {
@@ -429,8 +448,8 @@ const policyToExplanation = (
 // Switcher to avoid having RetentionPicker try to process nonexistent data
 const RetentionSwitcher = (props: {entityType: RetentionEntityType} & Props) => {
   const {teamID} = props
-  const existing = C.useTeamsState(s => s.teamIDToRetentionPolicy.get(teamID))
-  const getTeamRetentionPolicy = C.useTeamsState(s => s.dispatch.getTeamRetentionPolicy)
+  const existing = useTeamsState(s => s.teamIDToRetentionPolicy.get(teamID))
+  const getTeamRetentionPolicy = useTeamsState(s => s.dispatch.getTeamRetentionPolicy)
   React.useEffect(() => {
     // only load it up if its empty
     if (!existing) {
@@ -443,4 +462,74 @@ const RetentionSwitcher = (props: {entityType: RetentionEntityType} & Props) => 
   return props.canSetPolicy ? <RetentionPicker {...props} /> : <RetentionDisplay {...props} />
 }
 
-export default RetentionSwitcher
+export type OwnProps = {
+  conversationIDKey?: T.Chat.ConversationIDKey
+  containerStyle?: StylesCrossPlatform
+  dropdownStyle?: StylesCrossPlatform
+  entityType: RetentionEntityType
+  showSaveIndicator: boolean
+  teamID: T.Teams.TeamID
+}
+
+const Container = (ownProps: OwnProps) => {
+  const {entityType, conversationIDKey: _cid, teamID} = ownProps
+
+  let loading = false
+  let teamPolicy: T.Retention.RetentionPolicy | undefined
+
+  if (_cid) {
+  } else if (!entityType.endsWith('team')) {
+    throw new Error(`RetentionPicker needs a conversationIDKey to set ${entityType} retention policies`)
+  }
+  const conversationIDKey = _cid ?? Chat.noConversationIDKey
+  let policy = Chat.useConvoState(conversationIDKey, s =>
+    _cid ? s.meta.retentionPolicy : Teams.retentionPolicies.policyRetain
+  )
+  const tempPolicy = useTeamsState(s => Teams.getTeamRetentionPolicyByID(s, teamID))
+  if (entityType !== 'adhoc') {
+    loading = !tempPolicy
+    if (tempPolicy) {
+      if (entityType === 'channel') {
+        teamPolicy = tempPolicy
+      } else {
+        policy = tempPolicy
+      }
+    }
+  }
+
+  const canSetPolicy = useTeamsState(
+    s => entityType === 'adhoc' || Teams.getCanPerformByID(s, teamID).setRetentionPolicy
+  )
+  const policyIsExploding =
+    policy.type === 'explode' || (policy.type === 'inherit' && teamPolicy?.type === 'explode')
+  const showInheritOption = entityType === 'channel'
+  const showOverrideNotice = entityType === 'big team'
+  const setTeamRetentionPolicy = useTeamsState(s => s.dispatch.setTeamRetentionPolicy)
+  const setConvRetentionPolicy = Chat.useConvoState(conversationIDKey, s => s.dispatch.setConvRetentionPolicy)
+  const saveRetentionPolicy = (policy: T.Retention.RetentionPolicy) => {
+    if (['small team', 'big team'].includes(entityType)) {
+      setTeamRetentionPolicy(teamID, policy)
+    } else if (['adhoc', 'channel'].includes(entityType)) {
+      // we couldn't get here without throwing an error for !conversationIDKey
+      setConvRetentionPolicy(policy)
+    } else {
+      throw new Error(`RetentionPicker: impossible entityType encountered: ${entityType}`)
+    }
+  }
+  const props = {
+    canSetPolicy,
+    entityType,
+    loading,
+    policy,
+    policyIsExploding,
+    saveRetentionPolicy,
+    showInheritOption,
+    showOverrideNotice,
+    showSaveIndicator: ownProps.showSaveIndicator,
+    teamID,
+    teamPolicy,
+  }
+  return <RetentionSwitcher {...props} />
+}
+
+export default Container

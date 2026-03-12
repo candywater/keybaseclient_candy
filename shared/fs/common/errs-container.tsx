@@ -1,17 +1,40 @@
-import * as C from '@/constants'
 import * as React from 'react'
-import Errs from './errs'
+import * as Kb from '@/common-adapters'
+import * as C from '@/constants'
+import {useFSState} from '@/constants/fs'
 
-const Container = () => {
-  const _errors = C.useFSState(s => s.errors)
-  const _dismiss = C.useFSState(s => s.dispatch.dismissRedbar)
+const ErrsContainer = () => {
+  const {_errors, _dismiss} = useFSState(
+    C.useShallow(s => ({
+      _dismiss: s.dispatch.dismissRedbar,
+      _errors: s.errors,
+    }))
+  )
   const props = {
     errs: _errors.map((err, i) => ({
       dismiss: () => _dismiss(i),
       msg: err,
     })),
   }
-  return <Errs {...props} />
+  return (
+    <>
+      <Kb.Box2 fullWidth={true} direction="vertical">
+        {props.errs.map((errProps, index) => (
+          <React.Fragment key={index}>
+            <Err {...errProps} />
+            {props.errs.length > 1 && index !== props.errs.length && <Kb.Divider />}
+          </React.Fragment>
+        ))}
+      </Kb.Box2>
+      {!!props.errs.length && <Kb.Divider />}
+    </>
+  )
 }
 
-export default Container
+const Err = (props: {dismiss: () => void; msg: string}) => (
+  <Kb.Banner onClose={props.dismiss} color="red">
+    <Kb.BannerParagraph bannerColor="red" content={props.msg} />
+  </Kb.Banner>
+)
+
+export default ErrsContainer

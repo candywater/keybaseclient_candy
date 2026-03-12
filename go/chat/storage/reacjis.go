@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
@@ -15,7 +16,6 @@ import (
 	"github.com/keybase/client/go/protocol/gregor1"
 	"github.com/keybase/client/go/protocol/keybase1"
 	"github.com/kyokomi/emoji"
-	context "golang.org/x/net/context"
 )
 
 func init() {
@@ -232,7 +232,7 @@ func (s *ReacjiStore) populateCacheLocked(ctx context.Context, uid gregor1.UID) 
 func (s *ReacjiStore) PutReacji(ctx context.Context, uid gregor1.UID, shortCode string) error {
 	s.Lock()
 	defer s.Unlock()
-	if !(EmojiHasAlias(shortCode) || globals.EmojiPattern.MatchString(shortCode)) {
+	if !EmojiHasAlias(shortCode) && !globals.EmojiPattern.MatchString(shortCode) {
 		return nil
 	}
 	cache := s.populateCacheLocked(ctx, uid)
@@ -253,7 +253,8 @@ func (s *ReacjiStore) PutReacji(ctx context.Context, uid gregor1.UID, shortCode 
 }
 
 func (s *ReacjiStore) PutSkinTone(ctx context.Context, uid gregor1.UID,
-	skinTone keybase1.ReacjiSkinTone) error {
+	skinTone keybase1.ReacjiSkinTone,
+) error {
 	s.Lock()
 	defer s.Unlock()
 

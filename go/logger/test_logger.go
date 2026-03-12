@@ -4,6 +4,7 @@
 package logger
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"runtime"
@@ -12,8 +13,6 @@ import (
 	"time"
 
 	logging "github.com/keybase/go-logging"
-
-	"golang.org/x/net/context"
 )
 
 // TestLogBackend is an interface for logging to a test object (i.e.,
@@ -52,8 +51,10 @@ var _ Logger = (*TestLogger)(nil)
 // it there would result in multiple "TEST FAILED" per test.
 // This way has the drawback that when two tests in different packages
 // share a name, only one of their "TEST FAILED" will print.
-var globalFailReportedLock sync.Mutex
-var globalFailReported = make(map[string]struct{})
+var (
+	globalFailReportedLock sync.Mutex
+	globalFailReported     = make(map[string]struct{})
+)
 
 // ctx can be `nil`
 func (log *TestLogger) common(ctx context.Context, lvl logging.Level, useFatal bool, fmts string, arg ...interface{}) {
@@ -113,7 +114,8 @@ func (log *TestLogger) Debug(fmts string, arg ...interface{}) {
 }
 
 func (log *TestLogger) CDebugf(ctx context.Context, fmts string,
-	arg ...interface{}) {
+	arg ...interface{},
+) {
 	log.common(ctx, logging.DEBUG, false, fmts, arg...)
 }
 
@@ -122,7 +124,8 @@ func (log *TestLogger) Info(fmts string, arg ...interface{}) {
 }
 
 func (log *TestLogger) CInfof(ctx context.Context, fmts string,
-	arg ...interface{}) {
+	arg ...interface{},
+) {
 	log.common(ctx, logging.INFO, false, fmts, arg...)
 }
 
@@ -131,7 +134,8 @@ func (log *TestLogger) Notice(fmts string, arg ...interface{}) {
 }
 
 func (log *TestLogger) CNoticef(ctx context.Context, fmts string,
-	arg ...interface{}) {
+	arg ...interface{},
+) {
 	log.common(ctx, logging.NOTICE, false, fmts, arg...)
 }
 
@@ -140,7 +144,8 @@ func (log *TestLogger) Warning(fmts string, arg ...interface{}) {
 }
 
 func (log *TestLogger) CWarningf(ctx context.Context, fmts string,
-	arg ...interface{}) {
+	arg ...interface{},
+) {
 	log.common(ctx, logging.WARNING, false, fmts, arg...)
 }
 
@@ -153,7 +158,8 @@ func (log *TestLogger) Errorf(fmts string, arg ...interface{}) {
 }
 
 func (log *TestLogger) CErrorf(ctx context.Context, fmts string,
-	arg ...interface{}) {
+	arg ...interface{},
+) {
 	log.common(ctx, logging.ERROR, false, fmts, arg...)
 }
 
@@ -162,7 +168,8 @@ func (log *TestLogger) Critical(fmts string, arg ...interface{}) {
 }
 
 func (log *TestLogger) CCriticalf(ctx context.Context, fmts string,
-	arg ...interface{}) {
+	arg ...interface{},
+) {
 	log.common(ctx, logging.CRITICAL, false, fmts, arg...)
 }
 
@@ -171,7 +178,8 @@ func (log *TestLogger) Fatalf(fmts string, arg ...interface{}) {
 }
 
 func (log *TestLogger) CFatalf(ctx context.Context, fmts string,
-	arg ...interface{}) {
+	arg ...interface{},
+) {
 	log.common(ctx, logging.CRITICAL, true, fmts, arg...)
 }
 

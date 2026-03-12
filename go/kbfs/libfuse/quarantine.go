@@ -8,9 +8,10 @@
 package libfuse
 
 import (
+	"context"
+
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
-	"golang.org/x/net/context"
 )
 
 // XattrHandler is an interface that includes fuse Get/Set/Remove calls for
@@ -28,7 +29,8 @@ var _ XattrHandler = NoXattrHandler{}
 
 // Getxattr implements the fs.NodeGetxattrer interface.
 func (h NoXattrHandler) Getxattr(context.Context,
-	*fuse.GetxattrRequest, *fuse.GetxattrResponse) error {
+	*fuse.GetxattrRequest, *fuse.GetxattrResponse,
+) error {
 	return fuse.ENOTSUP
 }
 

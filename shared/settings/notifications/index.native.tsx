@@ -1,20 +1,37 @@
 import * as C from '@/constants'
 import * as Kb from '@/common-adapters'
 import Notifications from './render'
-import type {Props} from '.'
+import {Reloadable} from '@/common-adapters'
+import {useSettingsNotifState} from '@/constants/settings-notifications'
+import {useSettingsState} from '@/constants/settings'
+import {usePushState} from '@/constants/push'
 
-const MobileNotifications = (props: Props) => {
+const MobileNotifications = () => {
+  const loadSettings = useSettingsState(s => s.dispatch.loadSettings)
+  const refresh = useSettingsNotifState(s => s.dispatch.refresh)
+  const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
+  const onReload = () => {
+    loadSettings()
+    refresh()
+  }
   return (
-    <Kb.ScrollView style={{...Kb.Styles.globalStyles.flexBoxColumn, flex: 1}}>
-      <TurnOnNotifications />
-      <Notifications {...props} />
-    </Kb.ScrollView>
+    <Reloadable
+      onBack={navigateUp}
+      waitingKeys={[C.refreshNotificationsWaitingKey, C.waitingKeySettingsLoadSettings]}
+      onReload={onReload}
+      reloadOnMount={true}
+    >
+      <Kb.ScrollView style={{...Kb.Styles.globalStyles.flexBoxColumn, flex: 1}}>
+        <TurnOnNotifications />
+        <Notifications />
+      </Kb.ScrollView>
+    </Reloadable>
   )
 }
 
 const TurnOnNotifications = () => {
-  const mobileHasPermissions = C.usePushState(s => s.hasPermissions)
-  const requestPermissions = C.usePushState(s => s.dispatch.requestPermissions)
+  const mobileHasPermissions = usePushState(s => s.hasPermissions)
+  const requestPermissions = usePushState(s => s.dispatch.requestPermissions)
   if (mobileHasPermissions) return null
   const onEnable = requestPermissions
   return (

@@ -3,49 +3,30 @@ import * as Kb from '@/common-adapters'
 import * as React from 'react'
 import UserCard from '../login/user-card'
 import {SignupScreen, errorBanner} from '../signup/common'
-import {isMobile} from '@/constants/platform'
+import {useState as useRecoverState} from '@/constants/recover-password'
+import {useProvisionState} from '@/constants/provision'
 
-const Container = () => {
-  const error = C.useProvisionState(s => s.error)
-  const resetEmailSent = C.useRecoverState(s => s.resetEmailSent)
-  const username = C.useProvisionState(s => s.username)
-  const waiting = C.Waiting.useAnyWaiting(C.Provision.waitingKey)
+const Password = () => {
+  const error = useProvisionState(s => s.error)
+  const resetEmailSent = useRecoverState(s => s.resetEmailSent)
+  const username = useProvisionState(s => s.username)
+  const waiting = C.Waiting.useAnyWaiting(C.waitingKeyProvision)
   const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
-  const startRecoverPassword = C.useRecoverState(s => s.dispatch.startRecoverPassword)
-  const _onForgotPassword = (username: string) => {
+  const startRecoverPassword = useRecoverState(s => s.dispatch.startRecoverPassword)
+  const _onForgotPassword = () => {
     startRecoverPassword({abortProvisioning: true, username})
   }
   const onBack = () => {
     navigateUp()
   }
-  const onSubmit = C.useProvisionState(s => s.dispatch.dynamic.setPassphrase)
-  const props = {
-    error,
-    onBack,
-    onForgotPassword: () => _onForgotPassword(username),
-    onSubmit: (password: string) => !waiting && onSubmit?.(password),
-    resetEmailSent,
-    username,
-    waiting,
-  }
-  return <Password {...props} />
-}
-
-export type Props = {
-  onSubmit: (password: string) => void
-  onBack: () => void
-  onForgotPassword: () => void
-  waiting: boolean
-  error: string
-  username?: string
-  resetEmailSent?: boolean
-}
-
-const Password = (props: Props) => {
+  const _onSubmit = useProvisionState(s => s.dispatch.dynamic.setPassphrase)
+  const onSubmit = React.useCallback(
+    (password: string) => !waiting && _onSubmit?.(password),
+    [_onSubmit, waiting]
+  )
   const [password, setPassword] = React.useState('')
-  const {onSubmit} = props
-  const _onSubmit = React.useCallback(() => onSubmit(password), [password, onSubmit])
-  const resetState = C.useRecoverState(s => s.dispatch.resetState)
+  const _onSubmitClick = React.useCallback(() => onSubmit(password), [password, onSubmit])
+  const resetState = useRecoverState(s => s.dispatch.resetState)
   React.useEffect(
     () => () => {
       resetState()
@@ -57,7 +38,7 @@ const Password = (props: Props) => {
     <SignupScreen
       banners={
         <>
-          {props.resetEmailSent ? (
+          {resetEmailSent ? (
             <Kb.Banner color="green" key="resetBanner">
               <Kb.BannerParagraph
                 bannerColor="green"
@@ -65,20 +46,20 @@ const Password = (props: Props) => {
               />
             </Kb.Banner>
           ) : null}
-          {errorBanner(props.error)}
+          {errorBanner(error)}
         </>
       }
       buttons={[
         {
           disabled: !password,
           label: 'Continue',
-          onClick: _onSubmit,
+          onClick: _onSubmitClick,
           type: 'Default',
-          waiting: props.waiting,
+          waiting,
         },
       ]}
-      onBack={props.onBack}
-      title={isMobile ? 'Enter password' : 'Enter your password'}
+      onBack={onBack}
+      title={C.isMobile ? 'Enter password' : 'Enter your password'}
       contentContainerStyle={styles.contentContainer}
     >
       <Kb.ScrollView
@@ -88,7 +69,7 @@ const Password = (props: Props) => {
       >
         <UserCard
           style={styles.card}
-          username={props.username}
+          username={username}
           avatarBackgroundStyle={styles.outerCardAvatar}
           outerStyle={styles.outerCard}
           lighterPlaceholders={true}
@@ -98,17 +79,13 @@ const Password = (props: Props) => {
             <Kb.LabeledInput
               autoFocus={true}
               placeholder="Password"
-              onEnterKeyDown={_onSubmit}
+              onEnterKeyDown={_onSubmitClick}
               onChangeText={setPassword}
               value={password}
               textType="BodySemibold"
               type="password"
             />
-            <Kb.Text
-              style={styles.forgotPassword}
-              type="BodySmallSecondaryLink"
-              onClick={props.onForgotPassword}
-            >
+            <Kb.Text style={styles.forgotPassword} type="BodySmallSecondaryLink" onClick={_onForgotPassword}>
               Forgot password?
             </Kb.Text>
           </Kb.Box2>
@@ -160,4 +137,4 @@ const styles = Kb.Styles.styleSheetCreate(() => ({
   }),
 }))
 
-export default Container
+export default Password

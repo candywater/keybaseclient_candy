@@ -1,10 +1,9 @@
 package engine
 
 import (
+	"context"
 	"os"
 	"testing"
-
-	"golang.org/x/net/context"
 
 	"github.com/keybase/client/go/libkb"
 	"github.com/stretchr/testify/require"
@@ -121,8 +120,7 @@ func TestBootstrapAfterSignup(t *testing.T) {
 	}
 }
 
-type OfflineConnectivityMonitor struct {
-}
+type OfflineConnectivityMonitor struct{}
 
 func (s OfflineConnectivityMonitor) IsConnected(ctx context.Context) libkb.ConnectivityMonitorResult {
 	return libkb.ConnectivityMonitorNo

@@ -2,27 +2,25 @@
 #import "react-native-kb.h"
 #endif
 
+#import <React/RCTEventEmitter.h>
+#import <foundation/Foundation.h>
+
 #ifdef RCT_NEW_ARCH_ENABLED
 #import <RNKbSpec/RNKbSpec.h>
-#import <React/RCTEventEmitter.h>
-#import <foundation/Foundation.h>
-
-@interface Kb : RCTEventEmitter <NativeKbSpec>
-#else
-#import <React/RCTBridgeModule.h>
-#import <React/RCTEventEmitter.h>
-#import <foundation/Foundation.h>
-
-@interface Kb : RCTEventEmitter <RCTBridgeModule>
-#endif
-
+#import <React/RCTCallInvokerModule.h>
+@interface Kb : RCTEventEmitter <NativeKbSpec,RCTCallInvokerModule>
 @end
+#else
+#endif // RCT_NEW_ARCH_ENABLED
 
 // Singleton to get the paths
-@interface FsPathsHolder : NSObject {
-  NSDictionary *fsPaths;
-}
+@interface FsPathsHolder : NSObject
 @property(nonatomic, retain) NSDictionary *fsPaths;
-+ (id)sharedFsPathsHolder;
-
++ (instancetype)sharedFsPathsHolder;
 @end
+
+// Push notification helpers - can be called from AppDelegate
+FOUNDATION_EXPORT void KbSetDeviceToken(NSString *token);
+FOUNDATION_EXPORT void KbSetInitialNotification(NSDictionary *notification);
+FOUNDATION_EXPORT void KbEmitPushNotification(NSDictionary *notification);
+FOUNDATION_EXPORT NSDictionary *KbGetAndClearInitialNotification(void);

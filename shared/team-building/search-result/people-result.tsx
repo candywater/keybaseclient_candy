@@ -1,8 +1,12 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import * as T from '@/constants/types'
+import * as FS from '@/constants/fs'
 import CommonResult, {type ResultProps} from './common-result'
+import {useUsersState} from '@/constants/users'
+import {useCurrentUserState} from '@/constants/current-user'
 
 /*
  * This component is intended to be a drop-in replacement for UserResult.
@@ -16,8 +20,8 @@ const PeopleResult = React.memo(function PeopleResult(props: ResultProps) {
   const serviceUsername = props.services[props.resultForService]
 
   // action button specific definitions
-  const myUsername = C.useCurrentUserState(s => s.username)
-  const blocked = C.useUsersState(s => s.blockMap.get(keybaseUsername || '')?.chatBlocked)
+  const myUsername = useCurrentUserState(s => s.username)
+  const blocked = useUsersState(s => s.blockMap.get(keybaseUsername || '')?.chatBlocked)
   const decoratedUsername = keybaseUsername ? keybaseUsername : `${serviceUsername}@${props.resultForService}`
 
   const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
@@ -28,21 +32,21 @@ const PeopleResult = React.memo(function PeopleResult(props: ResultProps) {
   const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
   const onOpenPrivateFolder = React.useCallback(() => {
     navigateUp()
-    C.FS.makeActionForOpenPathInFilesTab(
+    FS.makeActionForOpenPathInFilesTab(
       T.FS.stringToPath(`/keybase/private/${decoratedUsername},${myUsername}`)
     )
   }, [navigateUp, decoratedUsername, myUsername])
 
   const onBrowsePublicFolder = React.useCallback(() => {
     navigateUp()
-    C.FS.makeActionForOpenPathInFilesTab(T.FS.stringToPath(`/keybase/public/${decoratedUsername}`))
+    FS.makeActionForOpenPathInFilesTab(T.FS.stringToPath(`/keybase/public/${decoratedUsername}`))
   }, [navigateUp, decoratedUsername])
 
   const onManageBlocking = React.useCallback(() => {
     keybaseUsername && navigateAppend({props: {username: keybaseUsername}, selected: 'chatBlockingModal'})
   }, [navigateAppend, keybaseUsername])
 
-  const previewConversation = C.useChatState(s => s.dispatch.previewConversation)
+  const previewConversation = Chat.useChatState(s => s.dispatch.previewConversation)
   const onChat = React.useCallback(() => {
     navigateUp()
     previewConversation({participants: [decoratedUsername], reason: 'search'})
@@ -71,7 +75,7 @@ const PeopleResult = React.memo(function PeopleResult(props: ResultProps) {
       key="Chat"
       label="Chat"
       small={true}
-      waitingKey={C.Chat.waitingKeyCreating}
+      waitingKey={C.waitingKeyChatCreating}
       onClick={e => {
         e.stopPropagation() // instead of using onAdd, use onChat logic
         onChat()

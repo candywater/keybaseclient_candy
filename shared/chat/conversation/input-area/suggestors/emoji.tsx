@@ -1,14 +1,9 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Common from './common'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
-import {
-  emojiSearch,
-  emojiDataToRenderableEmoji,
-  renderEmoji,
-  type EmojiData,
-  RPCToEmojiData,
-} from '@/util/emoji'
+import {type EmojiData, RPCToEmojiData, emojiData} from '@/common-adapters/emoji'
 
 export const transformer = (
   emoji: EmojiData,
@@ -33,7 +28,7 @@ const ItemRenderer = (p: Common.ItemRendererProps<EmojiData>) => {
       ])}
       gap="small"
     >
-      {renderEmoji({emoji: emojiDataToRenderableEmoji(item), showTooltip: false, size: 24})}
+      <Kb.Emoji emojiData={item} showTooltip={false} size={24} />
       <Kb.Text type="BodySmallSemibold">{item.short_name}</Kb.Text>
     </Kb.Box2>
   )
@@ -44,18 +39,14 @@ const emojiPrepass = /[a-z0-9_]{2,}(?!.*:)/i
 const empty = new Array<EmojiData>()
 
 const useDataSource = (filter: string) => {
-  const conversationIDKey = C.useChatContext(s => s.id)
-  const fetchUserEmoji = C.useChatState(s => s.dispatch.fetchUserEmoji)
-  C.Chat.useCIDChanged(
-    conversationIDKey,
-    () => {
-      fetchUserEmoji(conversationIDKey)
-    },
-    true
-  )
+  const conversationIDKey = Chat.useChatContext(s => s.id)
+  const fetchUserEmoji = Chat.useChatState(s => s.dispatch.fetchUserEmoji)
+  React.useEffect(() => {
+    fetchUserEmoji(conversationIDKey)
+  }, [conversationIDKey, fetchUserEmoji])
 
-  const userEmojisLoading = C.Waiting.useAnyWaiting(C.Chat.waitingKeyLoadingEmoji)
-  const userEmojis = C.useChatState(s => s.userEmojisForAutocomplete)
+  const userEmojisLoading = C.Waiting.useAnyWaiting(C.waitingKeyChatLoadingEmoji)
+  const userEmojis = Chat.useChatState(s => s.userEmojisForAutocomplete)
 
   if (!emojiPrepass.test(filter)) {
     return {
@@ -65,17 +56,17 @@ const useDataSource = (filter: string) => {
   }
 
   // prefill data with stock emoji
-  let emojiData: Array<EmojiData> = emojiSearch(filter, 50)
+  let results: Array<EmojiData> = emojiData.emojiSearch(filter, 50)
 
   if (userEmojis) {
     const userEmoji = userEmojis
       .filter(emoji => emoji.alias.toLowerCase().includes(filter))
       .map(emoji => RPCToEmojiData(emoji, false))
-    emojiData = userEmoji.sort((a, b) => a.short_name.localeCompare(b.short_name)).concat(emojiData)
+    results = userEmoji.sort((a, b) => a.short_name.localeCompare(b.short_name)).concat(results)
   }
 
   return {
-    items: emojiData,
+    items: results,
     loading: userEmojisLoading,
   }
 }
@@ -86,8 +77,8 @@ type ListProps = Pick<
 > & {
   filter: string
   onSelected: (item: EmojiData, final: boolean) => void
-  onMoveRef: React.MutableRefObject<((up: boolean) => void) | undefined>
-  onSubmitRef: React.MutableRefObject<(() => boolean) | undefined>
+  setOnMoveRef: (r: (up: boolean) => void) => void
+  setOnSubmitRef: (r: () => boolean) => void
 }
 export const List = (p: ListProps) => {
   const {filter, ...rest} = p

@@ -2,6 +2,8 @@ package attachments
 
 import (
 	"bytes"
+	"context"
+	"crypto/ed25519"
 	"crypto/hmac"
 	"crypto/sha256"
 	"errors"
@@ -17,7 +19,6 @@ import (
 	"github.com/keybase/client/go/chat/types"
 	"github.com/keybase/client/go/kbcrypto"
 	"github.com/keybase/client/go/libkb"
-	"github.com/keybase/go-crypto/ed25519"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -26,7 +27,6 @@ import (
 	"github.com/keybase/client/go/chat/utils"
 	"github.com/keybase/client/go/protocol/chat1"
 	"github.com/keybase/client/go/protocol/gregor1"
-	"golang.org/x/net/context"
 )
 
 type ReadResetter interface {
@@ -171,7 +171,8 @@ func (a *S3Store) UploadAsset(ctx context.Context, task *UploadTask, encryptedOu
 }
 
 func (a *S3Store) uploadAsset(ctx context.Context, task *UploadTask, enc *SignEncrypter,
-	previous *AttachmentInfo, resumable bool, encryptedOut io.Writer) (asset chat1.Asset, err error) {
+	previous *AttachmentInfo, resumable bool, encryptedOut io.Writer,
+) (asset chat1.Asset, err error) {
 	defer a.Trace(ctx, &err, "uploadAsset")()
 	var encReader io.Reader
 	var ptHash hash.Hash
@@ -250,13 +251,15 @@ func (a *S3Store) getAssetBucket(asset chat1.Asset, params chat1.S3Params, signe
 }
 
 func (a *S3Store) GetAssetReader(ctx context.Context, params chat1.S3Params, asset chat1.Asset,
-	signer s3.Signer) (io.ReadCloser, error) {
+	signer s3.Signer,
+) (io.ReadCloser, error) {
 	b := a.getAssetBucket(asset, params, signer)
 	return b.GetReader(ctx, asset.Path)
 }
 
 func (a *S3Store) DecryptAsset(ctx context.Context, w io.Writer, body io.Reader, asset chat1.Asset,
-	progressReporter types.ProgressReporter) error {
+	progressReporter types.ProgressReporter,
+) error {
 	// compute hash
 	hash := sha256.New()
 	verify := io.TeeReader(body, hash)
@@ -300,7 +303,8 @@ func (a *S3Store) DecryptAsset(ctx context.Context, w io.Writer, body io.Reader,
 
 // DownloadAsset gets an object from S3 as described in asset.
 func (a *S3Store) DownloadAsset(ctx context.Context, params chat1.S3Params, asset chat1.Asset,
-	w io.Writer, signer s3.Signer, progress types.ProgressReporter) error {
+	w io.Writer, signer s3.Signer, progress types.ProgressReporter,
+) error {
 	if asset.Key == nil || asset.VerifyKey == nil || asset.EncHash == nil {
 		return fmt.Errorf("unencrypted attachments not supported: asset: %#v", asset)
 	}
@@ -380,7 +384,8 @@ func (a *S3Store) getStreamerCache(asset chat1.Asset) *lru.Cache {
 }
 
 func (a *S3Store) StreamAsset(ctx context.Context, params chat1.S3Params, asset chat1.Asset,
-	signer s3.Signer) (io.ReadSeeker, error) {
+	signer s3.Signer,
+) (io.ReadSeeker, error) {
 	if asset.Key == nil || asset.VerifyKey == nil || asset.EncHash == nil {
 		return nil, fmt.Errorf("unencrypted attachments not supported: asset: %#v", asset)
 	}
@@ -454,7 +459,6 @@ func (a *S3Store) s3Conn(signer s3.Signer, region s3.Region, accessKey string, s
 }
 
 func (a *S3Store) DeleteAssets(ctx context.Context, params chat1.S3Params, signer s3.Signer, assets []chat1.Asset) error {
-
 	epick := libkb.FirstErrorPicker{}
 	for _, asset := range assets {
 		if err := a.DeleteAsset(ctx, params, signer, asset); err != nil {

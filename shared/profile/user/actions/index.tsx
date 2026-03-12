@@ -1,53 +1,67 @@
 import * as C from '@/constants'
-import * as Constants from '@/constants/tracker2'
+import * as T from '@/constants/types'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
-import type * as T from '@/constants/types'
 import FollowButton from './follow-button'
 import ChatButton from '@/chat/chat-button'
+import {useBotsState} from '@/constants/bots'
+import {useTrackerState} from '@/constants/tracker2'
+import * as FS from '@/constants/fs'
+import {useFollowerState} from '@/constants/followers'
+import {useCurrentUserState} from '@/constants/current-user'
 
-type Props = {
-  followThem: boolean
-  followsYou: boolean
-  blocked: boolean
-  hidFromFollowers: boolean
-  isBot: boolean
-  onAccept: () => void
-  onAddToTeam: () => void
-  onBrowsePublicFolder: () => void
-  onEditProfile?: () => void
-  onFollow: () => void
-  onIgnoreFor24Hours: () => void
-  onInstallBot: () => void
-  onOpenPrivateFolder: () => void
-  onReload: () => void
-  onUnfollow: () => void
-  onManageBlocking: () => void
-  state: T.Tracker.DetailsState
-  username: string
-}
+type OwnProps = {username: string}
 
-type DropdownProps = Pick<
-  Props,
-  | 'isBot'
-  | 'onAddToTeam'
-  | 'onOpenPrivateFolder'
-  | 'onBrowsePublicFolder'
-  | 'onInstallBot'
-  | 'onManageBlocking'
-> & {
-  blockedOrHidFromFollowers: boolean
-  onUnfollow?: () => void
-}
+const Container = (ownProps: OwnProps) => {
+  const username = ownProps.username
+  const d = useTrackerState(s => s.getDetails(username))
+  const followThem = useFollowerState(s => s.following.has(username))
+  const followsYou = useFollowerState(s => s.followers.has(username))
+  const isBot = useBotsState(s => s.featuredBotsMap.has(username))
 
-const Actions = (p: Props) => {
-  const getFeaturedBots = C.useBotsState(s => s.dispatch.getFeaturedBots)
+  const _guiID = d.guiID
+  const _you = useCurrentUserState(s => s.username)
+  const blocked = d.blocked
+  const hidFromFollowers = d.hidFromFollowers
+  const state = d.state
+
+  const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
+  const _onAddToTeam = (username: string) => navigateAppend({props: {username}, selected: 'profileAddToTeam'})
+  const _onBrowsePublicFolder = (username: string) =>
+    FS.makeActionForOpenPathInFilesTab(T.FS.stringToPath(`/keybase/public/${username}`))
+  const _onEditProfile = () => navigateAppend('profileEdit')
+
+  const changeFollow = useTrackerState(s => s.dispatch.changeFollow)
+  const _onFollow = changeFollow
+  const _onInstallBot = (username: string) => {
+    navigateAppend({props: {botUsername: username}, selected: 'chatInstallBotPick'})
+  }
+  const _onManageBlocking = (username: string) =>
+    navigateAppend({props: {username}, selected: 'chatBlockingModal'})
+  const _onOpenPrivateFolder = (myUsername: string, theirUsername: string) =>
+    FS.makeActionForOpenPathInFilesTab(T.FS.stringToPath(`/keybase/private/${theirUsername},${myUsername}`))
+  const showUser = useTrackerState(s => s.dispatch.showUser)
+  const _onReload = (username: string) => {
+    showUser(username, false)
+  }
+  const onAccept = () => _onFollow(_guiID, true)
+  const onAddToTeam = () => _onAddToTeam(username)
+  const onBrowsePublicFolder = () => _onBrowsePublicFolder(username)
+  const onEditProfile = _you === username ? _onEditProfile : undefined
+  const onFollow = () => _onFollow(_guiID, true)
+  const onInstallBot = () => _onInstallBot(username)
+  const onManageBlocking = () => _onManageBlocking(username)
+  const onOpenPrivateFolder = () => _onOpenPrivateFolder(_you, username)
+  const onReload = () => _onReload(username)
+  const onUnfollow = () => _onFollow(_guiID, false)
+
+  const getFeaturedBots = useBotsState(s => s.dispatch.getFeaturedBots)
   // load featured bots on first render
   React.useEffect(() => {
     // TODO likely don't do this all the time, just once
     getFeaturedBots()
   }, [getFeaturedBots])
-  if (p.blocked) {
+  if (blocked) {
     return (
       <Kb.Box2 gap="tiny" centerChildren={true} direction="horizontal" fullWidth={true}>
         <Kb.Button
@@ -55,91 +69,81 @@ const Actions = (p: Props) => {
           mode="Secondary"
           type="Danger"
           label="Manage blocking"
-          onClick={p.onManageBlocking}
+          onClick={onManageBlocking}
         />
       </Kb.Box2>
     )
   }
 
-  let buttons: Array<React.ReactNode> = []
+  let buttons: Array<React.ReactNode>
 
   const dropdown = (
     <DropdownButton
-      blockedOrHidFromFollowers={p.hidFromFollowers}
+      blockedOrHidFromFollowers={hidFromFollowers}
       key="dropdown"
-      isBot={p.isBot}
-      onAddToTeam={p.onAddToTeam}
-      onOpenPrivateFolder={p.onOpenPrivateFolder}
-      onBrowsePublicFolder={p.onBrowsePublicFolder}
-      onInstallBot={p.onInstallBot}
-      onUnfollow={p.followThem && p.state !== 'valid' ? p.onUnfollow : undefined}
-      onManageBlocking={p.onManageBlocking}
+      isBot={isBot}
+      onAddToTeam={onAddToTeam}
+      onOpenPrivateFolder={onOpenPrivateFolder}
+      onBrowsePublicFolder={onBrowsePublicFolder}
+      onInstallBot={onInstallBot}
+      onUnfollow={followThem && state !== 'valid' ? onUnfollow : undefined}
+      onManageBlocking={onManageBlocking}
     />
   )
 
-  const chatButton = <ChatButton key="Chat" username={p.username} />
+  const chatButton = <ChatButton key="Chat" username={username} />
 
-  if (p.state === 'notAUserYet') {
+  if (state === 'notAUserYet') {
     buttons = [
       chatButton,
-      <Kb.Button key="Open folder" mode="Secondary" label="Open folder" onClick={p.onOpenPrivateFolder} />,
+      <Kb.Button key="Open folder" mode="Secondary" label="Open folder" onClick={onOpenPrivateFolder} />,
     ]
-  } else if (p.onEditProfile) {
+  } else if (onEditProfile) {
     buttons = [
-      <Kb.Button key="Edit profile" mode="Secondary" label="Edit profile" onClick={p.onEditProfile} />,
+      <Kb.Button key="Edit profile" mode="Secondary" label="Edit profile" onClick={onEditProfile} />,
       chatButton,
     ]
-  } else if (p.followThem) {
-    if (p.state === 'valid') {
+  } else if (followThem) {
+    if (state === 'valid') {
       buttons = [
         <FollowButton
           key="Unfollow"
           following={true}
-          onUnfollow={p.onUnfollow}
-          waitingKey={Constants.waitingKey}
+          onUnfollow={onUnfollow}
+          waitingKey={C.waitingKeyTracker}
         />,
         chatButton,
         dropdown,
       ]
-    } else if (p.state === 'needsUpgrade') {
+    } else if (state === 'needsUpgrade') {
       buttons = [
         chatButton,
         <Kb.WaitingButton
           key="Accept"
           type="Success"
           label="Accept"
-          waitingKey={Constants.waitingKey}
-          onClick={p.onAccept}
+          waitingKey={C.waitingKeyTracker}
+          onClick={onAccept}
         />,
         dropdown,
       ]
     } else {
       buttons = [
-        <Kb.WaitingButton
-          key="Reload"
-          label="Reload"
-          waitingKey={Constants.waitingKey}
-          onClick={p.onReload}
-        />,
+        <Kb.WaitingButton key="Reload" label="Reload" waitingKey={C.waitingKeyTracker} onClick={onReload} />,
         <Kb.WaitingButton
           key="Accept"
           type="Success"
           label="Accept"
-          waitingKey={Constants.waitingKey}
-          onClick={p.onAccept}
+          waitingKey={C.waitingKeyTracker}
+          onClick={onAccept}
         />,
         dropdown,
       ]
     }
   } else {
-    if (p.state === 'error') {
+    if (state === 'error') {
       buttons = [
-        <Kb.WaitingButton
-          key="Reload"
-          label="Reload"
-          waitingKey={Constants.waitingKey}
-          onClick={p.onReload}
-        />,
+        <Kb.WaitingButton key="Reload" label="Reload" waitingKey={C.waitingKeyTracker} onClick={onReload} />,
         chatButton,
         dropdown,
       ]
@@ -148,9 +152,9 @@ const Actions = (p: Props) => {
         <FollowButton
           key="Follow"
           following={false}
-          followsYou={p.followsYou}
-          onFollow={p.onFollow}
-          waitingKey={Constants.waitingKey}
+          followsYou={followsYou}
+          onFollow={onFollow}
+          waitingKey={C.waitingKeyTracker}
         />,
         chatButton,
         dropdown,
@@ -160,9 +164,20 @@ const Actions = (p: Props) => {
 
   return (
     <Kb.Box2 gap="tiny" centerChildren={true} direction="horizontal" fullWidth={true}>
-      {p.state === 'checking' ? <Kb.ProgressIndicator type="Small" /> : buttons}
+      {state === 'checking' ? <Kb.ProgressIndicator type="Small" /> : buttons}
     </Kb.Box2>
   )
+}
+
+type DropdownProps = {
+  onManageBlocking: () => void
+  onInstallBot: () => void
+  onBrowsePublicFolder: () => void
+  onOpenPrivateFolder: () => void
+  onAddToTeam: () => void
+  isBot: boolean
+  blockedOrHidFromFollowers: boolean
+  onUnfollow?: () => void
 }
 
 const DropdownButton = (p: DropdownProps) => {
@@ -229,4 +244,4 @@ const styles = Kb.Styles.styleSheetCreate(() => ({
   dropdownButton: {minWidth: undefined},
 }))
 
-export default Actions
+export default Container

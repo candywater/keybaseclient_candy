@@ -4,13 +4,12 @@
 package client
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"golang.org/x/net/context"
 
 	"github.com/keybase/client/go/libkb"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
@@ -73,9 +72,10 @@ You have two options.
 			}
 			return res, err
 		}
-		if gret == 1 {
+		switch gret {
+		case 1:
 			return keybase1.ProvisionMethod_GPG_SIGN, nil
-		} else if gret == 2 {
+		case 2:
 			return keybase1.ProvisionMethod_GPG_IMPORT, nil
 		}
 	}
@@ -155,7 +155,6 @@ func (p ProvisionUI) ChooseDevice(ctx context.Context, arg keybase1.ChooseDevice
 	_ = p.parent.Output("\n")
 
 	ret, err := PromptSelectionOrCancel(PromptDescriptorChooseDevice, p.parent, "Choose a device", 1, allowed)
-
 	if err != nil {
 		if err == ErrInputCanceled {
 			return keybase1.DeviceID(""), libkb.InputCanceledError{}
@@ -199,12 +198,12 @@ func (p ProvisionUI) ChooseDeviceType(ctx context.Context, arg keybase1.ChooseDe
 		return keybase1.DeviceType_MOBILE, nil
 	}
 	return res, fmt.Errorf("invalid device type option: %d", ret)
-
 }
 
 func (p ProvisionUI) DisplayAndPromptSecret(ctx context.Context, arg keybase1.DisplayAndPromptSecretArg) (keybase1.SecretResponse, error) {
 	var resp keybase1.SecretResponse
-	if p.role == libkb.KexRoleProvisioner {
+	switch p.role {
+	case libkb.KexRoleProvisioner:
 		// This is the provisioner device (device X)
 
 		// For mobile, show the QR code and the phrase, do not prompt:
@@ -238,7 +237,7 @@ func (p ProvisionUI) DisplayAndPromptSecret(ctx context.Context, arg keybase1.Di
 			resp.Phrase = ret
 		}
 		return resp, nil
-	} else if p.role == libkb.KexRoleProvisionee {
+	case libkb.KexRoleProvisionee:
 		// this is the provisionee device (device Y)
 		// For command line app, the provisionee displays secrets only
 

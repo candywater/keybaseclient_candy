@@ -1,19 +1,19 @@
 import * as C from '.'
 import * as Contacts from 'expo-contacts'
+import {ignorePromise} from './utils'
 import * as T from './types'
 import * as Z from '@/util/zustand'
-import PushNotificationIOS from '@react-native-community/push-notification-ios'
+import {addNotificationRequest} from 'react-native-kb'
 import logger from '@/logger'
 import type {Store, State} from './settings-contacts'
 import {RPCError} from '@/util/errors'
 import {getDefaultCountryCode} from 'react-native-kb'
 import {getE164} from './settings-phone'
-import {isIOS} from './platform'
 import {pluralize} from '@/util/string'
+import {navigateAppend} from './router2/util'
+import {storeRegistry} from './store-registry'
 
-export const importContactsWaitingKey = 'settings:importContacts'
-
-export const importContactsConfigKey = (username: string) => `ui.importContacts.${username}`
+const importContactsConfigKey = (username: string) => `ui.importContacts.${username}`
 
 const initialStore: Store = {
   alreadyOnKeybase: [],
@@ -71,7 +71,7 @@ const makeContactsResolvedMessage = (cts: T.Immutable<Array<T.RPCGen.ProcessedCo
   }
 }
 
-export const _useState = Z.createZustand<State>((set, get) => {
+export const useSettingsContactsState = Z.createZustand<State>((set, get) => {
   const dispatch: State['dispatch'] = {
     editContactImportEnabled: (enable, fromSettings) => {
       if (fromSettings) {
@@ -80,18 +80,18 @@ export const _useState = Z.createZustand<State>((set, get) => {
         })
       }
       const f = async () => {
-        const username = C.useCurrentUserState.getState().username
+        const username = storeRegistry.getState('current-user').username
         if (!username) {
           logger.warn('no username')
           return
         }
         await T.RPCGen.configGuiSetValueRpcPromise(
           {path: importContactsConfigKey(username), value: {b: enable, isNull: false}},
-          importContactsWaitingKey
+          C.importContactsWaitingKey
         )
         get().dispatch.loadContactImportEnabled()
       }
-      C.ignorePromise(f())
+      ignorePromise(f())
     },
     importContactsLater: () => {
       set(s => {
@@ -100,10 +100,10 @@ export const _useState = Z.createZustand<State>((set, get) => {
     },
     loadContactImportEnabled: () => {
       const f = async () => {
-        if (!C.useConfigState.getState().loggedIn) {
+        if (!storeRegistry.getState('config').loggedIn) {
           return
         }
-        const username = C.useCurrentUserState.getState().username
+        const username = storeRegistry.getState('current-user').username
         if (!username) {
           logger.warn('no username')
           return
@@ -112,7 +112,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
         try {
           const value = await T.RPCGen.configGuiGetValueRpcPromise(
             {path: importContactsConfigKey(username)},
-            importContactsWaitingKey
+            C.importContactsWaitingKey
           )
           enabled = !!value.b && !value.isNull
         } catch (error) {
@@ -130,7 +130,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
         get().dispatch.loadContactPermissions()
         get().dispatch.manageContactsCache()
       }
-      C.ignorePromise(f())
+      ignorePromise(f())
     },
     loadContactPermissions: () => {
       const f = async () => {
@@ -141,7 +141,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
           s.permissionStatus = status
         })
       }
-      C.ignorePromise(f())
+      ignorePromise(f())
     },
     manageContactsCache: () => {
       const f = async () => {
@@ -174,13 +174,12 @@ export const _useState = Z.createZustand<State>((set, get) => {
 
         // feature enabled and permission granted
         let mapped: T.RPCChat.Keybase1.Contact[]
-        let defaultCountryCode: string
+        let defaultCountryCode = ''
         try {
           const _contacts = await Contacts.getContactsAsync({
             fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails],
           })
 
-          let defaultCountryCode = ''
           try {
             defaultCountryCode = await getDefaultCountryCode()
             if (__DEV__ && !defaultCountryCode) {
@@ -215,11 +214,10 @@ export const _useState = Z.createZustand<State>((set, get) => {
             s.userCountryCode = defaultCountryCode
           })
           if (newlyResolved?.length) {
-            isIOS &&
-              PushNotificationIOS.addNotificationRequest({
-                body: makeContactsResolvedMessage(newlyResolved),
-                id: Math.floor(Math.random() * 2 ** 32).toString(),
-              })
+            addNotificationRequest({
+              body: makeContactsResolvedMessage(newlyResolved),
+              id: Math.floor(Math.random() * 2 ** 32).toString(),
+            }).catch(() => {})
           }
           if (get().waitingToShowJoinedModal && resolved) {
             set(s => {
@@ -227,7 +225,7 @@ export const _useState = Z.createZustand<State>((set, get) => {
               s.waitingToShowJoinedModal = false
             })
             if (resolved.length) {
-              C.useRouterState.getState().dispatch.navigateAppend('settingsContactsJoined')
+              navigateAppend('settingsContactsJoined')
             }
           }
         } catch (_error) {
@@ -239,12 +237,12 @@ export const _useState = Z.createZustand<State>((set, get) => {
           })
         }
       }
-      C.ignorePromise(f())
+      ignorePromise(f())
     },
     requestPermissions: (thenToggleImportOn?: boolean, fromSettings?: boolean) => {
       const f = async () => {
-        const {decrement, increment} = C.useWaitingState.getState().dispatch
-        increment(importContactsWaitingKey)
+        const {decrement, increment} = storeRegistry.getState('waiting').dispatch
+        increment(C.importContactsWaitingKey)
         const status = (await Contacts.requestPermissionsAsync()).status
 
         if (status === Contacts.PermissionStatus.GRANTED && thenToggleImportOn) {
@@ -253,9 +251,9 @@ export const _useState = Z.createZustand<State>((set, get) => {
         set(s => {
           s.permissionStatus = status
         })
-        decrement(importContactsWaitingKey)
+        decrement(C.importContactsWaitingKey)
       }
-      C.ignorePromise(f())
+      ignorePromise(f())
     },
     resetState: 'default',
   }

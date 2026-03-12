@@ -1,14 +1,14 @@
 package systests
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
-	"golang.org/x/net/context"
-
 	"github.com/keybase/client/go/engine"
+	"github.com/keybase/client/go/ephemeral"
 	"github.com/keybase/client/go/jsonhelpers"
 	libkb "github.com/keybase/client/go/libkb"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
@@ -267,6 +267,17 @@ func TestTeamReInviteAfterReset(t *testing.T) {
 	bob := ctx.installKeybaseForUserNoPUK("bob", 10)
 	bob.signupNoPUK()
 	divDebug(ctx, "Signed up bob (%s)", bob.username)
+	// Disable background EK generation after login to prevent it from racing
+	// with the explicit perUserKeyUpgrade() call below. The OnLogin hook spawns
+	// a goroutine that can import the PUK asynchronously while we're trying to
+	// create it, causing a generation mismatch error.
+	t.Logf("Disabling background EK generation after signup for bob")
+	ekLibIface := bob.getPrimaryGlobalContext().GetEKLib()
+	ekLib, ok := ekLibIface.(*ephemeral.EKLib)
+	require.True(t, ok)
+	mctx := bob.MetaContext()
+	err := ekLib.Shutdown(mctx)
+	require.NoError(t, err)
 
 	// Try to add bob to team, should add an invitation because bob is PUK-less.
 	ann.addTeamMember(teamName.String(), bob.username, keybase1.TeamRole_WRITER) // Invitation 1
@@ -274,6 +285,18 @@ func TestTeamReInviteAfterReset(t *testing.T) {
 	// Reset, invalidates invitation 1.
 	bob.reset()
 	bob.loginAfterResetNoPUK(10)
+
+	// Disable background EK generation after login to prevent it from racing
+	// with the explicit perUserKeyUpgrade() call below. The OnLogin hook spawns
+	// a goroutine that can import the PUK asynchronously while we're trying to
+	// create it, causing a generation mismatch error.
+	t.Logf("Disabling background EK generation after reset for bob")
+	ekLibIface = bob.getPrimaryGlobalContext().GetEKLib()
+	ekLib, ok = ekLibIface.(*ephemeral.EKLib)
+	require.True(t, ok)
+	mctx = bob.MetaContext()
+	err = ekLib.Shutdown(mctx)
+	require.NoError(t, err)
 
 	// Try to add again (bob still doesn't have a PUK). Adding this
 	// invitation should automatically cancel first invitation.
@@ -297,7 +320,7 @@ func TestTeamReInviteAfterReset(t *testing.T) {
 	bob.primaryDevice().tctx.Tp.DisableUpgradePerUserKey = false
 
 	ann.kickTeamRekeyd()
-	err := bob.perUserKeyUpgrade()
+	err = bob.perUserKeyUpgrade()
 	require.NoError(t, err)
 
 	t.Logf("Bob got a PUK, now let's see if Ann's client adds him to team")

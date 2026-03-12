@@ -1,14 +1,9 @@
-import * as React from 'react'
 import * as RowSizes from '../../sizes'
 import * as Kb from '@/common-adapters'
 import type {Props} from '.'
 
 const SwipeConvActions = (props: Props) => {
-  return (
-    <div style={styles.row} onClick={props.onClick}>
-      {props.children}
-    </div>
-  )
+  return <div style={styles.row}>{props.children}</div>
 }
 
 const styles = Kb.Styles.styleSheetCreate(() => ({

@@ -46,7 +46,7 @@ func TestRunnerCapabilities(t *testing.T) {
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	inputReader, inputWriter := io.Pipe()
-	defer inputWriter.Close()
+	defer func() { _ = inputWriter.Close() }()
 	go func() {
 		_, _ = inputWriter.Write([]byte("capabilities\n\n"))
 	}()
@@ -61,7 +61,8 @@ func TestRunnerCapabilities(t *testing.T) {
 }
 
 func initConfigForRunner(t *testing.T) (
-	ctx context.Context, config *libkbfs.ConfigLocal, tempdir string) {
+	ctx context.Context, config *libkbfs.ConfigLocal, tempdir string,
+) {
 	ctx = libcontext.BackgroundContextWithCancellationDelayer()
 	config = libkbfs.MakeTestConfigOrBustLoggedInWithMode(
 		t, 0, libkbfs.InitSingleOp, "user1", "user2")
@@ -72,7 +73,7 @@ func initConfigForRunner(t *testing.T) (
 	require.NoError(t, err)
 	defer func() {
 		if !success {
-			os.RemoveAll(tempdir)
+			_ = os.RemoveAll(tempdir)
 		}
 	}()
 
@@ -89,10 +90,10 @@ func initConfigForRunner(t *testing.T) (
 func testRunnerInitRepo(t *testing.T, tlfType tlf.Type, typeString string) {
 	ctx, config, tempdir := initConfigForRunner(t)
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 
 	inputReader, inputWriter := io.Pipe()
-	defer inputWriter.Close()
+	defer func() { _ = inputWriter.Close() }()
 	go func() {
 		_, _ = inputWriter.Write([]byte("list\n\n"))
 	}()
@@ -137,7 +138,7 @@ func TestRunnerInitRepoPublic(t *testing.T) {
 }
 
 func gitExec(t *testing.T, gitDir, workTree string, command ...string) {
-	cmd := exec.Command("git",
+	cmd := exec.Command("git", //nolint:gosec // G204: Test helper running git commands
 		append([]string{"--git-dir", gitDir, "--work-tree", workTree},
 			command...)...)
 	output, err := cmd.CombinedOutput()
@@ -145,10 +146,11 @@ func gitExec(t *testing.T, gitDir, workTree string, command ...string) {
 }
 
 func makeLocalRepoWithOneFileCustomCommitMsg(t *testing.T,
-	gitDir, filename, contents, branch, msg string) {
+	gitDir, filename, contents, branch, msg string,
+) {
 	t.Logf("Make a new repo in %s with one file", gitDir)
-	err := os.WriteFile(
-		filepath.Join(gitDir, filename), []byte(contents), 0600)
+	err := os.WriteFile( //nolint:gosec // G304: Test file path from test setup
+		filepath.Join(gitDir, filename), []byte(contents), 0o600)
 	require.NoError(t, err)
 	dotgit := filepath.Join(gitDir, ".git")
 	gitExec(t, dotgit, gitDir, "init")
@@ -163,16 +165,18 @@ func makeLocalRepoWithOneFileCustomCommitMsg(t *testing.T,
 }
 
 func makeLocalRepoWithOneFile(t *testing.T,
-	gitDir, filename, contents, branch string) {
+	gitDir, filename, contents, branch string,
+) {
 	makeLocalRepoWithOneFileCustomCommitMsg(
 		t, gitDir, filename, contents, branch, "foo")
 }
 
 func addOneFileToRepoCustomCommitMsg(t *testing.T, gitDir,
-	filename, contents, msg string) {
+	filename, contents, msg string,
+) {
 	t.Logf("Add a new file to %s", gitDir)
-	err := os.WriteFile(
-		filepath.Join(gitDir, filename), []byte(contents), 0600)
+	err := os.WriteFile( //nolint:gosec // G304: Test file path from test setup
+		filepath.Join(gitDir, filename), []byte(contents), 0o600)
 	require.NoError(t, err)
 	dotgit := filepath.Join(gitDir, ".git")
 
@@ -188,13 +192,14 @@ func addOneFileToRepo(t *testing.T, gitDir, filename, contents string) {
 
 func testPushWithTemplate(ctx context.Context, t *testing.T,
 	config libkbfs.Config, gitDir string, refspecs []string,
-	outputTemplate, tlfName string) {
+	outputTemplate, tlfName string,
+) {
 	// Use the runner to push the local data into the KBFS repo.
 	inputReader, inputWriter := io.Pipe()
-	defer inputWriter.Close()
+	defer func() { _ = inputWriter.Close() }()
 	go func() {
 		for _, refspec := range refspecs {
-			_, _ = inputWriter.Write([]byte(fmt.Sprintf("push %s\n", refspec)))
+			_, _ = fmt.Fprintf(inputWriter, "push %s\n", refspec)
 		}
 		_, _ = inputWriter.Write([]byte("\n\n"))
 	}()
@@ -230,22 +235,24 @@ func testPushWithTemplate(ctx context.Context, t *testing.T,
 }
 
 func testPush(ctx context.Context, t *testing.T, config libkbfs.Config,
-	gitDir, refspec string) {
+	gitDir, refspec string,
+) {
 	testPushWithTemplate(ctx, t, config, gitDir, []string{refspec},
 		"ok %s\n\n", "user1")
 }
 
 func testListAndGetHeadsWithNameWithPush(
 	ctx context.Context, t *testing.T, config libkbfs.Config, gitDir string,
-	expectedRefs []string, tlfName string, forPush bool) (heads []string) {
+	expectedRefs []string, tlfName string, forPush bool,
+) (heads []string) {
 	inputReader, inputWriter := io.Pipe()
-	defer inputWriter.Close()
+	defer func() { _ = inputWriter.Close() }()
 	go func() {
 		p := ""
 		if forPush {
 			p = " for-push"
 		}
-		_, _ = inputWriter.Write([]byte(fmt.Sprintf("list%s\n\n", p)))
+		_, _ = fmt.Fprintf(inputWriter, "list%s\n\n", p)
 	}()
 
 	var output bytes.Buffer
@@ -278,14 +285,16 @@ func testListAndGetHeadsWithNameWithPush(
 
 func testListAndGetHeadsWithName(ctx context.Context, t *testing.T,
 	config libkbfs.Config, gitDir string, expectedRefs []string,
-	tlfName string) (heads []string) {
+	tlfName string,
+) (heads []string) {
 	return testListAndGetHeadsWithNameWithPush(
 		ctx, t, config, gitDir, expectedRefs, tlfName, false)
 }
 
 func testListAndGetHeads(ctx context.Context, t *testing.T,
 	config libkbfs.Config, gitDir string, expectedRefs []string) (
-	heads []string) {
+	heads []string,
+) {
 	return testListAndGetHeadsWithName(
 		ctx, t, config, gitDir, expectedRefs, "user1")
 }
@@ -302,12 +311,12 @@ func testListAndGetHeads(ctx context.Context, t *testing.T,
 // 5) User pulls from the remote KBFS repo into the second repo.
 func testRunnerPushFetch(t *testing.T, cloning bool, secondRepoHasBranch bool) {
 	ctx, config, tempdir := initConfigForRunner(t)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	git1, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git1)
+	defer func() { _ = os.RemoveAll(git1) }()
 
 	makeLocalRepoWithOneFile(t, git1, "foo", "hello", "")
 
@@ -321,7 +330,7 @@ func testRunnerPushFetch(t *testing.T, cloning bool, secondRepoHasBranch bool) {
 
 	git2, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git2)
+	defer func() { _ = os.RemoveAll(git2) }()
 
 	t.Logf("Make a new repo in %s to clone from the KBFS repo", git2)
 	dotgit2 := filepath.Join(git2, ".git")
@@ -342,10 +351,10 @@ func testRunnerPushFetch(t *testing.T, cloning bool, secondRepoHasBranch bool) {
 
 	// Use the runner to fetch the KBFS data into the new git repo.
 	inputReader, inputWriter := io.Pipe()
-	defer inputWriter.Close()
+	defer func() { _ = inputWriter.Close() }()
 	go func() {
-		_, _ = inputWriter.Write([]byte(fmt.Sprintf(
-			"%sfetch %s refs/heads/master\n\n\n", cloningStr, heads[0])))
+		_, _ = fmt.Fprintf(inputWriter,
+			"%sfetch %s refs/heads/master\n\n\n", cloningStr, heads[0])
 	}()
 
 	var output3 bytes.Buffer
@@ -362,7 +371,7 @@ func testRunnerPushFetch(t *testing.T, cloning bool, secondRepoHasBranch bool) {
 	// `git` process that invokes the runner).
 	gitExec(t, dotgit2, git2, "checkout", heads[0])
 
-	data, err := os.ReadFile(filepath.Join(git2, "foo"))
+	data, err := os.ReadFile(filepath.Join(git2, "foo")) //nolint:gosec // G304: Test file path from test setup
 	require.NoError(t, err)
 	require.Equal(t, "hello", string(data))
 }
@@ -383,12 +392,12 @@ func TestRunnerPushFetchWithBranch(t *testing.T) {
 
 func TestRunnerListForPush(t *testing.T) {
 	ctx, config, tempdir := initConfigForRunner(t)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	git1, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git1)
+	defer func() { _ = os.RemoveAll(git1) }()
 
 	makeLocalRepoWithOneFile(t, git1, "foo", "hello", "")
 
@@ -407,12 +416,12 @@ func TestRunnerListForPush(t *testing.T) {
 
 func TestRunnerDeleteBranch(t *testing.T) {
 	ctx, config, tempdir := initConfigForRunner(t)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	git, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git)
+	defer func() { _ = os.RemoveAll(git) }()
 
 	makeLocalRepoWithOneFile(t, git, "foo", "hello", "")
 
@@ -437,12 +446,12 @@ func TestRunnerDeleteBranch(t *testing.T) {
 
 func TestRunnerExitEarlyOnEOF(t *testing.T) {
 	ctx, config, tempdir := initConfigForRunner(t)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	git, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git)
+	defer func() { _ = os.RemoveAll(git) }()
 
 	makeLocalRepoWithOneFile(t, git, "foo", "hello", "")
 
@@ -479,12 +488,12 @@ func TestRunnerExitEarlyOnEOF(t *testing.T) {
 
 func TestForcePush(t *testing.T) {
 	ctx, config, tempdir := initConfigForRunner(t)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	git, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git)
+	defer func() { _ = os.RemoveAll(git) }()
 
 	makeLocalRepoWithOneFile(t, git, "foo", "hello", "")
 
@@ -515,12 +524,12 @@ func TestForcePush(t *testing.T) {
 
 func TestPushAllWithPackedRefs(t *testing.T) {
 	ctx, config, tempdir := initConfigForRunner(t)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	git, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git)
+	defer func() { _ = os.RemoveAll(git) }()
 
 	makeLocalRepoWithOneFile(t, git, "foo", "hello", "")
 
@@ -543,12 +552,12 @@ func TestPushAllWithPackedRefs(t *testing.T) {
 
 func TestPushSomeWithPackedRefs(t *testing.T) {
 	ctx, config, tempdir := initConfigForRunner(t)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	git, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git)
+	defer func() { _ = os.RemoveAll(git) }()
 
 	h, err := tlfhandle.ParseHandle(
 		ctx, config.KBPKI(), config.MDOps(), config, "user1", tlf.Private)
@@ -594,13 +603,14 @@ func TestPushSomeWithPackedRefs(t *testing.T) {
 
 func testCloneIntoNewLocalRepo(
 	ctx context.Context, t *testing.T, config libkbfs.Config,
-	tlfName string) string {
+	tlfName string,
+) string {
 	git, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
 	success := false
 	defer func() {
 		if !success {
-			os.RemoveAll(git)
+			_ = os.RemoveAll(git)
 		}
 	}()
 
@@ -611,11 +621,11 @@ func testCloneIntoNewLocalRepo(
 		[]string{"refs/heads/master", "HEAD"}, tlfName)
 
 	inputReader, inputWriter := io.Pipe()
-	defer inputWriter.Close()
+	defer func() { _ = inputWriter.Close() }()
 	go func() {
-		_, _ = inputWriter.Write([]byte(fmt.Sprintf(
+		_, _ = fmt.Fprintf(inputWriter,
 			"option cloning true\n"+
-				"fetch %s refs/heads/master\n\n\n", heads[0])))
+				"fetch %s refs/heads/master\n\n\n", heads[0])
 	}()
 
 	var output bytes.Buffer
@@ -639,12 +649,12 @@ func testCloneIntoNewLocalRepo(
 
 func TestRunnerReaderClone(t *testing.T) {
 	ctx, config, tempdir := initConfigForRunner(t)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	git1, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git1)
+	defer func() { _ = os.RemoveAll(git1) }()
 
 	makeLocalRepoWithOneFile(t, git1, "foo", "hello", "")
 	testPushWithTemplate(ctx, t, config, git1,
@@ -654,7 +664,7 @@ func TestRunnerReaderClone(t *testing.T) {
 	// Make sure the reader can clone it.
 	tempdir2, err := os.MkdirTemp(os.TempDir(), "journal_server")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempdir2)
+	defer func() { _ = os.RemoveAll(tempdir2) }()
 	config2 := libkbfs.ConfigAsUser(config, "user2")
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config2)
 	err = config2.EnableDiskLimiter(tempdir2)
@@ -664,21 +674,21 @@ func TestRunnerReaderClone(t *testing.T) {
 	require.NoError(t, err)
 
 	git2 := testCloneIntoNewLocalRepo(ctx, t, config2, "user1#user2")
-	defer os.RemoveAll(git2)
+	defer func() { _ = os.RemoveAll(git2) }()
 
-	data, err := os.ReadFile(filepath.Join(git2, "foo"))
+	data, err := os.ReadFile(filepath.Join(git2, "foo")) //nolint:gosec // G304: Test file path from test setup
 	require.NoError(t, err)
 	require.Equal(t, "hello", string(data))
 }
 
 func TestRunnerDeletePackedRef(t *testing.T) {
 	ctx, config, tempdir := initConfigForRunner(t)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	git1, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git1)
+	defer func() { _ = os.RemoveAll(git1) }()
 	dotgit1 := filepath.Join(git1, ".git")
 
 	makeLocalRepoWithOneFile(t, git1, "foo", "hello", "b")
@@ -718,20 +728,20 @@ func TestRunnerDeletePackedRef(t *testing.T) {
 
 func TestPushcertOptions(t *testing.T) {
 	ctx, config, tempdir := initConfigForRunner(t)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	git, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git)
+	defer func() { _ = os.RemoveAll(git) }()
 	dotgit := filepath.Join(git, ".git")
 
 	checkPushcert := func(option, expected string) {
 		inputReader, inputWriter := io.Pipe()
-		defer inputWriter.Close()
+		defer func() { _ = inputWriter.Close() }()
 		go func() {
-			_, _ = inputWriter.Write([]byte(fmt.Sprintf(
-				"option pushcert %s\n\n", option)))
+			_, _ = fmt.Fprintf(inputWriter,
+				"option pushcert %s\n\n", option)
 		}()
 
 		var output bytes.Buffer
@@ -752,12 +762,12 @@ func TestPushcertOptions(t *testing.T) {
 
 func TestPackRefsAndOverwritePackedRef(t *testing.T) {
 	ctx, config, tempdir := initConfigForRunner(t)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	git1, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git1)
+	defer func() { _ = os.RemoveAll(git1) }()
 
 	// Make shared repo with 2 branches.
 	makeLocalRepoWithOneFile(t, git1, "foo", "hello", "")
@@ -771,7 +781,7 @@ func TestPackRefsAndOverwritePackedRef(t *testing.T) {
 	// Config for the second user.
 	tempdir2, err := os.MkdirTemp(os.TempDir(), "journal_server")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempdir2)
+	defer func() { _ = os.RemoveAll(tempdir2) }()
 	config2 := libkbfs.ConfigAsUser(config, "user2")
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config2)
 	err = config2.EnableDiskLimiter(tempdir2)
@@ -782,7 +792,7 @@ func TestPackRefsAndOverwritePackedRef(t *testing.T) {
 
 	git2, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git2)
+	defer func() { _ = os.RemoveAll(git2) }()
 
 	heads := testListAndGetHeadsWithName(ctx, t, config2, git2,
 		[]string{"refs/heads/master", "refs/heads/test", "HEAD"}, "user1,user2")
@@ -837,12 +847,12 @@ func TestPackRefsAndOverwritePackedRef(t *testing.T) {
 
 func TestPackRefsAndDeletePackedRef(t *testing.T) {
 	ctx, config, tempdir := initConfigForRunner(t)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	git1, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git1)
+	defer func() { _ = os.RemoveAll(git1) }()
 	dotgit1 := filepath.Join(git1, ".git")
 
 	// Make shared repo with 2 branches.  Make sure there's an initial
@@ -859,7 +869,7 @@ func TestPackRefsAndDeletePackedRef(t *testing.T) {
 	// Config for the second user.
 	tempdir2, err := os.MkdirTemp(os.TempDir(), "journal_server")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempdir2)
+	defer func() { _ = os.RemoveAll(tempdir2) }()
 	config2 := libkbfs.ConfigAsUser(config, "user2")
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config2)
 	err = config2.EnableDiskLimiter(tempdir2)
@@ -870,7 +880,7 @@ func TestPackRefsAndDeletePackedRef(t *testing.T) {
 
 	git2, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git2)
+	defer func() { _ = os.RemoveAll(git2) }()
 
 	heads := testListAndGetHeadsWithName(ctx, t, config2, git2,
 		[]string{"refs/heads/master", "refs/heads/test", "HEAD"}, "user1,user2")
@@ -903,7 +913,7 @@ func TestPackRefsAndDeletePackedRef(t *testing.T) {
 	deleteOnStalled, deleteUnstall, deleteCtx := libkbfs.StallMDOp(
 		ctx, config, libkbfs.StallableMDGetRange, 1)
 	inputReader, inputWriter := io.Pipe()
-	defer inputWriter.Close()
+	defer func() { _ = inputWriter.Close() }()
 	go func() {
 		_, _ = inputWriter.Write([]byte("push :refs/heads/test\n"))
 		_, _ = inputWriter.Write([]byte("\n\n"))
@@ -955,12 +965,12 @@ func TestPackRefsAndDeletePackedRef(t *testing.T) {
 
 func TestRepackObjects(t *testing.T) {
 	ctx, config, tempdir := initConfigForRunner(t)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	git, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git)
+	defer func() { _ = os.RemoveAll(git) }()
 
 	h, err := tlfhandle.ParseHandle(
 		ctx, config.KBPKI(), config.MDOps(), config, "user1", tlf.Private)
@@ -1003,10 +1013,10 @@ func TestRepackObjects(t *testing.T) {
 
 	// Check that a second clone looks correct.
 	git2 := testCloneIntoNewLocalRepo(ctx, t, config, "user1")
-	defer os.RemoveAll(git2)
+	defer func() { _ = os.RemoveAll(git2) }()
 
 	checkFile := func(name, expectedData string) {
-		data, err := os.ReadFile(filepath.Join(git2, name))
+		data, err := os.ReadFile(filepath.Join(git2, name)) //nolint:gosec // G304: Test file path from test setup
 		require.NoError(t, err)
 		require.Equal(t, expectedData, string(data))
 	}
@@ -1017,7 +1027,8 @@ func TestRepackObjects(t *testing.T) {
 }
 
 func testHandlePushBatch(ctx context.Context, t *testing.T,
-	config libkbfs.Config, git, refspec, tlfName string) libgit.RefDataByName {
+	config libkbfs.Config, git, refspec, tlfName string,
+) libgit.RefDataByName {
 	var input bytes.Buffer
 	var output bytes.Buffer
 	r, err := newRunner(ctx, config, "origin",
@@ -1034,12 +1045,12 @@ func testHandlePushBatch(ctx context.Context, t *testing.T,
 func TestRunnerHandlePushBatch(t *testing.T) {
 	t.Skip("KBFS-3836: currently flaking a lot")
 	ctx, config, tempdir := initConfigForRunner(t)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	git, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git)
+	defer func() { _ = os.RemoveAll(git) }()
 
 	t.Log("Setup the repository.")
 	h, err := tlfhandle.ParseHandle(
@@ -1122,7 +1133,7 @@ func TestRunnerSubmodule(t *testing.T) {
 	}
 
 	ctx, config, tempdir := initConfigForRunner(t)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	shutdown := libgit.StartAutogit(config, 25)
@@ -1131,14 +1142,14 @@ func TestRunnerSubmodule(t *testing.T) {
 	t.Log("Make a local repo that will become a KBFS repo")
 	git1, err := os.MkdirTemp(os.TempDir(), "kbfsgittest")
 	require.NoError(t, err)
-	defer os.RemoveAll(git1)
+	defer func() { _ = os.RemoveAll(git1) }()
 	makeLocalRepoWithOneFile(t, git1, "foo", "hello", "")
 	dotgit1 := filepath.Join(git1, ".git")
 
 	t.Log("Make a second local repo that will be a submodule")
 	git2, err := os.MkdirTemp(os.TempDir(), "kbfsgittest2")
 	require.NoError(t, err)
-	defer os.RemoveAll(git2)
+	defer func() { _ = os.RemoveAll(git2) }()
 	makeLocalRepoWithOneFile(t, git2, "foo2", "hello2", "")
 	dotgit2 := filepath.Join(git2, ".git")
 
@@ -1146,7 +1157,7 @@ func TestRunnerSubmodule(t *testing.T) {
 	// git-submodules requires a real working directory for some reason.
 	err = os.Chdir(git1)
 	require.NoError(t, err)
-	gitExec(t, dotgit1, git1, "submodule", "add", "-f", dotgit2)
+	gitExec(t, dotgit1, git1, "-c", "protocol.file.allow=always", "submodule", "add", "-f", dotgit2)
 	gitExec(t, dotgit1, git1, "-c", "user.name=Foo",
 		"-c", "user.email=foo@foo.com", "commit", "-a", "-m", "submodule")
 
@@ -1167,7 +1178,7 @@ func TestRunnerSubmodule(t *testing.T) {
 	require.Len(t, fis, 3 /* foo, kbfsgittest2, and .gitmodules */)
 	f, err := rootFS.Open(".kbfs_autogit/test/" + filepath.Base(git2))
 	require.NoError(t, err)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	data, err := io.ReadAll(f)
 	require.NoError(t, err)
 	require.True(t, strings.HasPrefix(string(data), "git submodule"))
@@ -1176,10 +1187,10 @@ func TestRunnerSubmodule(t *testing.T) {
 func TestRunnerLFS(t *testing.T) {
 	ctx, config, tempdir := initConfigForRunner(t)
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 
 	localFilePath := filepath.Join(tempdir, "local.txt")
-	f, err := os.Create(localFilePath)
+	f, err := os.Create(localFilePath) //nolint:gosec // G304: Test file path from test setup
 	require.NoError(t, err)
 	doClose := true
 	defer func() {
@@ -1196,7 +1207,7 @@ func TestRunnerLFS(t *testing.T) {
 	doClose = false
 
 	inputReader, inputWriter := io.Pipe()
-	defer inputWriter.Close()
+	defer func() { _ = inputWriter.Close() }()
 	oid := "bf3e3e2af9366a3b704ae0c31de5afa64193ebabffde2091936ad2e7510bc03a"
 	go func() {
 		_, _ = inputWriter.Write([]byte("{\"event\": \"upload\", \"oid\": \"" + oid + "\", \"size\": 5, \"path\": \"" + filepath.ToSlash(localFilePath) + "\"}\n{\"event\": \"terminate\"}\n"))
@@ -1227,14 +1238,14 @@ func TestRunnerLFS(t *testing.T) {
 	require.NoError(t, err)
 	oidF, err := fs.Open(oid)
 	require.NoError(t, err)
-	defer oidF.Close()
+	defer func() { _ = oidF.Close() }()
 	buf, err := io.ReadAll(oidF)
 	require.NoError(t, err)
 	require.Equal(t, lfsData, buf)
 
 	t.Log("Download and check the file")
 	inputReader2, inputWriter2 := io.Pipe()
-	defer inputWriter2.Close()
+	defer func() { _ = inputWriter2.Close() }()
 	go func() {
 		_, _ = inputWriter2.Write([]byte("{\"event\": \"download\", \"oid\": \"" + oid + "\"}\n{\"event\": \"terminate\"}\n"))
 	}()
@@ -1271,9 +1282,9 @@ func TestRunnerLFS(t *testing.T) {
 		t, "{\"event\":\"complete\",\"oid\":\""+oid+"\",\"path\":\""+p+"\"}\n",
 		output2.String())
 
-	pF, err := os.Open(p)
+	pF, err := os.Open(p) //nolint:gosec // G304: Test file path from test setup
 	require.NoError(t, err)
-	defer pF.Close()
+	defer func() { _ = pF.Close() }()
 	buf, err = io.ReadAll(pF)
 	require.NoError(t, err)
 	require.Equal(t, lfsData, buf)

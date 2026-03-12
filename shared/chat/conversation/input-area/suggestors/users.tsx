@@ -1,8 +1,11 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
+import {useTeamsState} from '@/constants/teams'
 import * as T from '@/constants/types'
 import * as Common from './common'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
+import {useUsersState} from '@/constants/users'
 
 export const transformer = (
   input: {
@@ -137,30 +140,32 @@ const getTeams = (layout?: T.RPCChat.UIInboxLayout) => {
 }
 
 const useDataUsers = () => {
-  const infoMap = C.useUsersState(s => s.infoMap)
-  const participantInfo = C.useChatContext(s => s.participants)
-  return C.useChatContext(s => {
-    const {teamID, teamType} = s.meta
-    // TODO not reactive
-    const teamMembers = C.useTeamsState.getState().teamIDToMembers.get(teamID)
-    const usernames = teamMembers
-      ? [...teamMembers.values()].map(m => m.username).sort((a, b) => a.localeCompare(b))
-      : participantInfo.all
-    const suggestions = usernames.map(username => ({
-      fullName: infoMap.get(username)?.fullname || '',
-      username,
-    }))
-    if (teamType !== 'adhoc') {
-      const fullName = teamType === 'small' ? 'Everyone in this team' : 'Everyone in this channel'
-      suggestions.push({fullName, username: 'channel'}, {fullName, username: 'here'})
-    }
-    // TODO this will thrash on every store change, TODO fix
-    return suggestions
-  })
+  const infoMap = useUsersState(s => s.infoMap)
+  const participantInfo = Chat.useChatContext(s => s.participants)
+  return Chat.useChatContext(
+    C.useDeep(s => {
+      const {teamID, teamType} = s.meta
+      // TODO not reactive
+      const teamMembers = useTeamsState.getState().teamIDToMembers.get(teamID)
+      const usernames = teamMembers
+        ? [...teamMembers.values()].map(m => m.username).sort((a, b) => a.localeCompare(b))
+        : participantInfo.all
+      const suggestions = usernames.map(username => ({
+        fullName: infoMap.get(username)?.fullname || '',
+        username,
+      }))
+      if (teamType !== 'adhoc') {
+        const fullName = teamType === 'small' ? 'Everyone in this team' : 'Everyone in this channel'
+        suggestions.push({fullName, username: 'channel'}, {fullName, username: 'here'})
+      }
+      // TODO this will thrash on every store change, TODO fix
+      return suggestions
+    })
+  )
 }
 
 const useDataTeams = () => {
-  const inboxLayout = C.useChatState(s => s.inboxLayout)
+  const inboxLayout = Chat.useChatState(s => s.inboxLayout)
   const teams = React.useMemo(() => getTeams(inboxLayout), [inboxLayout])
   const allChannels = React.useMemo(
     () =>
@@ -207,8 +212,8 @@ type ListProps = Pick<
 > & {
   filter: string
   onSelected: (item: ListItem, final: boolean) => void
-  onMoveRef: React.MutableRefObject<((up: boolean) => void) | undefined>
-  onSubmitRef: React.MutableRefObject<(() => boolean) | undefined>
+  setOnMoveRef: (r: (up: boolean) => void) => void
+  setOnSubmitRef: (r: () => boolean) => void
 }
 
 const ItemRenderer = (p: Common.ItemRendererProps<ListItem>) => {
@@ -230,7 +235,7 @@ const ItemRenderer = (p: Common.ItemRendererProps<ListItem>) => {
       ])}
       gap="tiny"
     >
-      {C.Chat.isSpecialMention(username ?? '') ? (
+      {Chat.isSpecialMention(username ?? '') ? (
         <Kb.Box2 direction="horizontal" style={styles.iconPeople}>
           <Kb.Icon type="iconfont-people" color={Kb.Styles.globalColors.blueDark} fontSize={16} />
         </Kb.Box2>

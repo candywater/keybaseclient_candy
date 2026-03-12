@@ -1,10 +1,9 @@
-import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import type {Props} from '.'
 
 const Prompt = () => (
   <Kb.Box2 direction="horizontal" fullWidth={true} gap="xtiny" style={styles.promptContainer}>
-    <Kb.Text type="BodySmallSemibold">Select attachment type</Kb.Text>
+    <Kb.Text type="BodySmallSemibold">Select attachment</Kb.Text>
   </Kb.Box2>
 )
 

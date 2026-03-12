@@ -1,9 +1,10 @@
 import * as C from '@/constants'
-import * as Container from '@/util/container'
 import * as Kb from '@/common-adapters'
+import {useTeamsState} from '@/constants/teams'
 import * as React from 'react'
 import type * as T from '@/constants/types'
 import {ModalTitle} from '@/teams/common'
+import {useSafeNavigation} from '@/util/safe-navigation'
 
 type Props = {
   channelname: string
@@ -18,7 +19,7 @@ const EditChannel = (props: Props) => {
   const oldName = props.channelname
   const oldDescription = props.description
 
-  const nav = Container.useSafeNavigation()
+  const nav = useSafeNavigation()
 
   const [name, _setName] = React.useState(oldName)
   const setName = (newName: string) => _setName(newName.replace(/[^a-zA-Z0-9_-]/, ''))
@@ -29,8 +30,10 @@ const EditChannel = (props: Props) => {
   const clearModals = C.useRouterState(s => s.dispatch.clearModals)
   const onClose = () => clearModals()
 
-  const updateChannelName = C.useTeamsState(s => s.dispatch.updateChannelName)
-  const updateTopic = C.useTeamsState(s => s.dispatch.updateTopic)
+  const updateChannelName = useTeamsState(s => s.dispatch.updateChannelName)
+  const updateTopic = useTeamsState(s => s.dispatch.updateTopic)
+
+  const loadTeamChannelList = useTeamsState(s => s.dispatch.loadTeamChannelList)
 
   const onSave = () => {
     const ps = [
@@ -40,10 +43,11 @@ const EditChannel = (props: Props) => {
     Promise.all(ps)
       .then(() => {
         nav.safeNavigateUp()
+        loadTeamChannelList(teamID)
       })
       .catch(() => {})
   }
-  const waiting = C.Waiting.useAnyWaiting(C.Teams.updateChannelNameWaitingKey(teamID))
+  const waiting = C.Waiting.useAnyWaiting(C.waitingKeyTeamsUpdateChannelName(teamID))
 
   return (
     <Kb.Modal
@@ -79,7 +83,7 @@ const EditChannel = (props: Props) => {
           containerStyle={styles.channelNameinput}
         />
         {oldName === 'general' && (
-          <Kb.Text type="BodySmall">You can't edit the #general channel's name.</Kb.Text>
+          <Kb.Text type="BodySmall">{"You can't edit the #general channel's name."}</Kb.Text>
         )}
         <Kb.LabeledInput
           hoverPlaceholder="What is this channel about?"

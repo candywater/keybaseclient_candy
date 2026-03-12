@@ -1,13 +1,13 @@
-import * as C from '@/constants'
-import * as Constants from '@/constants/fs'
 import * as T from '@/constants/types'
 import * as Kb from '@/common-adapters'
-import LastModifiedLine from './last-modified-line-container'
+import LastModifiedLine from './last-modified-line'
 import TlfInfoLine from './tlf-info-line-container'
 import ItemIcon from './item-icon'
 import CommaSeparatedName from './comma-separated-name'
 import {pluralize} from '@/util/string'
 import {useFsChildren, useFsPathMetadata, useFsOnlineStatus, useFsSoftError} from './hooks'
+import {useFSState} from '@/constants/fs'
+import * as FS from '@/constants/fs'
 
 type Props = {
   containerStyle?: Kb.Styles.StylesCrossPlatform
@@ -18,13 +18,13 @@ const getNumberOfFilesAndFolders = (
   pathItems: T.FS.PathItems,
   path: T.FS.Path
 ): {folders: number; files: number; loaded: boolean} => {
-  const pathItem = C.FS.getPathItem(pathItems, path)
+  const pathItem = FS.getPathItem(pathItems, path)
   return pathItem.type === T.FS.PathType.Folder
     ? [...pathItem.children].reduce(
         ({folders, files, loaded}, p) => {
-          const item = C.FS.getPathItem(pathItems, T.FS.pathConcat(path, p))
+          const item = FS.getPathItem(pathItems, T.FS.pathConcat(path, p))
           const isFolder = item.type === T.FS.PathType.Folder
-          const isFile = item.type !== T.FS.PathType.Folder && item !== Constants.unknownPathItem
+          const isFile = item.type !== T.FS.PathType.Folder && item !== FS.unknownPathItem
           return {
             files: files + (isFile ? 1 : 0),
             folders: folders + (isFolder ? 1 : 0),
@@ -38,7 +38,7 @@ const getNumberOfFilesAndFolders = (
 
 const FilesAndFoldersCount = (props: Props) => {
   useFsChildren(props.path)
-  const pathItems = C.useFSState(s => s.pathItems)
+  const pathItems = useFSState(s => s.pathItems)
   const {files, folders, loaded} = getNumberOfFilesAndFolders(pathItems, props.path)
   return loaded ? (
     <Kb.Text type="BodySmall">
@@ -70,16 +70,16 @@ const SoftErrorBanner = ({path}: {path: T.FS.Path}) => {
     case undefined:
       return null
     case T.FS.SoftError.NoAccess:
-      return <Kb.Banner color="blue">You don't have access to this folder or file.</Kb.Banner>
+      return <Kb.Banner color="blue">{"You don't have access to this folder or file."}</Kb.Banner>
     case T.FS.SoftError.Nonexistent:
-      return <Kb.Banner color="yellow">This file or folder doesn't exist.</Kb.Banner>
+      return <Kb.Banner color="yellow">{"This file or folder doesn't exist."}</Kb.Banner>
   }
 }
 
 const PathItemInfo = (props: Props) => {
   useFsOnlineStatus() // when used in chat, we don't have this from Files tab
   useFsPathMetadata(props.path)
-  const pathItem = C.useFSState(s => C.FS.getPathItem(s.pathItems, props.path))
+  const pathItem = useFSState(s => FS.getPathItem(s.pathItems, props.path))
   const name = (
     <CommaSeparatedName
       center={true}
@@ -95,11 +95,9 @@ const PathItemInfo = (props: Props) => {
         <ItemIcon path={props.path} size={48} style={styles.pathItemIcon} />
         <Kb.Box style={styles.nameTextBox}>{name}</Kb.Box>
         {pathItem.type === T.FS.PathType.File && (
-          <Kb.Text type="BodySmall">{C.FS.humanReadableFileSize(pathItem.size)}</Kb.Text>
+          <Kb.Text type="BodySmall">{FS.humanReadableFileSize(pathItem.size)}</Kb.Text>
         )}
-        {Constants.isInTlf(props.path) && C.FS.isFolder(props.path, pathItem) && (
-          <FilesAndFoldersCount {...props} />
-        )}
+        {FS.isInTlf(props.path) && FS.isFolder(props.path, pathItem) && <FilesAndFoldersCount {...props} />}
         {getTlfInfoLineOrLastModifiedLine(props.path)}
       </Kb.Box2>
     </>

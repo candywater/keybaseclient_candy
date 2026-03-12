@@ -1,6 +1,7 @@
 package teams
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"testing"
@@ -10,7 +11,6 @@ import (
 	"github.com/keybase/client/go/libkb"
 	"github.com/keybase/client/go/protocol/keybase1"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func makeCryptKey(t *testing.T, gen int) keybase1.CryptKey {
@@ -49,7 +49,8 @@ func TestKBFSUpgradeTeam(t *testing.T) {
 	require.NoError(t, err)
 
 	checkCryptKeys := func(tlfID keybase1.TLFID, cryptKeys []keybase1.CryptKey,
-		appType keybase1.TeamApplication) {
+		appType keybase1.TeamApplication,
+	) {
 		team, err = Load(context.TODO(), tc.G, keybase1.LoadTeamArg{
 			ID:          team.ID,
 			ForceRepoll: true,
@@ -101,7 +102,6 @@ func (u *unpinnedTLFAPIFaker) getUnpinnedTLF(_ libkb.MetaContext) (res *unpinned
 }
 
 func TestTLFPinLoop(t *testing.T) {
-
 	_, tcs, cleanup := setupNTests(t, 1)
 	defer cleanup()
 
@@ -151,7 +151,6 @@ func (t *logoutTimer) LoopWait(m libkb.MetaContext, _ error) (err error) {
 }
 
 func TestTLFPinLoopLogout(t *testing.T) {
-
 	_, tcs, cleanup := setupNTests(t, 1)
 	defer cleanup()
 

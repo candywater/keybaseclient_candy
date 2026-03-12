@@ -1,17 +1,18 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Kb from '@/common-adapters/index'
 import * as T from '@/constants/types'
 import * as React from 'react'
 import UnfurlImage from './image'
-import {OrdinalContext} from '@/chat/conversation/messages/ids-context'
+import {useOrdinal} from '@/chat/conversation/messages/ids-context'
 import {formatTimeForMessages} from '@/util/timestamp'
 import {getUnfurlInfo, useActions} from './use-state'
 
 const UnfurlGeneric = React.memo(function UnfurlGeneric(p: {idx: number}) {
   const {idx} = p
-  const ordinal = React.useContext(OrdinalContext)
+  const ordinal = useOrdinal()
 
-  const data = C.useChatContext(
+  const data = Chat.useChatContext(
     C.useShallow(s => {
       const {unfurl, isCollapsed, unfurlMessageID, youAreAuthor} = getUnfurlInfo(s, ordinal, idx)
       if (unfurl?.unfurlType !== T.RPCChat.UnfurlType.generic) {
@@ -71,7 +72,7 @@ const UnfurlGeneric = React.memo(function UnfurlGeneric(p: {idx: number}) {
           ) : null}
         </Kb.Text>
       </Kb.BoxGrow>
-      {!!onClose && (
+      {onClose ? (
         <Kb.Icon
           type="iconfont-close"
           onClick={onClose}
@@ -80,7 +81,7 @@ const UnfurlGeneric = React.memo(function UnfurlGeneric(p: {idx: number}) {
           className="unfurl-closebox"
           fontSize={12}
         />
-      )}
+      ) : null}
     </Kb.Box2>
   )
 
@@ -149,9 +150,7 @@ const styles = Kb.Styles.styleSheetCreate(
         isMobile: {alignSelf: 'center'},
       }),
       closeBox: Kb.Styles.platformStyles({
-        common: {
-          backgroundColor: Kb.Styles.globalColors.fastBlank,
-        },
+        common: {backgroundColor: Kb.Styles.globalColors.fastBlank},
         isElectron: {
           alignSelf: 'flex-start',
           marginLeft: 'auto',

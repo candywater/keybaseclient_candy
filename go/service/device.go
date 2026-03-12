@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/keybase/client/go/libkb"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
-	"golang.org/x/net/context"
 )
 
 // DeviceHandler is the RPC handler for the device interface.
@@ -88,8 +88,8 @@ type _deviceChange struct {
 }
 
 func LoopAndDismissForDeviceChangeNotifications(mctx libkb.MetaContext, dismisser libkb.GregorState,
-	gregorState gregor.State, exceptedDeviceID string) (err error) {
-
+	gregorState gregor.State, exceptedDeviceID string,
+) (err error) {
 	items, err := gregorState.Items()
 	if err != nil {
 		return err
@@ -97,7 +97,7 @@ func LoopAndDismissForDeviceChangeNotifications(mctx libkb.MetaContext, dismisse
 	var body _deviceChange
 	for _, item := range items {
 		category := item.Category().String()
-		if !(category == "device.revoked" || category == "device.new") {
+		if category != "device.revoked" && category != "device.new" {
 			continue
 		}
 		err := json.Unmarshal(item.Body().Bytes(), &body)

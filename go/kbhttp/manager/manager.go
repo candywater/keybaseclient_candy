@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"context"
 	"crypto/hmac"
 	"fmt"
 	"net/http"
@@ -10,7 +11,6 @@ import (
 	"github.com/keybase/client/go/kbhttp"
 	"github.com/keybase/client/go/libkb"
 	"github.com/keybase/client/go/protocol/keybase1"
-	context "golang.org/x/net/context"
 )
 
 type SrvTokenMode int
@@ -122,7 +122,8 @@ func (r *Srv) monitorAppState() {
 }
 
 func (r *Srv) HandleFunc(endpoint string, tokenMode SrvTokenMode,
-	serve func(w http.ResponseWriter, req *http.Request)) {
+	serve func(w http.ResponseWriter, req *http.Request),
+) {
 	r.httpSrv.HandleFunc("/"+endpoint, func(w http.ResponseWriter, req *http.Request) {
 		switch tokenMode {
 		case SrvTokenModeDefault:

@@ -2,46 +2,37 @@ import * as C from '@/constants'
 import * as Kb from '@/common-adapters'
 import type {ButtonType} from '@/common-adapters/button'
 import {SignupScreen} from '@/signup/common'
+import {useState as useRecoverState} from '@/constants/recover-password'
+import {useConfigState} from '@/constants/config'
 
-const useConn = () => {
-  const loggedIn = C.useConfigState(s => s.loggedIn)
-  const error = C.useRecoverState(s => s.error)
+const ConnectedError = () => {
+  const loggedIn = useConfigState(s => s.loggedIn)
+  const error = useRecoverState(s => s.error)
   const popStack = C.useRouterState(s => s.dispatch.popStack)
   const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
   const onBack = () => {
     loggedIn ? navigateUp() : popStack()
   }
-  return {error, onBack}
-}
-const ConnectedError = () => {
-  const props = useConn()
-  return <Error {...props} />
+  return (
+    <SignupScreen
+      buttons={[
+        {
+          label: 'Back',
+          onClick: onBack,
+          type: 'Default' as ButtonType,
+        },
+      ]}
+      onBack={onBack}
+      title="Recover password"
+    >
+      <Kb.Text center={true} type="Header" style={{maxWidth: 460, width: '80%'}}>
+        Password recovery failed
+      </Kb.Text>
+      <Kb.Text type="Body" center={true}>
+        {error}
+      </Kb.Text>
+    </SignupScreen>
+  )
 }
 
 export default ConnectedError
-
-type Props = {
-  error: string
-  onBack: () => void
-}
-
-const Error = (props: Props) => (
-  <SignupScreen
-    buttons={[
-      {
-        label: 'Back',
-        onClick: props.onBack,
-        type: 'Default' as ButtonType,
-      },
-    ]}
-    onBack={props.onBack}
-    title="Recover password"
-  >
-    <Kb.Text center={true} type="Header" style={{maxWidth: 460, width: '80%'}}>
-      Password recovery failed
-    </Kb.Text>
-    <Kb.Text type="Body" center={true}>
-      {props.error}
-    </Kb.Text>
-  </SignupScreen>
-)

@@ -1,6 +1,7 @@
 package keybase
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -17,7 +18,6 @@ import (
 	"github.com/keybase/client/go/protocol/gregor1"
 	"github.com/keybase/client/go/protocol/keybase1"
 	"github.com/kyokomi/emoji"
-	context "golang.org/x/net/context"
 )
 
 type Person struct {
@@ -70,6 +70,10 @@ func HandlePostTextReply(strConvID, tlfName string, intMessageID int, body strin
 		return err
 	}
 
+	if intMessageID < 0 {
+		return fmt.Errorf("invalid message ID: %d", intMessageID)
+	}
+
 	msgID := chat1.MessageID(intMessageID)
 	if err = kbChatCtx.InboxSource.MarkAsRead(context.Background(), convID, uid, &msgID, false /* forceUnread */); err != nil {
 		kbCtx.Log.CDebugf(ctx, "Failed to mark as read from QuickReply: convID: %s. Err: %s", strConvID, err)
@@ -84,7 +88,8 @@ var spoileRegexp = regexp.MustCompile(`!>(.*?)<!`)
 
 func HandleBackgroundNotification(strConvID, body, serverMessageBody, sender string, intMembersType int,
 	displayPlaintext bool, intMessageID int, pushID string, badgeCount, unixTime int, soundName string,
-	pusher PushNotifier, showIfStale bool) (err error) {
+	pusher PushNotifier, showIfStale bool,
+) (err error) {
 	if err := waitForInit(10 * time.Second); err != nil {
 		return err
 	}
@@ -159,8 +164,7 @@ func HandleBackgroundNotification(strConvID, body, serverMessageBody, sender str
 				if err != nil {
 					return err
 				}
-				chatNotification.Message.Plaintext =
-					emoji.Sprintf("Reacted to your message with %v", reaction)
+				chatNotification.Message.Plaintext = emoji.Sprintf("Reacted to your message with %v", reaction)
 			default:
 				kbCtx.Log.CDebugf(ctx, "unboxNotification: Unknown message type: %v",
 					msgUnboxed.GetMessageType())

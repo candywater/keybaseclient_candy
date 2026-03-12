@@ -5,6 +5,8 @@ import * as React from 'react'
 import useBrowserWindow from '../desktop/remote/use-browser-window.desktop'
 import useSerializeProps from '../desktop/remote/use-serialize-props.desktop'
 import {serialize, type ProxyProps} from './remote-serializer.desktop'
+import {useColorScheme} from 'react-native'
+import {usePinentryState} from '@/constants/pinentry'
 
 const windowOpts = {height: 230, width: 440}
 
@@ -26,7 +28,7 @@ const Pinentry = (p: ProxyProps) => {
 const PinentryMemo = React.memo(Pinentry)
 
 const PinentryProxy = () => {
-  const {cancelLabel, prompt, retryLabel, showTyping, submitLabel, type, windowTitle} = C.usePinentryState(
+  const {cancelLabel, prompt, retryLabel, showTyping, submitLabel, type, windowTitle} = usePinentryState(
     C.useShallow(s => {
       const {cancelLabel, prompt, retryLabel, showTyping, submitLabel, type, windowTitle} = s
       return {
@@ -41,7 +43,7 @@ const PinentryProxy = () => {
     })
   )
   const show = type !== T.RPCGen.PassphraseType.none && !!showTyping
-  const darkMode = C.useDarkModeState(s => s.isDarkMode())
+  const darkMode = useColorScheme() === 'dark'
   if (show) {
     return (
       <PinentryMemo

@@ -1,15 +1,15 @@
 import * as C from '@/constants'
+import * as Crypto from '@/constants/crypto'
 import * as React from 'react'
-import * as Constants from '@/constants/crypto'
 import * as Kb from '@/common-adapters'
 import openURL from '@/util/open-url'
 import {Input, DragAndDrop, OperationBanner, InputActionsBar} from '../input'
 import {OutputInfoBanner, OperationOutput, OutputActionsBar, SignedSender} from '../output'
 
-const operation = Constants.Operations.Sign
+const operation = Crypto.Operations.Sign
 
 const SignOutputBanner = () => {
-  const outputType = C.useCryptoState(s => s.sign.outputType)
+  const outputType = Crypto.useCryptoState(s => s.sign.outputType)
   return (
     <OutputInfoBanner operation={operation}>
       <Kb.Text type="BodySmallSemibold" center={true}>
@@ -17,7 +17,7 @@ const SignOutputBanner = () => {
         <Kb.Text
           type="BodySecondaryLink"
           underline={true}
-          onClick={() => openURL(Constants.saltpackDocumentation)}
+          onClick={() => openURL(Crypto.saltpackDocumentation)}
         >
           Saltpack
         </Kb.Text>
@@ -28,7 +28,12 @@ const SignOutputBanner = () => {
 }
 
 export const SignInput = () => {
-  const resetOperation = C.useCryptoState(s => s.dispatch.resetOperation)
+  const blurCBRef = React.useRef(() => {})
+  const setBlurCB = React.useCallback((cb: () => void) => {
+    blurCBRef.current = cb
+  }, [])
+
+  const resetOperation = Crypto.useCryptoState(s => s.dispatch.resetOperation)
   React.useEffect(() => {
     return () => {
       if (C.isMobile) {
@@ -40,15 +45,15 @@ export const SignInput = () => {
   const content = (
     <>
       <OperationBanner operation={operation} />
-      <Input operation={operation} />
-      {C.isMobile ? <InputActionsBar operation={operation} /> : null}
+      <Input operation={operation} setBlurCB={setBlurCB} />
+      {C.isMobile ? <InputActionsBar operation={operation} blurCBRef={blurCBRef} /> : null}
     </>
   )
 
   return C.isMobile ? (
     <Kb.KeyboardAvoidingView2>{content}</Kb.KeyboardAvoidingView2>
   ) : (
-    <Kb.Box2 direction="vertical" fullHeight={true} style={Constants.inputDesktopMaxHeight}>
+    <Kb.Box2 direction="vertical" fullHeight={true} style={Crypto.inputDesktopMaxHeight}>
       {content}
     </Kb.Box2>
   )
@@ -67,7 +72,7 @@ export const SignOutput = () => {
   return C.isMobile ? (
     content
   ) : (
-    <Kb.Box2 direction="vertical" fullHeight={true} style={Constants.outputDesktopMaxHeight}>
+    <Kb.Box2 direction="vertical" fullHeight={true} style={Crypto.outputDesktopMaxHeight}>
       {content}
     </Kb.Box2>
   )

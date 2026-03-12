@@ -1,5 +1,8 @@
-import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
+import * as Kb from '@/common-adapters'
+import type {AllowedColors} from '@/common-adapters/text'
 import SelectableSmallTeam from './selectable-small-team'
+import {useCurrentUserState} from '@/constants/current-user'
 
 type OwnProps = {
   filter?: string
@@ -11,22 +14,44 @@ type OwnProps = {
   onSelectConversation: () => void
 }
 
+const getRowStyles = (isSelected: boolean, hasUnread: boolean) => {
+  const backgroundColor = isSelected
+    ? Kb.Styles.globalColors.blue
+    : Kb.Styles.isPhone
+      ? Kb.Styles.globalColors.fastBlank
+      : Kb.Styles.globalColors.blueGrey
+  const showBold = !isSelected && hasUnread
+  const subColor: AllowedColors = isSelected
+    ? Kb.Styles.globalColors.white
+    : hasUnread
+      ? Kb.Styles.globalColors.black
+      : Kb.Styles.globalColors.black_50
+  const usernameColor = isSelected ? Kb.Styles.globalColors.white : Kb.Styles.globalColors.black
+
+  return {
+    backgroundColor,
+    showBold,
+    subColor,
+    usernameColor,
+  }
+}
+
 const Container = (ownProps: OwnProps) => {
-  const _hasBadge = C.useChatContext(s => s.badge > 0)
-  const _hasUnread = C.useChatContext(s => s.unread > 0)
-  const _meta = C.useChatContext(s => s.meta)
-  const _participantInfo = C.useChatContext(s => s.participants)
-  const _username = C.useCurrentUserState(s => s.username)
-  const isMuted = C.useChatContext(s => s.meta.isMuted)
+  const _hasBadge = Chat.useChatContext(s => s.badge > 0)
+  const _hasUnread = Chat.useChatContext(s => s.unread > 0)
+  const _meta = Chat.useChatContext(s => s.meta)
+  const _participantInfo = Chat.useChatContext(s => s.participants)
+  const _username = useCurrentUserState(s => s.username)
+  const isMuted = Chat.useChatContext(s => s.meta.isMuted)
   const {isSelected, maxSearchHits, numSearchHits, onSelectConversation, name} = ownProps
-  const styles = C.Chat.getRowStyles(isSelected, _hasUnread)
+  const styles = getRowStyles(isSelected, _hasUnread)
   const participantNeedToRekey = _meta.rekeyers.size > 0
   const youNeedToRekey = !participantNeedToRekey && _meta.rekeyers.has(_username)
   const isLocked = participantNeedToRekey || youNeedToRekey
 
   // order participants by hit, if it's set
   const filter = ownProps.filter ?? ''
-  const metaParts = C.Chat.getRowParticipants(_participantInfo, _username)
+  const metaParts = Chat.getRowParticipants(_participantInfo, _username)
   let participants = ownProps.participants ?? (metaParts.length > 0 ? metaParts : name.split(','))
   participants = participants.sort((a, b) => {
     const ai = a.indexOf(filter)

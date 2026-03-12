@@ -2,23 +2,30 @@ import * as C from '@/constants'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import {SettingsSection} from './account'
+import {useSettingsContactsState} from '@/constants/settings-contacts'
+import {settingsFeedbackTab} from '@/constants/settings'
+import {useConfigState} from '@/constants/config'
 
 const enabledDescription = 'Your phone contacts are being synced on this device.'
 const disabledDescription = 'Import your phone contacts and start encrypted chats with your friends.'
 
 const ManageContacts = () => {
-  const status = C.useSettingsContactsState(s => s.permissionStatus)
-  const contactsImported = C.useSettingsContactsState(s => s.importEnabled)
+  const contactsState = useSettingsContactsState(
+    C.useShallow(s => ({
+      contactsImported: s.importEnabled,
+      editContactImportEnabled: s.dispatch.editContactImportEnabled,
+      loadContactImportEnabled: s.dispatch.loadContactImportEnabled,
+      requestPermissions: s.dispatch.requestPermissions,
+      status: s.permissionStatus,
+    }))
+  )
+  const {contactsImported, editContactImportEnabled, loadContactImportEnabled} = contactsState
+  const {requestPermissions, status} = contactsState
   const waiting = C.Waiting.useAnyWaiting(C.importContactsWaitingKey)
-
-  const loadContactImportEnabled = C.useSettingsContactsState(s => s.dispatch.loadContactImportEnabled)
 
   if (contactsImported === undefined) {
     loadContactImportEnabled()
   }
-
-  const requestPermissions = C.useSettingsContactsState(s => s.dispatch.requestPermissions)
-  const editContactImportEnabled = C.useSettingsContactsState(s => s.dispatch.editContactImportEnabled)
 
   const onToggle = React.useCallback(() => {
     if (status !== 'granted') {
@@ -57,22 +64,30 @@ const ManageContacts = () => {
 }
 
 const ManageContactsBanner = () => {
-  const status = C.useSettingsContactsState(s => s.permissionStatus)
-  const contactsImported = C.useSettingsContactsState(s => s.importEnabled)
-  const importedCount = C.useSettingsContactsState(s => s.importedCount)
-  const error = C.useSettingsContactsState(s => s.importError)
-  const onOpenAppSettings = C.useConfigState(s => s.dispatch.dynamic.openAppSettings)
-  const switchTab = C.useRouterState(s => s.dispatch.switchTab)
-  const appendNewChatBuilder = C.useRouterState(s => s.appendNewChatBuilder)
+  const {contactsImported, error, importedCount, status} = useSettingsContactsState(
+    C.useShallow(s => ({
+      contactsImported: s.importEnabled,
+      error: s.importError,
+      importedCount: s.importedCount,
+      status: s.permissionStatus,
+    }))
+  )
+  const onOpenAppSettings = useConfigState(s => s.dispatch.dynamic.openAppSettings)
+  const {appendNewChatBuilder, navigateAppend, switchTab} = C.useRouterState(
+    C.useShallow(s => ({
+      appendNewChatBuilder: s.appendNewChatBuilder,
+      navigateAppend: s.dispatch.navigateAppend,
+      switchTab: s.dispatch.switchTab,
+    }))
+  )
   const onStartChat = React.useCallback(() => {
     switchTab(C.Tabs.chatTab)
     appendNewChatBuilder()
   }, [appendNewChatBuilder, switchTab])
-  const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
   const onSendFeedback = React.useCallback(() => {
     navigateAppend({
       props: {feedback: `Contact import failed\n${error}\n\n`},
-      selected: C.Settings.settingsFeedbackTab,
+      selected: settingsFeedbackTab,
     })
   }, [navigateAppend, error])
 

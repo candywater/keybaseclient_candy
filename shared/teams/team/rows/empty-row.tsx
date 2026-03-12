@@ -1,7 +1,10 @@
 import type * as T from '@/constants/types'
 import * as C from '@/constants'
-import * as Container from '@/util/container'
+import * as Chat from '@/constants/chat2'
+import * as Teams from '@/constants/teams'
 import * as Kb from '@/common-adapters'
+import {useSafeNavigation} from '@/util/safe-navigation'
+import {useCurrentUserState} from '@/constants/current-user'
 
 type Props = {
   type: 'channelsEmpty' | 'channelsFew' | 'members' | 'subteams'
@@ -25,9 +28,9 @@ const buttonLabel = {
 
 const useSecondaryAction = (props: Props) => {
   const {teamID, conversationIDKey} = props
-  const nav = Container.useSafeNavigation()
-  const startAddMembersWizard = C.useTeamsState(s => s.dispatch.startAddMembersWizard)
-  const launchNewTeamWizardOrModal = C.useTeamsState(s => s.dispatch.launchNewTeamWizardOrModal)
+  const nav = useSafeNavigation()
+  const startAddMembersWizard = Teams.useTeamsState(s => s.dispatch.startAddMembersWizard)
+  const launchNewTeamWizardOrModal = Teams.useTeamsState(s => s.dispatch.launchNewTeamWizardOrModal)
   const onSecondaryAction = () => {
     switch (props.type) {
       case 'members':
@@ -77,13 +80,13 @@ Make it a big team by creating chat channels.`
 
 const EmptyRow = (props: Props) => {
   const {conversationIDKey, teamID} = props
-  const teamMeta = C.useTeamsState(s => C.Teams.getTeamMeta(s, teamID))
+  const teamMeta = Teams.useTeamsState(s => Teams.getTeamMeta(s, teamID))
   const notIn = teamMeta.role === 'none' || props.notChannelMember
-  const you = C.useCurrentUserState(s => s.username)
+  const you = useCurrentUserState(s => s.username)
   const onSecondaryAction = useSecondaryAction(props)
-  const addToTeam = C.useTeamsState(s => s.dispatch.addToTeam)
-  const joinConversation = C.useConvoState(
-    conversationIDKey ?? C.Chat.noConversationIDKey,
+  const addToTeam = Teams.useTeamsState(s => s.dispatch.addToTeam)
+  const joinConversation = Chat.useConvoState(
+    conversationIDKey ?? Chat.noConversationIDKey,
     s => s.dispatch.joinConversation
   )
   const onAddSelf = () => {
@@ -93,7 +96,7 @@ const EmptyRow = (props: Props) => {
       addToTeam(teamID, [{assertion: you, role: 'admin'}], false)
     }
   }
-  const waiting = C.Waiting.useAnyWaiting(C.Teams.addMemberWaitingKey(teamID, you))
+  const waiting = C.Waiting.useAnyWaiting(C.waitingKeyTeamsAddMember(teamID, you))
 
   const teamOrChannel = props.conversationIDKey ? 'channel' : 'team'
   const teamOrChannelName = props.conversationIDKey ? 'This channel' : teamMeta.teamname

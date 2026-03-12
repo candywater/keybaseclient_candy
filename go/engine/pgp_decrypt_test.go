@@ -5,13 +5,12 @@ package engine
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"golang.org/x/net/context"
 
 	"github.com/keybase/client/go/libkb"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
@@ -588,5 +587,4 @@ func TestPGPDecryptWithSyncedKey(t *testing.T) {
 
 	decryptCalledPassphrase = decryptIt()
 	require.False(t, decryptCalledPassphrase, "passphrase get wasn't called")
-
 }

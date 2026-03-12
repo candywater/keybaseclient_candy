@@ -1,4 +1,5 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as T from '@/constants/types'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
@@ -6,13 +7,15 @@ import Separator from './separator'
 import HelloBotCard from './cards/hello-bot'
 import MakeTeamCard from './cards/make-team'
 import NewChatCard from './cards/new-chat'
-import ProfileResetNotice from './system-profile-reset-notice/container'
-import RetentionNotice from './retention-notice/container'
+import ProfileResetNotice from './system-profile-reset-notice'
+import RetentionNotice from './retention-notice'
 import {usingFlashList} from '../list-area/flashlist-config'
+import * as FS from '@/constants/fs'
+import {useCurrentUserState} from '@/constants/current-user'
 
 const ErrorMessage = () => {
-  const createConversationError = C.useChatState(s => s.createConversationError)
-  const createConversation = C.useChatState(s => s.dispatch.createConversation)
+  const createConversationError = Chat.useChatState(s => s.createConversationError)
+  const createConversation = Chat.useChatState(s => s.dispatch.createConversation)
 
   const _onCreateWithoutThem = React.useCallback(
     (allowedUsers: ReadonlyArray<string>) => {
@@ -21,7 +24,7 @@ const ErrorMessage = () => {
     [createConversation]
   )
 
-  const navigateToInbox = C.useChatState(s => s.dispatch.navigateToInbox)
+  const navigateToInbox = Chat.useChatState(s => s.dispatch.navigateToInbox)
   const _onBack = React.useCallback(() => {
     navigateToInbox()
   }, [navigateToInbox])
@@ -108,75 +111,74 @@ const ErrorMessage = () => {
 }
 
 const SpecialTopMessage = React.memo(function SpecialTopMessage() {
-  const username = C.useCurrentUserState(s => s.username)
-  const loadMoreType = C.useChatContext(s => (s.moreToLoad ? 'moreToLoad' : 'noMoreToLoad'))
-  const ordinals = C.useChatContext(s => s.messageOrdinals)
-  const data = C.useChatContext(
+  const username = useCurrentUserState(s => s.username)
+  const data = Chat.useChatContext(
     C.useShallow(s => {
+      const ordinals = s.messageOrdinals
       const hasLoadedEver = ordinals !== undefined
       const ordinal = ordinals?.[0] ?? T.Chat.numberToOrdinal(0)
       const meta = s.meta
       const {teamType, supersedes, retentionPolicy, teamRetentionPolicy} = meta
+      const loadMoreType = s.moreToLoadBack ? 'moreToLoad' : 'noMoreToLoad'
+      const pendingState =
+        s.id === Chat.pendingWaitingConversationIDKey
+          ? 'waiting'
+          : s.id === Chat.pendingErrorConversationIDKey
+            ? 'error'
+            : 'done'
+
+      const partAll = s.participants.all
+      const partNum = partAll.length
+      const isHelloBotConversation = teamType === 'adhoc' && partNum === 2 && partAll.includes('hellobot')
+      const isSelfConversation = teamType === 'adhoc' && partNum === 1 && partAll.includes(username)
+      const showTeamOffer =
+        hasLoadedEver && loadMoreType === 'noMoreToLoad' && teamType === 'adhoc' && partNum > 2
+      const hasOlderResetConversation = supersedes !== Chat.noConversationIDKey
+      // don't show default header in the case of the retention notice being visible
+      const showRetentionNotice =
+        retentionPolicy.type !== 'retain' &&
+        !(retentionPolicy.type === 'inherit' && teamRetentionPolicy.type === 'retain')
       return {
-        hasLoadedEver,
+        hasOlderResetConversation,
+        isHelloBotConversation,
+        isSelfConversation,
+        loadMoreType,
         ordinal,
-        retentionPolicy,
-        supersedes,
-        teamRetentionPolicy,
-        teamType,
+        pendingState,
+        showRetentionNotice,
+        showTeamOffer,
       }
     })
   )
-  const {hasLoadedEver, ordinal, retentionPolicy} = data
-  const {supersedes, teamType, teamRetentionPolicy} = data
+  const {ordinal, pendingState, isHelloBotConversation, hasOlderResetConversation} = data
+  const {loadMoreType, isSelfConversation, showTeamOffer, showRetentionNotice} = data
   // we defer showing this so it doesn't flash so much
   const [allowDigging, setAllowDigging] = React.useState(false)
-  const [lastOrdinal, setLastOrdinal] = React.useState(ordinal)
+  const lastOrdinalRef = React.useRef(ordinal)
 
-  const digTimerRef = React.useRef<ReturnType<typeof setTimeout> | undefined>()
-  if (ordinal !== lastOrdinal) {
-    setAllowDigging(false)
-    setLastOrdinal(ordinal)
-    digTimerRef.current && clearTimeout(digTimerRef.current)
-    digTimerRef.current = setTimeout(() => {
-      setAllowDigging(true)
-    }, 3000)
-  }
+  const digTimerRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  React.useEffect(() => {
+    if (ordinal !== lastOrdinalRef.current) {
+      setAllowDigging(false)
+      lastOrdinalRef.current = ordinal
+      digTimerRef.current && clearTimeout(digTimerRef.current)
+      digTimerRef.current = setTimeout(() => {
+        setAllowDigging(true)
+      }, 3000)
+    }
+  }, [ordinal])
 
   React.useEffect(() => {
     return () => {
-      digTimerRef.current && clearTimeout(digTimerRef.current)
+      if (digTimerRef.current) {
+        clearTimeout(digTimerRef.current)
+        digTimerRef.current = undefined
+      }
     }
   }, [])
 
-  // could not expose this and just return an enum for the is*convos
-  const participantInfoAll = C.useChatContext(s => s.participants.all)
-
-  const pendingState = C.useChatContext(s => {
-    switch (s.id) {
-      case C.Chat.pendingWaitingConversationIDKey:
-        return 'waiting'
-      case C.Chat.pendingErrorConversationIDKey:
-        return 'error'
-      default:
-        return 'done'
-    }
-  })
-
-  const showTeamOffer =
-    hasLoadedEver && loadMoreType === 'noMoreToLoad' && teamType === 'adhoc' && participantInfoAll.length > 2
-  const hasOlderResetConversation = supersedes !== C.Chat.noConversationIDKey
-  // don't show default header in the case of the retention notice being visible
-  const showRetentionNotice =
-    retentionPolicy.type !== 'retain' &&
-    !(retentionPolicy.type === 'inherit' && teamRetentionPolicy.type === 'retain')
-  const isHelloBotConversation =
-    teamType === 'adhoc' && participantInfoAll.length === 2 && participantInfoAll.includes('hellobot')
-  const isSelfConversation =
-    teamType === 'adhoc' && participantInfoAll.length === 1 && participantInfoAll.includes(username)
-
   const openPrivateFolder = React.useCallback(() => {
-    C.FS.makeActionForOpenPathInFilesTab(T.FS.stringToPath(`/keybase/private/${username}`))
+    FS.makeActionForOpenPathInFilesTab(T.FS.stringToPath(`/keybase/private/${username}`))
   }, [username])
 
   return (
@@ -207,7 +209,7 @@ const SpecialTopMessage = React.memo(function SpecialTopMessage() {
       {allowDigging && loadMoreType === 'moreToLoad' && pendingState === 'done' && (
         <Kb.Box style={styles.more}>
           <Kb.Text type="BodyBig">
-            <Kb.Emoji size={16} emojiName=":moyai:" />
+            <Kb.NativeEmoji size={16} emojiName=":moyai:" />
           </Kb.Text>
           <Kb.Text type="BodySmallSemibold">Digging ancient messages...</Kb.Text>
         </Kb.Box>

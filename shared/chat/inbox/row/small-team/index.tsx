@@ -1,4 +1,5 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import {SimpleTopLine} from './top-line'
@@ -8,6 +9,7 @@ import * as RowSizes from '../sizes'
 import * as T from '@/constants/types'
 import SwipeConvActions from './swipe-conv-actions'
 import './small-team.css'
+import {useCurrentUserState} from '@/constants/current-user'
 import {
   IsTeamContext,
   ParticipantsContext,
@@ -15,6 +17,7 @@ import {
   SnippetContext,
   SnippetDecorationContext,
 } from './contexts'
+import {useOpenedRowState} from '../opened-row-state'
 
 export type Props = {
   conversationIDKey: T.Chat.ConversationIDKey
@@ -25,15 +28,22 @@ export type Props = {
   layoutSnippet?: string
   layoutTime?: number
   layoutSnippetDecoration?: T.RPCChat.SnippetDecoration
-  swipeCloseRef?: React.MutableRefObject<(() => void) | null>
   onSelectConversation?: () => void
 }
 
 const SmallTeam = React.memo(function SmallTeam(p: Props) {
-  const {layoutName, layoutIsTeam, layoutSnippet, isSelected, layoutTime, layoutSnippetDecoration} = p
-  const {isInWidget, swipeCloseRef} = p
+  return (
+    <Chat.ChatProvider id={p.conversationIDKey}>
+      <SmallTeamImpl {...p} />
+    </Chat.ChatProvider>
+  )
+})
 
-  const {snippet, snippetDecoration} = C.useChatContext(
+const SmallTeamImpl = (p: Props) => {
+  const {layoutName, layoutIsTeam, layoutSnippet, isSelected, layoutTime, layoutSnippetDecoration} = p
+  const {isInWidget} = p
+
+  const {snippet, snippetDecoration} = Chat.useChatContext(
     C.useShallow(s => {
       const typingSnippet = (() => {
         const typers = !isInWidget ? s.typing : undefined
@@ -49,18 +59,18 @@ const SmallTeam = React.memo(function SmallTeam(p: Props) {
       const {meta} = s
       // only use layout if we don't have the meta at all
       const maybeLayoutSnippet =
-        meta.conversationIDKey === C.Chat.noConversationIDKey ? layoutSnippet : undefined
+        meta.conversationIDKey === Chat.noConversationIDKey ? layoutSnippet : undefined
       const snippet = typingSnippet ?? meta.snippetDecorated ?? maybeLayoutSnippet ?? ''
       const snippetDecoration =
-        meta.conversationIDKey === C.Chat.noConversationIDKey
-          ? layoutSnippetDecoration ?? T.RPCChat.SnippetDecoration.none
+        meta.conversationIDKey === Chat.noConversationIDKey
+          ? (layoutSnippetDecoration ?? T.RPCChat.SnippetDecoration.none)
           : meta.snippetDecoration
       return {snippet, snippetDecoration}
     })
   )
-  const you = C.useCurrentUserState(s => s.username)
-  const navigateToThread = C.useChatContext(s => s.dispatch.navigateToThread)
-  const participants = C.useChatContext(
+  const you = useCurrentUserState(s => s.username)
+  const navigateToThread = Chat.useChatContext(s => s.dispatch.navigateToThread)
+  const participants = Chat.useChatContext(
     C.useShallow(s => {
       const {meta} = s
       const participantInfo = s.participants
@@ -86,11 +96,14 @@ const SmallTeam = React.memo(function SmallTeam(p: Props) {
     })
   )
 
-  const _onSelectConversation = React.useCallback(() => {
-    navigateToThread('inboxSmall')
-  }, [navigateToThread])
+  const setOpenedRow = useOpenedRowState(s => s.dispatch.setOpenRow)
 
-  const onSelectConversation = isSelected ? undefined : p.onSelectConversation ?? _onSelectConversation
+  const _onSelectConversation = React.useCallback(() => {
+    setOpenedRow(Chat.noConversationIDKey)
+    navigateToThread('inboxSmall')
+  }, [navigateToThread, setOpenedRow])
+
+  const onSelectConversation = isSelected ? undefined : (p.onSelectConversation ?? _onSelectConversation)
 
   const backgroundColor = isInWidget
     ? Kb.Styles.globalColors.white
@@ -102,8 +115,9 @@ const SmallTeam = React.memo(function SmallTeam(p: Props) {
 
   const children = React.useMemo(() => {
     return (
-      <SwipeConvActions swipeCloseRef={swipeCloseRef} onClick={onSelectConversation}>
+      <SwipeConvActions>
         <Kb.ClickableBox
+          onClick={onSelectConversation}
           className={Kb.Styles.classNames('small-row', {selected: isSelected})}
           style={
             isInWidget || Kb.Styles.isTablet
@@ -128,7 +142,7 @@ const SmallTeam = React.memo(function SmallTeam(p: Props) {
         </Kb.ClickableBox>
       </SwipeConvActions>
     )
-  }, [backgroundColor, isInWidget, isSelected, onSelectConversation, swipeCloseRef, layoutSnippet])
+  }, [backgroundColor, isInWidget, isSelected, onSelectConversation, layoutSnippet])
 
   return (
     <IsTeamContext.Provider value={!!layoutIsTeam}>
@@ -143,7 +157,7 @@ const SmallTeam = React.memo(function SmallTeam(p: Props) {
       </ParticipantsContext.Provider>
     </IsTeamContext.Provider>
   )
-})
+}
 
 type RowAvatarProps = {
   backgroundColor?: string
@@ -153,9 +167,9 @@ const RowAvatars = React.memo(function RowAvatars(p: RowAvatarProps) {
   const {backgroundColor, isSelected} = p
   const layoutIsTeam = React.useContext(IsTeamContext)
   const participants = React.useContext(ParticipantsContext)
-  const isMuted = C.useChatContext(s => s.meta.isMuted)
-  const you = C.useCurrentUserState(s => s.username)
-  const isLocked = C.useChatContext(s => {
+  const isMuted = Chat.useChatContext(s => s.meta.isMuted)
+  const you = useCurrentUserState(s => s.username)
+  const isLocked = Chat.useChatContext(s => {
     const {meta} = s
     const isLocked = meta.rekeyers.has(you) || meta.rekeyers.size > 0 || !!meta.wasFinalizedBy
     return isLocked
@@ -187,42 +201,45 @@ const RowAvatars = React.memo(function RowAvatars(p: RowAvatarProps) {
   )
 })
 
-const styles = Kb.Styles.styleSheetCreate(() => ({
-  container: {
-    flexShrink: 0,
-    height: RowSizes.smallRowHeight,
-  },
-  conversationRow: {
-    ...Kb.Styles.globalStyles.flexBoxColumn,
-    flexGrow: 1,
-    height: '100%',
-    justifyContent: 'center',
-    paddingLeft: Kb.Styles.globalMargins.tiny,
-  },
-  fastBlank: Kb.Styles.platformStyles({
-    isPhone: {backgroundColor: Kb.Styles.globalColors.fastBlank},
-    isTablet: {backgroundColor: undefined},
-  }),
-  flexOne: {flex: 1},
-  rowContainer: Kb.Styles.platformStyles({
-    common: {
-      ...Kb.Styles.globalStyles.flexBoxRow,
-      alignItems: 'center',
-      height: '100%',
-      paddingLeft: Kb.Styles.globalMargins.xsmall,
-      paddingRight: Kb.Styles.globalMargins.xsmall,
-    },
-    isElectron: Kb.Styles.desktopStyles.clickable,
-    isMobile: {
-      paddingLeft: Kb.Styles.globalMargins.small,
-      paddingRight: Kb.Styles.globalMargins.small,
-    },
-  }),
-  withBottomLine: {
-    justifyContent: 'flex-end',
-    paddingBottom: Kb.Styles.globalMargins.xxtiny,
-  },
-  withoutBottomLine: {justifyContent: 'center'},
-}))
+const styles = Kb.Styles.styleSheetCreate(
+  () =>
+    ({
+      container: {
+        flexShrink: 0,
+        height: RowSizes.smallRowHeight,
+      },
+      conversationRow: {
+        ...Kb.Styles.globalStyles.flexBoxColumn,
+        flexGrow: 1,
+        height: '100%',
+        justifyContent: 'center',
+        paddingLeft: Kb.Styles.globalMargins.tiny,
+      },
+      fastBlank: Kb.Styles.platformStyles({
+        isPhone: {backgroundColor: Kb.Styles.globalColors.fastBlank},
+        isTablet: {backgroundColor: undefined},
+      }),
+      flexOne: {flex: 1},
+      rowContainer: Kb.Styles.platformStyles({
+        common: {
+          ...Kb.Styles.globalStyles.flexBoxRow,
+          alignItems: 'center',
+          height: '100%',
+          paddingLeft: Kb.Styles.globalMargins.xsmall,
+          paddingRight: Kb.Styles.globalMargins.xsmall,
+        },
+        isElectron: Kb.Styles.desktopStyles.clickable,
+        isMobile: {
+          paddingLeft: Kb.Styles.globalMargins.small,
+          paddingRight: Kb.Styles.globalMargins.small,
+        },
+      }),
+      withBottomLine: {
+        justifyContent: 'flex-end',
+        paddingBottom: Kb.Styles.globalMargins.xxtiny,
+      },
+      withoutBottomLine: {justifyContent: 'center'},
+    }) as const
+)
 
 export {SmallTeam}

@@ -2,12 +2,13 @@ import * as C from '@/constants'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import type * as T from '@/constants/types'
-import Announcement from './announcement/container'
+import Announcement from './announcement'
 import FollowNotification from './follow-notification'
 import FollowSuggestions from './follow-suggestions'
-import {noEmail} from '@/constants/signup'
 import type {Props} from '.'
-import Todo from './todo/container'
+import Todo from './todo'
+import {useSignupState} from '@/constants/signup'
+import {usePeopleState} from '@/constants/people'
 // import WotTask from './wot-task'
 
 const itemToComponent: (item: T.Immutable<T.People.PeopleScreenItem>, props: Props) => React.ReactNode = (
@@ -60,8 +61,8 @@ const itemToComponent: (item: T.Immutable<T.People.PeopleScreenItem>, props: Pro
 }
 
 const EmailVerificationBanner = React.memo(function EmailVerificationBanner() {
-  const clearJustSignedUpEmail = C.useSignupState(s => s.dispatch.clearJustSignedUpEmail)
-  const signupEmail = C.useSignupState(s => s.justSignedUpEmail)
+  const clearJustSignedUpEmail = useSignupState(s => s.dispatch.clearJustSignedUpEmail)
+  const signupEmail = useSignupState(s => s.justSignedUpEmail)
   React.useEffect(
     () =>
       // Only have a cleanup function
@@ -75,7 +76,7 @@ const EmailVerificationBanner = React.memo(function EmailVerificationBanner() {
     return null
   }
 
-  if (signupEmail === noEmail) {
+  if (signupEmail === C.noEmail) {
     return <Kb.Banner color="green">Welcome to Keybase!</Kb.Banner>
   }
   return (
@@ -84,8 +85,8 @@ const EmailVerificationBanner = React.memo(function EmailVerificationBanner() {
 })
 
 const ResentEmailVerificationBanner = React.memo(function ResentEmailVerificationBanner() {
-  const resentEmail = C.usePeopleState(s => s.resentEmail)
-  const setResentEmail = C.usePeopleState(s => s.dispatch.setResentEmail)
+  const resentEmail = usePeopleState(s => s.resentEmail)
+  const setResentEmail = usePeopleState(s => s.dispatch.setResentEmail)
   React.useEffect(
     () =>
       // Only have a cleanup function
@@ -118,7 +119,7 @@ export const PeoplePageList = React.memo(function PeoplePageList(props: Props) {
       <ResentEmailVerificationBanner />
       {props.newItems
         .filter(item => item.type !== 'todo' || item.todoType !== 'verifyAllEmail' || !props.signupEmail)
-        .map(item => itemToComponent(item, props))}
+        .map((item): React.ReactNode => itemToComponent(item, props))}
       {/*Array.from(props.wotUpdates, ([key, item]) => (
         <WotTask
           key={key}
@@ -130,7 +131,7 @@ export const PeoplePageList = React.memo(function PeoplePageList(props: Props) {
       ))*/}
 
       <FollowSuggestions suggestions={props.followSuggestions} />
-      {props.oldItems.map(item => itemToComponent(item, props))}
+      {props.oldItems.map((item): React.ReactNode => itemToComponent(item, props))}
     </Kb.Box>
   )
 })

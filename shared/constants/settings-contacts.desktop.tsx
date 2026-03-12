@@ -1,8 +1,6 @@
 import * as Z from '@/util/zustand'
 import type {Store, State} from './settings-contacts'
 
-export const importContactsWaitingKey = 'settings:importContacts'
-
 const initialStore: Store = {
   alreadyOnKeybase: [],
   importError: '',
@@ -13,7 +11,7 @@ const initialStore: Store = {
   waitingToShowJoinedModal: false,
 }
 
-export const _useState = Z.createZustand<State>(() => {
+export const useSettingsContactsState = Z.createZustand<State>(() => {
   const dispatch: State['dispatch'] = {
     editContactImportEnabled: () => {},
     importContactsLater: () => {},

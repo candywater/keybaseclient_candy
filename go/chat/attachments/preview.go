@@ -2,6 +2,7 @@ package attachments
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"image"
@@ -20,9 +21,7 @@ import (
 	_ "github.com/keybase/golang-ico" // for image decoding
 	"github.com/nfnt/resize"
 	"golang.org/x/image/bmp"
-	_ "golang.org/x/image/bmp" // for image decoding
 	"golang.org/x/image/tiff"
-	"golang.org/x/net/context"
 
 	"camlistore.org/pkg/images"
 )
@@ -45,8 +44,7 @@ type PreviewRes struct {
 
 func IsFatalImageErr(err error) bool {
 	switch err {
-	case image.ErrFormat,
-		bmp.ErrUnsupported:
+	case image.ErrFormat, bmp.ErrUnsupported:
 		return true
 	}
 	switch err.(type) {
@@ -64,7 +62,8 @@ func IsFatalImageErr(err error) bool {
 // Preview creates preview assets from src. It returns an in-memory BufferSource
 // and the content type of the preview asset.
 func Preview(ctx context.Context, log utils.DebugLabeler, src ReadResetter, contentType,
-	basename string, nvh types.NativeVideoHelper) (res *PreviewRes, err error) {
+	basename string, nvh types.NativeVideoHelper,
+) (res *PreviewRes, err error) {
 	defer log.Trace(ctx, &err, "Preview(%s)", contentType)()
 	defer func() {
 		if IsFatalImageErr(err) {
@@ -95,7 +94,8 @@ func Preview(ctx context.Context, log utils.DebugLabeler, src ReadResetter, cont
 
 // previewVideoBlank previews a video by inserting a black rectangle with a play button on it.
 func previewVideoBlank(ctx context.Context, log utils.DebugLabeler, src io.Reader,
-	basename string) (res *PreviewRes, err error) {
+	basename string,
+) (res *PreviewRes, err error) {
 	const width, height = 300, 150
 	img := image.NewNRGBA(image.Rect(0, 0, width, height))
 	for y := 0; y < height; y++ {
@@ -171,8 +171,8 @@ func previewImage(ctx context.Context, log utils.DebugLabeler, src io.Reader, ba
 		ContentType:   encodeContentType,
 		BaseWidth:     img.Bounds().Dx(),
 		BaseHeight:    img.Bounds().Dy(),
-		PreviewWidth:  int(width),
-		PreviewHeight: int(height),
+		PreviewWidth:  int(width),  //nolint:gosec // G115: Image dimensions are bounded by max image size, safe to convert
+		PreviewHeight: int(height), //nolint:gosec // G115: Image dimensions are bounded by max image size, safe to convert
 	}, nil
 }
 
@@ -239,8 +239,8 @@ func previewGIF(ctx context.Context, log utils.DebugLabeler, src io.Reader, base
 	}
 
 	// change the image Config to the new size
-	g.Config.Width = int(width)
-	g.Config.Height = int(height)
+	g.Config.Width = int(width)   //nolint:gosec // G115: Image dimensions are bounded by max image size, safe to convert
+	g.Config.Height = int(height) //nolint:gosec // G115: Image dimensions are bounded by max image size, safe to convert
 
 	// encode all the frames into buf
 	var buf bytes.Buffer
@@ -253,8 +253,8 @@ func previewGIF(ctx context.Context, log utils.DebugLabeler, src io.Reader, base
 		ContentType:    "image/gif",
 		BaseWidth:      origBounds.Dx(),
 		BaseHeight:     origBounds.Dy(),
-		PreviewWidth:   int(width),
-		PreviewHeight:  int(height),
+		PreviewWidth:   int(width),  //nolint:gosec // G115: Image dimensions are bounded by max image size, safe to convert
+		PreviewHeight:  int(height), //nolint:gosec // G115: Image dimensions are bounded by max image size, safe to convert
 		BaseDurationMs: baseDuration,
 	}
 
@@ -266,8 +266,8 @@ func previewGIF(ctx context.Context, log utils.DebugLabeler, src io.Reader, base
 }
 
 func previewDimensions(origBounds image.Rectangle) (uint, uint) {
-	origWidth := uint(origBounds.Dx())
-	origHeight := uint(origBounds.Dy())
+	origWidth := uint(origBounds.Dx())  //nolint:gosec // G115: Image dimensions are bounded by max image size, safe to convert
+	origHeight := uint(origBounds.Dy()) //nolint:gosec // G115: Image dimensions are bounded by max image size, safe to convert
 
 	if previewImageWidth >= origWidth && previewImageHeight >= origHeight {
 		return origWidth, origHeight

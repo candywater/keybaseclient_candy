@@ -4,6 +4,7 @@ import {serviceIdToIconFont, serviceIdToAccentColor, serviceIdToLongLabel, servi
 import type * as T from '@/constants/types'
 import {ScrollView} from 'react-native'
 import type {Props, IconProps} from './service-tab-bar'
+import {useColorScheme} from 'react-native'
 import {
   useSharedValue,
   useAnimatedStyle,
@@ -38,43 +39,49 @@ const AnimatedBox2 = Kb.Box2Animated
 const AnimatedScrollView = createAnimatedComponent(ScrollView)
 
 // On tablet add an additional "service" item that is only a bottom border that extends to the end of the ScrollView
-const TabletBottomBorderExtension = React.memo(
-  (props: {offset?: SharedValue<number>; servicesCount: number}) => {
-    const {offset} = props
-    const animatedStyles = useAnimatedStyle(() => {
-      const translateY = offset
-        ? interpolate(offset.value, [0, 100], [0, -8], {
-            extrapolateLeft: Extrapolation.CLAMP,
-            extrapolateRight: Extrapolation.CLAMP,
-          })
-        : 0
-      return {transform: [{translateY}]}
-    })
+const TabletBottomBorderExtension = React.memo(function TabletBottomBorderExtension(props: {
+  offset?: SharedValue<number>
+  servicesCount: number
+}) {
+  'use no memo'
+  const {offset} = props
 
-    return (
-      <Kb.Box2 direction="vertical" fullHeight={true} fullWidth={true} style={{position: 'relative'}}>
-        <AnimatedBox2
-          direction="horizontal"
-          fullWidth={true}
-          style={Kb.Styles.collapseStyles([
-            {
-              borderBottomWidth: 1,
-              borderColor: Kb.Styles.globalColors.black_10,
-              bottom: 0,
-              height: 2,
-              position: 'absolute',
-            },
-            Kb.Styles.platformStyles({isMobile: animatedStyles}),
-          ])}
-        />
-      </Kb.Box2>
-    )
-  }
-)
+  const borderColor = Kb.Styles.undynamicColor(Kb.Styles.globalColors.black_10)
+  const animatedStyles = useAnimatedStyle(() => {
+    const translateY = offset
+      ? interpolate(offset.value, [0, 100], [0, -8], {
+          extrapolateLeft: Extrapolation.CLAMP,
+          extrapolateRight: Extrapolation.CLAMP,
+        })
+      : 0
+    return {borderColor, transform: [{translateY}]}
+  })
+
+  return (
+    <Kb.Box2 direction="vertical" fullHeight={true} fullWidth={true} style={{position: 'relative'}}>
+      <AnimatedBox2
+        direction="horizontal"
+        fullWidth={true}
+        style={Kb.Styles.collapseStyles([
+          {
+            borderBottomWidth: 1,
+            bottom: 0,
+            height: 2,
+            position: 'absolute',
+          },
+          animatedStyles,
+        ])}
+      />
+    </Kb.Box2>
+  )
+})
 
 const ServiceIcon = React.memo(function ServiceIcon(props: IconProps) {
+  'use no memo'
   const {offset, isActive, service, label, onClick} = props
-  const color = isActive ? serviceIdToAccentColor(service) : Kb.Styles.globalColors.black
+
+  const isDarkMode = useColorScheme() === 'dark'
+  const color = isActive ? serviceIdToAccentColor(service, isDarkMode) : Kb.Styles.globalColors.black
 
   const animatedWidth = useAnimatedStyle(() => {
     const width = offset
@@ -138,8 +145,9 @@ const ServiceIcon = React.memo(function ServiceIcon(props: IconProps) {
         direction="horizontal"
         fullWidth={true}
         style={Kb.Styles.collapseStyles([
+          {borderColor: Kb.Styles.undynamicColor(Kb.Styles.globalColors.black_10)},
           isActive ? styles.activeTabBar : styles.inactiveTabBar,
-          isActive && {backgroundColor: serviceIdToAccentColor(service)},
+          isActive && {backgroundColor: serviceIdToAccentColor(service, isDarkMode)},
           Kb.Styles.platformStyles({isMobile: animatedTransform}),
         ])}
       />
@@ -148,6 +156,7 @@ const ServiceIcon = React.memo(function ServiceIcon(props: IconProps) {
 })
 
 export const ServiceTabBar = (props: Props) => {
+  'use no memo'
   const {onChangeService, offset, services, selectedService} = props
   const bounceX = useSharedValue(40)
   const onClick = React.useCallback(
@@ -158,7 +167,7 @@ export const ServiceTabBar = (props: Props) => {
   )
 
   React.useEffect(() => {
-    bounceX.value = 0
+    bounceX.set(0)
   }, [bounceX])
 
   const animatedStyles = useAnimatedStyle(() => {
@@ -232,7 +241,6 @@ const styles = Kb.Styles.styleSheetCreate(
       badgeStyle: {backgroundColor: Kb.Styles.globalColors.blue},
       inactiveTabBar: {
         borderBottomWidth: 1,
-        borderColor: Kb.Styles.globalColors.black_10,
         bottom: 0,
         height: 2,
         position: 'absolute',

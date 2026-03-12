@@ -1,10 +1,11 @@
 package utils
 
 import (
+	"context"
+
 	"github.com/keybase/client/go/gregor"
 	"github.com/keybase/client/go/libkb"
 	"github.com/keybase/client/go/protocol/gregor1"
-	"golang.org/x/net/context"
 )
 
 func NewGregorMsgID() (gregor1.MsgID, error) {
@@ -33,7 +34,8 @@ func TemplateMessage(uid gregor1.UID) (gregor1.Message, error) {
 }
 
 func FormMessageForInjectItem(_ context.Context, uid gregor1.UID, cat string, body []byte,
-	dtime gregor1.TimeOrOffset) (gregor.Message, error) {
+	dtime gregor1.TimeOrOffset,
+) (gregor.Message, error) {
 	creation, err := TemplateMessage(uid)
 	if err != nil {
 		return nil, err
@@ -66,7 +68,8 @@ func FormMessageForDismissCategory(_ context.Context, uid gregor1.UID, cat grego
 		Ranges_: []gregor1.MsgRange{
 			{
 				Category_: cat,
-			}},
+			},
+		},
 	}
 	return dismissal, nil
 }

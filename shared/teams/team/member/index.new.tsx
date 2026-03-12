@@ -1,5 +1,8 @@
 import * as C from '@/constants'
-import * as Container from '@/util/container'
+import * as Chat from '@/constants/chat2'
+import {useCurrentUserState} from '@/constants/current-user'
+import * as Teams from '@/constants/teams'
+import {useProfileState} from '@/constants/profile'
 import * as Kb from '@/common-adapters'
 import * as T from '@/constants/types'
 import * as React from 'react'
@@ -10,8 +13,7 @@ import {formatTimeForTeamMember, formatTimeRelativeToNow} from '@/util/timestamp
 import {pluralize} from '@/util/string'
 import {useAllChannelMetas} from '@/teams/common/channel-hooks'
 import {useTeamDetailsSubscribe} from '@/teams/subscriber'
-import {createAnimatedComponent} from '@/common-adapters/reanimated'
-import type {Props as SectionListProps, Section as SectionType} from '@/common-adapters/section-list'
+import {useSafeNavigation} from '@/util/safe-navigation'
 
 type Props = {
   teamID: T.Teams.TeamID
@@ -32,16 +34,15 @@ type TeamTreeRowNotIn = {
 type TeamTreeRowIn = {
   role: T.Teams.TeamRoleType
 } & TeamTreeRowNotIn
-type Either = TeamTreeRowNotIn & {role?: T.Teams.TeamRoleType}
 
 const getMemberships = (
-  state: C.Teams.State,
+  state: Teams.State,
   teamIDs: Array<T.Teams.TeamID>,
   username: string
 ): Map<T.Teams.TeamID, T.Teams.TreeloaderSparseMemberInfo> => {
   const results = new Map<T.Teams.TeamID, T.Teams.TreeloaderSparseMemberInfo>()
   teamIDs.forEach(teamID => {
-    const info = C.Teams.maybeGetSparseMemberInfo(state, teamID, username)
+    const info = Teams.maybeGetSparseMemberInfo(state, teamID, username)
     if (info) {
       results.set(teamID, info)
     }
@@ -55,19 +56,23 @@ const useMemberships = (targetTeamID: T.Teams.TeamID, username: string) => {
   const nodesNotIn: Array<TeamTreeRowNotIn> = []
   const nodesIn: Array<TeamTreeRowIn> = []
 
-  const memberships = C.useTeamsState(s => s.teamMemberToTreeMemberships.get(targetTeamID)?.get(username))
-  const roleMap = C.useTeamsState(s => s.teamRoleMap.roles)
-  const teamMetas = C.useTeamsState(s => s.teamMeta)
+  const {memberships, roleMap, teamMetas} = Teams.useTeamsState(
+    C.useShallow(s => ({
+      memberships: s.teamMemberToTreeMemberships.get(targetTeamID)?.get(username),
+      roleMap: s.teamRoleMap.roles,
+      teamMetas: s.teamMeta,
+    }))
+  )
 
   // Note that we do not directly take any information directly from the TeamTree result other
   // than the **shape of the tree**. The other information is delegated to
-  // C.Teams.maybeGetSparseMemberInfo which opportunistically sources the information from the
+  // Teams.maybeGetSparseMemberInfo which opportunistically sources the information from the
   // teamDetails map if present, so as to show up-to-date information.
   const teamIDs: Array<T.Teams.TeamID> =
     memberships?.memberships
       .filter(m => m.result.s === T.RPCGen.TeamTreeMembershipStatus.ok)
       .map(m => (m.result as TreeMembershipOK).ok.teamID) ?? []
-  const upToDateSparseMemberInfos = C.useTeamsState(C.useDeep(s => getMemberships(s, teamIDs, username)))
+  const upToDateSparseMemberInfos = Teams.useTeamsState(C.useDeep(s => getMemberships(s, teamIDs, username)))
 
   if (!memberships) {
     return {errors, nodesIn, nodesNotIn}
@@ -83,7 +88,7 @@ const useMemberships = (targetTeamID: T.Teams.TeamID, username: string) => {
         continue
       }
 
-      const ops = C.Teams.deriveCanPerform(roleMap.get(teamID))
+      const ops = Teams.deriveCanPerform(roleMap.get(teamID))
       const row = {
         canAdminister: ops.manageMembers,
         joinTime: sparseMemberInfo.joinTime,
@@ -114,41 +119,51 @@ const useMemberships = (targetTeamID: T.Teams.TeamID, username: string) => {
 }
 
 const useNavUpIfRemovedFromTeam = (teamID: T.Teams.TeamID, username: string) => {
-  const nav = Container.useSafeNavigation()
-  const waitingKey = C.Teams.removeMemberWaitingKey(teamID, username)
+  const nav = useSafeNavigation()
+  const waitingKey = C.waitingKeyTeamsRemoveMember(teamID, username)
   const waiting = C.Waiting.useAnyWaiting(waitingKey)
-  const wasWaiting = Container.usePrevious(waiting)
+  const wasWaitingRef = React.useRef(waiting)
+  const [leaving, setLeaving] = React.useState(false)
+
   React.useEffect(() => {
-    if (wasWaiting && !waiting) {
+    if (wasWaitingRef.current && !waiting) {
+      setLeaving(true)
       nav.safeNavigateUp()
+    } else {
+      setLeaving(false)
     }
-  })
-  return wasWaiting && !waiting
+    wasWaitingRef.current = waiting
+  }, [waiting, nav])
+
+  return leaving
 }
 
-type Extra = {title: React.ReactElement}
-type Section = SectionType<Either, Extra>
-
-const SectionList = createAnimatedComponent<SectionListProps<Section>>(Kb.SectionList)
+type Item = {type: 'section-nodes'; tri: TeamTreeRowIn} | {type: 'section-add-nodes'; tni: TeamTreeRowNotIn}
+type Section = Kb.SectionType<Item>
 
 const TeamMember = (props: OwnProps) => {
   const username = props.username
   const teamID = props.teamID
-  const isMe = username === C.useCurrentUserState(s => s.username)
-  const loading = C.useTeamsState(s => {
-    const memberships = s.teamMemberToTreeMemberships.get(teamID)?.get(username)
-    if (!memberships?.expectedCount) {
-      return true
-    }
-    const got = memberships.memberships.length
-    const want = memberships.expectedCount
-    if (got > want) {
-      logger.error(`got ${got} notifications for ${teamID}; only wanted ${want}`)
-    }
-    return got < want
-  })
-
-  const loadTeamTree = C.useTeamsState(s => s.dispatch.loadTeamTree)
+  const isMe = username === useCurrentUserState(s => s.username)
+  const teamsState = Teams.useTeamsState(
+    C.useShallow(s => {
+      const memberships = s.teamMemberToTreeMemberships.get(teamID)?.get(username)
+      let loading = true
+      if (memberships?.expectedCount) {
+        const got = memberships.memberships.length
+        const want = memberships.expectedCount
+        if (got > want) {
+          logger.error(`got ${got} notifications for ${teamID}; only wanted ${want}`)
+        }
+        loading = got < want
+      }
+      return {
+        loadTeamTree: s.dispatch.loadTeamTree,
+        loading,
+      }
+    })
+  )
+  const {loadTeamTree, loading} = teamsState
 
   // Load up the memberships when the page is opened
   React.useEffect(() => {
@@ -169,41 +184,41 @@ const TeamMember = (props: OwnProps) => {
   }
 
   const nodesInSection: Section = {
-    data: nodesIn,
-    key: 'section-nodes',
-    renderItem: ({item, index}) => (
-      <NodeInRow
-        node={item as TeamTreeRowIn}
-        idx={index}
-        isParentTeamMe={isMe && teamID === item.teamID}
-        username={username}
-        expanded={expandedSet.has(item.teamID)}
-        setExpanded={newExpanded => {
-          if (newExpanded) {
-            expandedSet.add(item.teamID)
-          } else {
-            expandedSet.delete(item.teamID)
-          }
-          setExpandedSet(new Set([...expandedSet]))
-        }}
-      />
-    ),
+    data: nodesIn.map(n => ({tri: n, type: 'section-nodes'})),
+    renderItem: ({item, index}: {item: Item; index: number}) =>
+      item.type === 'section-nodes' ? (
+        <NodeInRow
+          node={item.tri}
+          idx={index}
+          isParentTeamMe={isMe && teamID === item.tri.teamID}
+          username={username}
+          expanded={expandedSet.has(item.tri.teamID)}
+          setExpanded={newExpanded => {
+            if (newExpanded) {
+              expandedSet.add(item.tri.teamID)
+            } else {
+              expandedSet.delete(item.tri.teamID)
+            }
+            setExpandedSet(new Set([...expandedSet]))
+          }}
+        />
+      ) : null,
     title: makeTitle(isMe ? 'You are a member of:' : `${username} is a member of:`),
   }
 
-  const nodesNotInSection = {
-    data: nodesNotIn,
-    key: 'section-add-nodes',
-    renderItem: ({item, index}: {item: Either; index: number}) => (
-      <NodeNotInRow node={item as TeamTreeRowNotIn} idx={index} username={username} />
-    ),
+  const nodesNotInSection: Section = {
+    data: nodesNotIn.map(n => ({
+      tni: n,
+      type: 'section-add-nodes',
+    })),
+    renderItem: ({item, index}: {item: Item; index: number}) =>
+      item.type === 'section-add-nodes' ? (
+        <NodeNotInRow node={item.tni} idx={index} username={username} />
+      ) : null,
     title: makeTitle(isMe ? 'You are not in:' : `${username} is not in:`),
   }
 
-  const sections = [
-    ...(nodesIn.length > 0 ? [nodesInSection] : []),
-    ...(nodesNotIn.length > 0 ? [nodesNotInSection] : []),
-  ]
+  const sections: Array<Section> = [nodesInSection, nodesNotInSection]
   return (
     <Kb.Box2 direction="vertical" fullHeight={true} style={styles.container}>
       {errors.length > 0 && (
@@ -251,12 +266,11 @@ const TeamMember = (props: OwnProps) => {
           </>
         </Kb.Banner>
       )}
-      <SectionList
+      <Kb.SectionList
         stickySectionHeadersEnabled={false}
         renderSectionHeader={({section}) => <Kb.SectionDivider label={section.title} />}
         sections={sections}
         ListHeaderComponent={<TeamMemberHeader teamID={teamID} username={username} />}
-        keyExtractor={item => `member:${username}:${item.teamname}`}
       />
     </Kb.Box2>
   )
@@ -269,18 +283,20 @@ type NodeNotInRowProps = {
 }
 const NodeNotInRow = (props: NodeNotInRowProps) => {
   useTeamDetailsSubscribe(props.node.teamID)
-  const nav = Container.useSafeNavigation()
-  const onAddWaitingKey = C.Teams.addMemberWaitingKey(props.node.teamID, props.username)
-  const addToTeam = C.useTeamsState(s => s.dispatch.addToTeam)
+  const nav = useSafeNavigation()
+  const onAddWaitingKey = C.waitingKeyTeamsAddMember(props.node.teamID, props.username)
+  const {addToTeam, disabledRoles} = Teams.useTeamsState(
+    C.useShallow(s => ({
+      addToTeam: s.dispatch.addToTeam,
+      disabledRoles: Teams.getDisabledReasonsForRolePicker(s, props.node.teamID, props.username),
+    }))
+  )
   const onAdd = (role: T.Teams.TeamRoleType) => {
     addToTeam(props.node.teamID, [{assertion: props.username, role}], true)
   }
   const openTeam = React.useCallback(
     () => nav.safeNavigateAppend({props: {teamID: props.node.teamID}, selected: 'team'}),
     [props.node.teamID, nav]
-  )
-  const disabledRoles = C.useTeamsState(s =>
-    C.Teams.getDisabledReasonsForRolePicker(s, props.node.teamID, props.username)
   )
   const [open, setOpen] = React.useState(false)
 
@@ -353,8 +369,8 @@ const NodeNotInRow = (props: NodeNotInRowProps) => {
 }
 
 const LastActivity = (props: {loading: boolean; teamID: T.Teams.TeamID; username: string}) => {
-  const lastActivity = C.useTeamsState(s =>
-    C.Teams.getTeamMemberLastActivity(s, props.teamID, props.username)
+  const lastActivity = Teams.useTeamsState(s =>
+    Teams.getTeamMemberLastActivity(s, props.teamID, props.username)
   )
 
   return (
@@ -382,14 +398,13 @@ const NodeInRow = (props: NodeInRowProps) => {
   )
   useTeamDetailsSubscribe(props.node.teamID)
 
-  const nav = Container.useSafeNavigation()
+  const nav = useSafeNavigation()
   const onAddToChannels = () =>
     nav.safeNavigateAppend({
       props: {teamID: props.node.teamID, usernames: [props.username]},
       selected: 'teamAddToChannels',
     })
-  const onKickOutWaitingKey = C.Teams.removeMemberWaitingKey(props.node.teamID, props.username)
-  const removeMember = C.useTeamsState(s => s.dispatch.removeMember)
+  const onKickOutWaitingKey = C.waitingKeyTeamsRemoveMember(props.node.teamID, props.username)
   const onKickOut = () => {
     removeMember(props.node.teamID, props.username)
     if (props.isParentTeamMe) {
@@ -406,7 +421,17 @@ const NodeInRow = (props: NodeInRowProps) => {
 
   const [role, setRole] = React.useState<T.Teams.TeamRoleType>(props.node.role)
   const [open, setOpen] = React.useState(false)
-  const editMembership = C.useTeamsState(s => s.dispatch.editMembership)
+  const {amLastOwner, disabledRoles, editMembership, myRole, removeMember} = Teams.useTeamsState(
+    C.useShallow(s => ({
+      amLastOwner: Teams.isLastOwner(s, props.node.teamID),
+      disabledRoles: Teams.getDisabledReasonsForRolePicker(s, props.node.teamID, props.username),
+      editMembership: s.dispatch.editMembership,
+      myRole: Teams.getRole(s, props.node.teamID),
+      removeMember: s.dispatch.removeMember,
+    }))
+  )
+  const isMe = props.username === useCurrentUserState(s => s.username)
+  const isSmallTeam = !Chat.useChatState(s => Chat.isBigTeam(s, props.node.teamID))
   const onChangeRole = (role: T.Teams.TeamRoleType) => {
     setRole(role)
     editMembership(props.node.teamID, [props.username], role)
@@ -415,17 +440,12 @@ const NodeInRow = (props: NodeInRowProps) => {
       nav.safeNavigateUp()
     }
   }
-  const disabledRoles = C.useTeamsState(s =>
-    C.Teams.getDisabledReasonsForRolePicker(s, props.node.teamID, props.username)
+  const changingRole = C.Waiting.useAnyWaiting(
+    C.waitingKeyTeamsEditMembership(props.node.teamID, props.username)
   )
-  const amLastOwner = C.useTeamsState(s => C.Teams.isLastOwner(s, props.node.teamID))
-  const isMe = props.username === C.useCurrentUserState(s => s.username)
-  const changingRole = C.Waiting.useAnyWaiting(C.Teams.editMembershipWaitingKey(props.node.teamID, props.username))
   const loadingActivity = C.Waiting.useAnyWaiting(
-    C.Teams.loadTeamTreeActivityWaitingKey(props.node.teamID, props.username)
+    C.waitingKeyTeamsLoadTeamTreeActivity(props.node.teamID, props.username)
   )
-
-  const isSmallTeam = !C.useChatState(s => C.Chat.isBigTeam(s, props.node.teamID))
   const channelsJoined = isSmallTeam
     ? ''
     : Array.from(channelMetas)
@@ -443,7 +463,6 @@ const NodeInRow = (props: NodeInRowProps) => {
     <></>
   )
 
-  const myRole = C.useTeamsState(s => C.Teams.getRole(s, props.node.teamID))
   const cantKickOut = props.node.canAdminister && props.node.role === 'owner' && myRole !== 'admin'
 
   return (
@@ -596,15 +615,18 @@ const NodeInRow = (props: NodeInRowProps) => {
 // exported for stories
 export const TeamMemberHeader = (props: Props) => {
   const {teamID, username} = props
-  const nav = Container.useSafeNavigation()
+  const nav = useSafeNavigation()
   const leaving = useNavUpIfRemovedFromTeam(teamID, username)
 
-  const teamMeta = C.useTeamsState(s => C.Teams.getTeamMeta(s, teamID))
-  const teamDetails = C.useTeamsState(s => s.teamDetails.get(teamID))
-  const yourUsername = C.useCurrentUserState(s => s.username)
-
-  const showUserProfile = C.useProfileState(s => s.dispatch.showUserProfile)
-  const previewConversation = C.useChatState(s => s.dispatch.previewConversation)
+  const {teamDetails, teamMeta} = Teams.useTeamsState(
+    C.useShallow(s => ({
+      teamDetails: s.teamDetails.get(teamID),
+      teamMeta: Teams.getTeamMeta(s, teamID),
+    }))
+  )
+  const yourUsername = useCurrentUserState(s => s.username)
+  const previewConversation = Chat.useChatState(s => s.dispatch.previewConversation)
+  const showUserProfile = useProfileState(s => s.dispatch.showUserProfile)
   const onChat = () => previewConversation({participants: [username], reason: 'memberView'})
   const onViewProfile = () => showUserProfile(username)
   const onViewTeam = () => nav.safeNavigateAppend({props: {teamID}, selected: 'team'})
@@ -677,7 +699,7 @@ export const TeamMemberHeader = (props: Props) => {
 
 const BlockDropdown = (props: {username: string}) => {
   const {username} = props
-  const nav = Container.useSafeNavigation()
+  const nav = useSafeNavigation()
   const makePopup = React.useCallback(
     (p: Kb.Popup2Parms) => {
       const {attachTo, hidePopup} = p

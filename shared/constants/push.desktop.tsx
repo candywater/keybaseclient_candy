@@ -1,7 +1,6 @@
 import * as Z from '@/util/zustand'
 import {type Store, type State} from './push'
 
-export const permissionsRequestingWaitingKey = 'push:permissionsRequesting'
 export const tokenType = ''
 
 const initialStore: Store = {
@@ -11,7 +10,7 @@ const initialStore: Store = {
   token: '',
 }
 
-export const _useState = Z.createZustand<State>(() => {
+export const usePushState = Z.createZustand<State>(() => {
   const dispatch: State['dispatch'] = {
     checkPermissions: async () => {
       return Promise.resolve(false)

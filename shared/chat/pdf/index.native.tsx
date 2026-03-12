@@ -1,21 +1,29 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import type {Props} from '.'
+import {useConfigState} from '@/constants/config'
 
 const ChatPDF = (props: Props) => {
   const {ordinal, url} = props
-  const message = C.useChatContext(s => s.messageMap.get(ordinal))
+  const message = Chat.useChatContext(s => s.messageMap.get(ordinal))
   const title = message?.title || message?.fileName || 'PDF'
   const [error, setError] = React.useState('')
   const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
   const onBack = () => navigateUp()
-  const showShareActionSheet = C.useConfigState(s => s.dispatch.dynamic.showShareActionSheet)
-  const onShare = () => showShareActionSheet?.(url ?? '', '', 'application/pdf')
-  const rightActions = [{icon: 'iconfont-share', onPress: onShare} as const]
+  const showShareActionSheet = useConfigState(s => s.dispatch.dynamic.showShareActionSheet)
+  const onShare = () => {
+    showShareActionSheet?.(url ?? '', '', 'application/pdf')
+  }
   return (
     <Kb.Box2 direction="vertical" fullWidth={true} fullHeight={true}>
-      <Kb.HeaderHocHeader title={title} onBack={onBack} rightActions={rightActions} />
+      <Kb.HeaderHocHeader
+        title={title}
+        onBack={onBack}
+        rightActionIcon="iconfont-share"
+        onRightAction={onShare}
+      />
       {url && !error ? (
         <Kb.WebView
           originWhitelist={['*']}
@@ -30,7 +38,7 @@ const ChatPDF = (props: Props) => {
           style={styles.webViewContainer}
         />
       ) : (
-        <Kb.Text type="BodySmallError">Can't load this file {error}</Kb.Text>
+        <Kb.Text type="BodySmallError">Can&apos;t load this file {error}</Kb.Text>
       )}
     </Kb.Box2>
   )

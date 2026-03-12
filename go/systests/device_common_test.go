@@ -1,6 +1,7 @@
 package systests
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/keybase/client/go/client"
+	"github.com/keybase/client/go/ephemeral"
 	"github.com/keybase/client/go/libkb"
 	"github.com/keybase/client/go/logger"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
@@ -16,7 +18,6 @@ import (
 	"github.com/keybase/clockwork"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
 	"github.com/stretchr/testify/require"
-	context "golang.org/x/net/context"
 )
 
 //
@@ -223,6 +224,14 @@ func newTestDeviceSet(t *testing.T, cl clockwork.FakeClock) *testDeviceSet {
 
 func (s *testDeviceSet) cleanup() {
 	for _, od := range s.devices {
+		// Shutdown EKLib before cleanup to stop background goroutines
+		// that might try to access the API after it's torn down
+		if ekLib := od.tctx.G.GetEKLib(); ekLib != nil {
+			if ekLibConcrete, ok := ekLib.(*ephemeral.EKLib); ok {
+				mctx := libkb.NewMetaContextForTest(*od.tctx)
+				_ = ekLibConcrete.Shutdown(mctx) // Best effort, ignore errors during cleanup
+			}
+		}
 		od.tctx.Cleanup()
 		if od.service != nil {
 			od.service.Stop(0)
@@ -295,7 +304,6 @@ func (d *testDevice) loadDeviceList() []keybase1.Device {
 		if device.Type == keybase1.DeviceTypeV2_DESKTOP {
 			ret = append(ret, device)
 		}
-
 	}
 	return ret
 }
@@ -356,64 +364,84 @@ var _ libkb.LoginUI = (*testProvisionUI)(nil)
 func (r *testProvisionUI) GetEmailOrUsername(context.Context, int) (string, error) {
 	return r.username, nil
 }
+
 func (r *testProvisionUI) PromptRevokePaperKeys(context.Context, keybase1.PromptRevokePaperKeysArg) (ret bool, err error) {
 	return false, nil
 }
+
 func (r *testProvisionUI) DisplayPaperKeyPhrase(context.Context, keybase1.DisplayPaperKeyPhraseArg) error {
 	return nil
 }
+
 func (r *testProvisionUI) DisplayPrimaryPaperKey(context.Context, keybase1.DisplayPrimaryPaperKeyArg) error {
 	return nil
 }
+
 func (r *testProvisionUI) ChooseProvisioningMethod(context.Context, keybase1.ChooseProvisioningMethodArg) (ret keybase1.ProvisionMethod, err error) {
 	return ret, nil
 }
+
 func (r *testProvisionUI) ChooseGPGMethod(context.Context, keybase1.ChooseGPGMethodArg) (ret keybase1.GPGMethod, err error) {
 	return ret, nil
 }
+
 func (r *testProvisionUI) SwitchToGPGSignOK(context.Context, keybase1.SwitchToGPGSignOKArg) (ret bool, err error) {
 	return ret, nil
 }
+
 func (r *testProvisionUI) ChooseDeviceType(context.Context, keybase1.ChooseDeviceTypeArg) (ret keybase1.DeviceType, err error) {
 	return ret, nil
 }
+
 func (r *testProvisionUI) DisplayAndPromptSecret(context.Context, keybase1.DisplayAndPromptSecretArg) (ret keybase1.SecretResponse, err error) {
 	return ret, nil
 }
+
 func (r *testProvisionUI) DisplaySecretExchanged(context.Context, int) error {
 	return nil
 }
+
 func (r *testProvisionUI) PromptNewDeviceName(context.Context, keybase1.PromptNewDeviceNameArg) (ret string, err error) {
 	return r.deviceName, nil
 }
+
 func (r *testProvisionUI) ProvisioneeSuccess(context.Context, keybase1.ProvisioneeSuccessArg) error {
 	return nil
 }
+
 func (r *testProvisionUI) ProvisionerSuccess(context.Context, keybase1.ProvisionerSuccessArg) error {
 	return nil
 }
+
 func (r *testProvisionUI) ChooseDevice(context.Context, keybase1.ChooseDeviceArg) (ret keybase1.DeviceID, err error) {
 	return r.backupKey.deviceID, nil
 }
+
 func (r *testProvisionUI) GetPassphrase(context.Context, keybase1.GetPassphraseArg) (ret keybase1.GetPassphraseRes, err error) {
 	ret.Passphrase = r.backupKey.secret
 	return ret, nil
 }
+
 func (r *testProvisionUI) PromptResetAccount(_ context.Context, arg keybase1.PromptResetAccountArg) (keybase1.ResetPromptResponse, error) {
 	return keybase1.ResetPromptResponse_NOTHING, nil
 }
+
 func (r *testProvisionUI) DisplayResetProgress(_ context.Context, arg keybase1.DisplayResetProgressArg) error {
 	return nil
 }
+
 func (r *testProvisionUI) ExplainDeviceRecovery(_ context.Context, arg keybase1.ExplainDeviceRecoveryArg) error {
 	return nil
 }
+
 func (r *testProvisionUI) PromptPassphraseRecovery(_ context.Context, arg keybase1.PromptPassphraseRecoveryArg) (bool, error) {
 	return false, nil
 }
+
 func (r *testProvisionUI) ChooseDeviceToRecoverWith(_ context.Context, arg keybase1.ChooseDeviceToRecoverWithArg) (keybase1.DeviceID, error) {
 	return "", nil
 }
+
 func (r *testProvisionUI) DisplayResetMessage(_ context.Context, arg keybase1.DisplayResetMessageArg) error {
 	return nil
 }

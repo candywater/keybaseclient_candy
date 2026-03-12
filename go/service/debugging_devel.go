@@ -7,6 +7,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -24,9 +25,8 @@ import (
 	"github.com/keybase/stellarnet"
 	"github.com/stellar/go/build"
 
-	// nolint
+	//nolint:staticcheck // SA1019: deprecated package, requires dependency update
 	"github.com/stellar/go/clients/horizon"
-	"golang.org/x/net/context"
 )
 
 func (t *DebuggingHandler) scriptExtras(ctx context.Context, arg keybase1.ScriptArg) (res string, err error) {

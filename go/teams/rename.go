@@ -119,14 +119,15 @@ func RenameSubteam(ctx context.Context, g *libkb.GlobalContext, prevName keybase
 			return err
 		}
 
-		go func() { _ = mctx.G().GetTeamLoader().NotifyTeamRename(ctx, subteam.ID, newName.String()) }()
+		go func() {
+			_ = mctx.G().GetTeamLoader().NotifyTeamRename(mctx.BackgroundWithLogTags().Ctx(), subteam.ID, newName.String())
+		}()
 
 		return nil
 	})
 }
 
 func generateRenameSubteamSigForParentChain(m libkb.MetaContext, me libkb.UserForSignatures, signingKey libkb.GenericKey, parentTeam *TeamSigChainState, subteamID keybase1.TeamID, newSubteamName keybase1.TeamName, admin *SCTeamAdmin, rbk *hidden.RatchetBlindingKeySet) (item *libkb.SigMultiItem, err error) {
-
 	entropy, err := makeSCTeamEntropy()
 	if err != nil {
 		return nil, err

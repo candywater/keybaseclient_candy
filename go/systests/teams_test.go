@@ -1,12 +1,11 @@
 package systests
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/keybase/client/go/client"
@@ -695,7 +694,7 @@ func (u *userPlusDevice) waitForNewlyAddedToTeamByID(teamID keybase1.TeamID) {
 	for {
 		select {
 		case tid := <-u.notifications.newlyAddedToTeam:
-			u.tc.T.Logf("newlyAddedToTeam recieved: %+v", tid)
+			u.tc.T.Logf("newlyAddedToTeam received: %+v", tid)
 			if tid.Eq(teamID) {
 				u.tc.T.Logf("newlyAddedToTeam matched!")
 				return
@@ -1186,15 +1185,15 @@ func (n *teamNotifyHandler) TeamRoleMapChanged(ctx context.Context, version keyb
 }
 
 func (n *teamNotifyHandler) TeamTreeMembershipsPartial(ctx context.Context,
-	arg keybase1.TeamTreeMembership) error {
-
+	arg keybase1.TeamTreeMembership,
+) error {
 	n.teamTreeMembershipsPartialCh <- arg
 	return nil
 }
 
 func (n *teamNotifyHandler) TeamTreeMembershipsDone(ctx context.Context,
-	arg keybase1.TeamTreeMembershipsDoneResult) error {
-
+	arg keybase1.TeamTreeMembershipsDoneResult,
+) error {
 	n.teamTreeMembershipsDoneCh <- arg
 	return nil
 }

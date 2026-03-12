@@ -46,38 +46,18 @@ module.exports = function (api /*: any */) {
         isTest ? ['@babel/preset-env', {targets: {node: 'current'}}] : '@babel/preset-env',
         '@babel/preset-typescript',
       ],
+      plugins: [
+        'babel-plugin-react-compiler', // must run first!
+      ],
     }
   } else if (isReactNative) {
     // console.error('KB babel.config.js for ReactNative')
     return {
       plugins: [
-        [
-          'module-resolver',
-          {
-            alias: {
-              '@': './',
-              'react-native-kb': '../rnmodules/react-native-kb',
-              'react-native-drop-view': '../rnmodules/react-native-drop-view',
-            },
-          },
-        ],
-        ...(skipAnimation ? [] : ['react-native-reanimated/plugin']),
-        '@babel/plugin-proposal-numeric-separator',
-        '@babel/plugin-transform-export-namespace-from',
-        isDev
-          ? [
-              '@babel/plugin-transform-react-jsx-development',
-              {
-                runtime: 'automatic',
-                ...(enableWDYR ? {importSource: '@welldone-software/why-did-you-render'} : {}),
-              },
-            ]
-          : ['@babel/plugin-transform-react-jsx', {runtime: 'automatic'}],
+        'babel-plugin-react-compiler', // must run first!
+        ['module-resolver', {alias: {'@': './'}}],
       ],
-      presets: [
-        // lets us set our own jsx above
-        ['module:metro-react-native-babel-preset', {useTransformReactJSXExperimental: true}],
-      ],
+      presets: [['babel-preset-expo', {unstable_transformImportMeta: true, jsxRuntime: 'automatic'}]],
       sourceMaps: true,
     }
   }

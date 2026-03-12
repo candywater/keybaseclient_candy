@@ -29,7 +29,8 @@ var _ io.ReadSeeker = (*decodingReadSeeker)(nil)
 
 func NewDecodingReadSeeker(ctx context.Context, g *globals.Context, source io.ReadSeeker, size int64,
 	encKey SecretboxKey, verifyKey VerifyKey, signaturePrefix kbcrypto.SignaturePrefix, nonce Nonce,
-	c *lru.Cache) io.ReadSeeker {
+	c *lru.Cache,
+) io.ReadSeeker {
 	if c == nil {
 		// If the caller didn't give us a cache, then let's just make one
 		c, _ = lru.New(20)
@@ -157,7 +158,7 @@ func (r *decodingReadSeeker) Read(res []byte) (n int, err error) {
 		}
 		// Decrypt all the chunks and write out to the cache
 		decoder := NewDecoder(r.encKey, r.verifyKey, r.sigPrefix, r.nonce)
-		decoder.setChunkNum(uint64(prefetchChunks[0].index))
+		decoder.setChunkNum(uint64(prefetchChunks[0].index)) //nolint:gosec // G115: Chunk index is positive sequential counter, safe to convert
 		if chunkPlaintext, err = decoder.Write(cipherText); err != nil {
 			return n, err
 		}

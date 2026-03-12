@@ -4,6 +4,7 @@
 package systests
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"testing"
@@ -12,7 +13,6 @@ import (
 	"github.com/keybase/client/go/libkb"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
 	"github.com/keybase/client/go/service"
-	context "golang.org/x/net/context"
 )
 
 func (v *versionUI) GetDumbOutputUI() libkb.DumbOutputUI {
@@ -58,7 +58,6 @@ func (v *versionUI) checkVersionOutput(t *testing.T) {
 }
 
 func TestVersionAndStop(t *testing.T) {
-
 	tc := setupTest(t, "stop")
 
 	defer tc.Cleanup()

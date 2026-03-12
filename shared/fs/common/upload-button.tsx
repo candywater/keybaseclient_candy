@@ -3,6 +3,8 @@ import * as T from '@/constants/types'
 import * as C from '@/constants'
 import * as Kb from '@/common-adapters'
 import type * as Styles from '@/styles'
+import {useFSState} from '@/constants/fs'
+import * as FS from '@/constants/fs'
 
 type OwnProps = {
   path: T.FS.Path
@@ -70,9 +72,9 @@ const UploadButton = (props: UploadButtonProps) => {
 }
 
 const Container = (ownProps: OwnProps) => {
-  const _pathItem = C.useFSState(s => C.FS.getPathItem(s.pathItems, ownProps.path))
-  const openAndUploadDesktop = C.useFSState(s => s.dispatch.dynamic.openAndUploadDesktop)
-  const pickAndUploadMobile = C.useFSState(s => s.dispatch.dynamic.pickAndUploadMobile)
+  const _pathItem = useFSState(s => FS.getPathItem(s.pathItems, ownProps.path))
+  const openAndUploadDesktop = useFSState(s => s.dispatch.dynamic.openAndUploadDesktop)
+  const pickAndUploadMobile = useFSState(s => s.dispatch.dynamic.pickAndUploadMobile)
   const _openAndUploadBoth = () => {
     openAndUploadDesktop?.(T.FS.OpenDialogType.Both, ownProps.path)
   }

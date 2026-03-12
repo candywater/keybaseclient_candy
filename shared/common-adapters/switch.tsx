@@ -7,6 +7,7 @@ import Text from './text'
 import SwitchToggle from './switch-toggle'
 import WithTooltip from './with-tooltip'
 import type {MeasureRef} from './measure-ref'
+import type {TextType} from './text.shared'
 
 const Kb = {
   Box,
@@ -28,6 +29,7 @@ type Props = {
   label: string | React.ReactNode
   labelSubtitle?: string // only effective when label is a string,
   labelTooltip?: string // only effective when label is a string,
+  labelType?: TextType // only effective when label is a string,
   on: boolean
   onClick: () => void
   style?: Styles.StylesCrossPlatform
@@ -51,38 +53,6 @@ const LabelContainer = (props: Props) =>
     </Kb.Box2>
   )
 
-const getContent = (props: Props, ref: React.Ref<MeasureRef>) => (
-  <>
-    <Kb.ClickableBox onClick={props.disabled ? undefined : props.onClick} ref={ref}>
-      <SwitchToggle
-        on={props.on}
-        color={props.color || 'blue'}
-        style={Styles.collapseStyles([
-          props.align === 'left' && styles.switchLeft,
-          props.align === 'right' && styles.switchRight,
-          props.disabled && styles.disabled,
-          !!props.labelSubtitle && styles.switch,
-        ] as const)}
-      />
-    </Kb.ClickableBox>
-    {!!props.gapInBetween && <Kb.Box style={styles.gap} />}
-    {!!props.gapSize && <Kb.Box style={{width: props.gapSize}} />}
-    {typeof props.label === 'string' ? (
-      <LabelContainer {...props}>
-        <Kb.Text type="BodySemibold">{props.label}</Kb.Text>
-        {!!props.labelSubtitle && <Kb.Text type="BodySmall">{props.labelSubtitle}</Kb.Text>}
-      </LabelContainer>
-    ) : props.labelSubtitle ? (
-      <LabelContainer {...props}>
-        {props.label}
-        <Kb.Text type="BodySmall">{props.labelSubtitle}</Kb.Text>
-      </LabelContainer>
-    ) : (
-      props.label
-    )}
-  </>
-)
-
 const getStyle = (props: Props) =>
   Styles.collapseStyles([
     styles.container,
@@ -91,15 +61,47 @@ const getStyle = (props: Props) =>
   ])
 
 const Switch = React.forwardRef<MeasureRef, Props>(function Switch(props: Props, ref) {
+  const content = (
+    <>
+      <Kb.ClickableBox onClick={props.disabled ? undefined : props.onClick} ref={ref}>
+        <SwitchToggle
+          on={props.on}
+          color={props.color || 'blue'}
+          style={Styles.collapseStyles([
+            props.align === 'left' && styles.switchLeft,
+            props.align === 'right' && styles.switchRight,
+            props.disabled && styles.disabled,
+            !!props.labelSubtitle && styles.switch,
+          ] as const)}
+        />
+      </Kb.ClickableBox>
+      {!!props.gapInBetween && <Kb.Box style={styles.gap} />}
+      {!!props.gapSize && <Kb.Box style={{width: props.gapSize}} />}
+      {typeof props.label === 'string' ? (
+        <LabelContainer {...props}>
+          <Kb.Text type={props.labelType ?? 'BodySemibold'}>{props.label}</Kb.Text>
+          {!!props.labelSubtitle && <Kb.Text type="BodySmall">{props.labelSubtitle}</Kb.Text>}
+        </LabelContainer>
+      ) : props.labelSubtitle ? (
+        <LabelContainer {...props}>
+          {props.label}
+          <Kb.Text type="BodySmall">{props.labelSubtitle}</Kb.Text>
+        </LabelContainer>
+      ) : (
+        props.label
+      )}
+    </>
+  )
+
   return Styles.isMobile || !props.labelTooltip ? (
-    <Kb.Box style={getStyle(props)}>{getContent(props, ref)}</Kb.Box>
+    <Kb.Box style={getStyle(props)}>{content}</Kb.Box>
   ) : (
     <Kb.WithTooltip
       containerStyle={getStyle(props)}
       tooltip={props.labelTooltip || ''}
       position={props.align !== 'right' ? 'top left' : 'top right'}
     >
-      {getContent(props, ref)}
+      {content}
     </Kb.WithTooltip>
   )
 })

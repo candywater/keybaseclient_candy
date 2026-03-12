@@ -2,12 +2,12 @@ package s3
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
-	"github.com/keybase/client/go/libkb"
 	"strings"
 	"testing"
 
-	"golang.org/x/net/context"
+	"github.com/keybase/client/go/libkb"
 )
 
 type ptsign struct{}

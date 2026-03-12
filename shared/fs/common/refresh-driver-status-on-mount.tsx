@@ -1,26 +1,15 @@
 import * as React from 'react'
-import * as C from '@/constants'
+import {useFSState} from '@/constants/fs'
 
-type Props = {
-  refresh: () => void
+const RefreshDriverStatusOnMount = () => {
+  const refreshDriverStatusDesktop = useFSState(s => s.dispatch.dynamic.refreshDriverStatusDesktop)
+  const refresh = React.useCallback(() => refreshDriverStatusDesktop?.(), [refreshDriverStatusDesktop])
+
+  React.useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  return null
 }
 
-class Component extends React.PureComponent<Props> {
-  componentDidMount() {
-    this.props.refresh()
-  }
-  render() {
-    return null
-  }
-}
-
-const Container = () => {
-  const refreshDriverStatusDesktop = C.useFSState(s => s.dispatch.dynamic.refreshDriverStatusDesktop)
-  const refresh = () => refreshDriverStatusDesktop?.()
-  const props = {
-    refresh,
-  }
-  return <Component {...props} />
-}
-
-export default Container
+export default RefreshDriverStatusOnMount

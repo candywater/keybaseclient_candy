@@ -4,6 +4,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/keybase/client/go/libkb"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
-	"golang.org/x/net/context"
 )
 
 type PgpUI struct {
@@ -80,6 +80,7 @@ func (p PgpUI) OutputSignatureNonKeybase(ctx context.Context, arg keybase1.Outpu
 
 	return nil
 }
+
 func (p PgpUI) KeyGenerated(ctx context.Context, arg keybase1.KeyGeneratedArg) error {
 	return nil
 }

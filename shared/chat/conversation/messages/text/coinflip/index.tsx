@@ -1,24 +1,30 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
 import * as T from '@/constants/types'
 import CoinFlipError from './errors'
 import CoinFlipParticipants from './participants'
 import CoinFlipResult from './results'
-import {OrdinalContext} from '@/chat/conversation/messages/ids-context'
+import {useOrdinal} from '@/chat/conversation/messages/ids-context'
 import {pluralize} from '@/util/string'
 
 const CoinFlipContainer = React.memo(function CoinFlipContainer() {
-  const ordinal = React.useContext(OrdinalContext)
-  const message = C.useChatContext(s => s.messageMap.get(ordinal))
-  const isSendError = message?.type === 'text' ? !!message.errorReason : false
-  const text = message?.type === 'text' ? message.text : undefined
-  const flipGameID = (message?.type === 'text' && message.flipGameID) || ''
-  const status = C.useChatState(s => s.flipStatusMap.get(flipGameID))
-  const messageSend = C.useChatContext(s => s.dispatch.messageSend)
+  const ordinal = useOrdinal()
+  const {isSendError, text, flipGameID, sendMessage} = Chat.useChatContext(
+    C.useShallow(s => {
+      const message = s.messageMap.get(ordinal)
+      const isSendError = message?.type === 'text' ? !!message.errorReason : false
+      const text = message?.type === 'text' ? message.text : undefined
+      const flipGameID = (message?.type === 'text' && message.flipGameID) || ''
+      const {sendMessage} = s.dispatch
+      return {flipGameID, isSendError, message, sendMessage, text}
+    })
+  )
+  const status = Chat.useChatState(s => s.flipStatusMap.get(flipGameID))
   const onFlipAgain = React.useCallback(() => {
-    text && messageSend(text.stringValue())
-  }, [messageSend, text])
+    text && sendMessage(text.stringValue())
+  }, [sendMessage, text])
   const phase = status?.phase
   const errorInfo = phase === T.RPCChat.UICoinFlipPhase.error ? status?.errorInfo : undefined
   const participants = status?.participants ?? undefined

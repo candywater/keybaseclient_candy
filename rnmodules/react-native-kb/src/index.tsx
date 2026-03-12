@@ -6,10 +6,9 @@ const LINKING_ERROR =
   '- You rebuilt the app after installing the package\n' +
   '- You are not using Expo Go\n'
 
-// @ts-expect-error
 const isTurboModuleEnabled = global.__turboModuleProxy != null
 
-const KbModule = isTurboModuleEnabled ? require('./NativeKb').default : NativeModules.Kb
+const KbModule = isTurboModuleEnabled ? require('./NativeKb').default : NativeModules['Kb']
 
 const Kb = KbModule
   ? KbModule
@@ -81,25 +80,6 @@ export const androidShare = (text: string, mimeType: string): Promise<boolean> =
   return Promise.resolve(false)
 }
 
-export const androidCheckPushPermissions = (): Promise<boolean> => {
-  if (Platform.OS === 'android') {
-    return Kb.androidCheckPushPermissions()
-  }
-  return Promise.resolve(false)
-}
-export const androidRequestPushPermissions = (): Promise<boolean> => {
-  if (Platform.OS === 'android') {
-    return Kb.androidRequestPushPermissions()
-  }
-  return Promise.resolve(false)
-}
-export const androidGetRegistrationToken = (): Promise<string> => {
-  if (Platform.OS === 'android') {
-    return Kb.androidGetRegistrationToken()
-  }
-  return Promise.resolve('')
-}
-
 export const androidUnlink = (path: string): Promise<void> => {
   if (Platform.OS === 'android') {
     return Kb.androidUnlink(path)
@@ -126,48 +106,96 @@ export const androidAppColorSchemeChanged = (mode: 'system' | 'alwaysDark' | 'al
   }
 }
 
-export const androidSetApplicationIconBadgeNumber = (n: number): void => {
-  if (Platform.OS === 'android') {
-    Kb.androidSetApplicationIconBadgeNumber(n)
+export const checkPushPermissions = (): Promise<boolean> => {
+  return Kb.checkPushPermissions()
+}
+
+export const requestPushPermissions = (): Promise<boolean> => {
+  return Kb.requestPushPermissions()
+}
+
+export const getRegistrationToken = (): Promise<string> => {
+  return Kb.getRegistrationToken()
+}
+
+export const setApplicationIconBadgeNumber = (n: number): void => {
+  Kb.setApplicationIconBadgeNumber(n)
+}
+
+export const getInitialNotification = (): Promise<object | null> => {
+  return Kb.getInitialNotification()
+}
+
+export const removeAllPendingNotificationRequests = (): void => {
+  Kb.removeAllPendingNotificationRequests()
+}
+
+export const addNotificationRequest = (config: {body: string; id: string}): Promise<void> => {
+  return Kb.addNotificationRequest(config)
+}
+
+// Hardware keyboard events
+const hwKeyPressedListeners: any[] = []
+
+export const onHWKeyPressed = (callback: (event: {pressedKey: string}) => void): void => {
+  const emitter = getNativeEmitter()
+  const listener = emitter.addListener('hardwareKeyPressed', callback)
+  hwKeyPressedListeners.push(listener)
+}
+
+export const removeOnHWKeyPressed = (): void => {
+  hwKeyPressedListeners.forEach(listener => listener?.remove())
+  hwKeyPressedListeners.length = 0
+}
+
+// Paste image events (iOS)
+let pasteImageListenerCount = 0
+
+export const registerPasteImage = (callback: (uris: Array<string>) => void): (() => void) => {
+  if (Platform.OS !== 'ios') return () => {}
+  const emitter = getNativeEmitter()
+  const listener = emitter.addListener('onPasteImage', (event: {uris: Array<string>}) => {
+    callback(event.uris)
+  })
+  pasteImageListenerCount++
+  Kb.setEnablePasteImage(true)
+  return () => {
+    listener.remove()
+    pasteImageListenerCount--
+    Kb.setEnablePasteImage(pasteImageListenerCount > 0)
   }
 }
 
-export const androidGetInitialBundleFromNotification = (): Promise<any> => {
-  if (Platform.OS === 'android') {
-    return Kb.androidGetInitialBundleFromNotification()
-  }
-  return Promise.reject()
-}
-export const androidGetInitialShareFileUrls = (): Promise<Array<string>> => {
-  if (Platform.OS === 'android') {
-    return Kb.androidGetInitialShareFileUrls()
-  }
-  return Promise.reject()
-}
-export const androidGetInitialShareText = (): Promise<string> => {
-  if (Platform.OS === 'android') {
-    return Kb.androidGetInitialShareText()
-  }
-  return Promise.reject()
-}
 export const engineReset = (): void => {
   return Kb.engineReset()
 }
-export const engineStart = (): void => {
-  return Kb.engineStart()
+export const notifyJSReady = (): void => {
+  return Kb.notifyJSReady()
 }
+export const shareListenersRegistered = (): void => {
+  return Kb.shareListenersRegistered()
+}
+
+export const clearLocalLogs = (): Promise<void> => {
+  return Kb.clearLocalLogs()
+}
+
+// export const processVideo = (path: string): Promise<string> => {
+//   return Kb.processVideo(Platform.OS === 'android' ? path.replace('file://', '') : path)
+// }
 export const getNativeEmitter = () => {
   return new NativeEventEmitter(Kb as any)
 }
 
-export const androidIsDeviceSecure: boolean = Kb.getConstants().androidIsDeviceSecure
-export const androidIsTestDevice: boolean = Kb.getConstants().androidIsTestDevice
-export const appVersionCode: string = Kb.getConstants().appVersionCode
-export const appVersionName: string = Kb.getConstants().appVersionCode
-export const darkModeSupported: boolean = Kb.getConstants().darkModeSupported
-export const fsCacheDir: string = Kb.getConstants().fsCacheDir
-export const fsDownloadDir: string = Kb.getConstants().fsDownloadDir
-export const guiConfig: string = Kb.getConstants().guiConfig
-export const serverConfig: string = Kb.getConstants().serverConfig
-export const uses24HourClock: boolean = Kb.getConstants().uses24HourClock
-export const version: string = Kb.getConstants().version
+const KBC = Kb.getTypedConstants()
+export const androidIsDeviceSecure: boolean = KBC.androidIsDeviceSecure
+export const androidIsTestDevice: boolean = KBC.androidIsTestDevice
+export const appVersionCode: string = KBC.appVersionCode
+export const appVersionName: string = KBC.appVersionName
+export const darkModeSupported: boolean = KBC.darkModeSupported
+export const fsCacheDir: string = KBC.fsCacheDir
+export const fsDownloadDir: string = KBC.fsDownloadDir
+export const guiConfig: string = KBC.guiConfig
+export const serverConfig: string = KBC.serverConfig
+export const uses24HourClock: boolean = KBC.uses24HourClock
+export const version: string = KBC.version

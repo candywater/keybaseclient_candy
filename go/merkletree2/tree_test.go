@@ -68,7 +68,6 @@ func TestEmptyTree(t *testing.T) {
 			require.EqualValues(t, 1, s)
 		})
 	}
-
 }
 
 func TestBuildTreeAndGetKeyValuePair(t *testing.T) {
@@ -194,7 +193,6 @@ func TestBuildTreeAndGetKeyValuePair(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestBuildTreeAndGetKeyValuePairWithProof(t *testing.T) {
@@ -364,10 +362,8 @@ func TestHonestMerkleProofsVerifySuccesfully(t *testing.T) {
 			require.NoError(t, err)
 			require.Nil(t, eVal)
 			require.NoError(t, verifier.VerifyExclusionProof(NewLoggerContextTodoForTesting(t), kvp.Key, &proof, rootHash1))
-
 		})
 	}
-
 }
 
 func TestHonestMerkleProofsVerifySuccesfullyLargeTree(t *testing.T) {
@@ -387,7 +383,7 @@ func TestHonestMerkleProofsVerifySuccesfullyLargeTree(t *testing.T) {
 	require.NoError(t, err)
 
 	// Make test deterministic.
-	randSrc := rand.New(rand.NewSource(1))
+	randSrc := rand.New(rand.NewSource(1)) //nolint:gosec // G404: Deterministic test randomness required for reproducible tests, not security-critical //nolint:gosec // G404: Deterministic test randomness required for reproducible tests, not security-critical
 
 	tests := []struct {
 		cfg         Config
@@ -412,7 +408,7 @@ func TestHonestMerkleProofsVerifySuccesfullyLargeTree(t *testing.T) {
 			require.NoError(t, err)
 			verifier := MerkleProofVerifier{cfg: test.cfg}
 
-			keys, keysNotInTree, err := makeRandomKeysForTesting(uint(test.cfg.KeysByteLength), test.numIncPairs, test.numExcPairs, randSrc)
+			keys, keysNotInTree, err := makeRandomKeysForTesting(uint(test.cfg.KeysByteLength), test.numIncPairs, test.numExcPairs, randSrc) //nolint:gosec // G115: Test code, key length from config is small, safe to convert
 			require.NoError(t, err)
 			kvp1, err := makeRandomKVPFromKeysForTesting(keys, randSrc)
 			require.NoError(t, err)
@@ -468,7 +464,6 @@ func TestHonestMerkleProofsVerifySuccesfullyLargeTree(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestSomeMaliciousInclusionProofsFail(t *testing.T) {
@@ -688,7 +683,6 @@ func TestExclProofOnEmptyTree(t *testing.T) {
 }
 
 func TestVerifyInclusionProofFailureBranches(t *testing.T) {
-
 	cfg, err := NewConfig(IdentityHasherBlinded{}, true, 2, 4, 2, ConstructStringValueContainer)
 	require.NoError(t, err)
 	defaultStep := 2
@@ -766,7 +760,6 @@ func TestVerifyInclusionProofFailureBranches(t *testing.T) {
 }
 
 func TestTreeWithoutInternalNodes(t *testing.T) {
-
 	tests := []struct {
 		step int
 	}{
@@ -778,7 +771,6 @@ func TestTreeWithoutInternalNodes(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("Empy tree with %v step", test.step), func(t *testing.T) {
-
 			cfg, err := NewConfig(IdentityHasherBlinded{}, true, 2, 4, 2, ConstructStringValueContainer)
 			require.NoError(t, err)
 			tree, err := NewTree(cfg, test.step, NewInMemoryStorageEngine(cfg), RootVersionV1)
@@ -871,7 +863,6 @@ func TestGetLatestRoot(t *testing.T) {
 			require.False(t, rootHash1.Equal(rootHash2))
 		})
 	}
-
 }
 
 func TestNodeEncodingBasic(t *testing.T) {
@@ -921,12 +912,12 @@ func TestInclusionExtensionProofsPass(t *testing.T) {
 	require.NoError(t, err)
 
 	// make test deterministic
-	randSrc := rand.New(rand.NewSource(1))
+	randSrc := rand.New(rand.NewSource(1)) //nolint:gosec // G404: Deterministic test randomness required for reproducible tests, not security-critical
 
 	tree, err := NewTree(cfg, 2, NewInMemoryStorageEngine(cfg), RootVersionV1)
 	require.NoError(t, err)
 
-	keys, _, err := makeRandomKeysForTesting(uint(cfg.KeysByteLength), 5, 0, randSrc)
+	keys, _, err := makeRandomKeysForTesting(uint(cfg.KeysByteLength), 5, 0, randSrc) //nolint:gosec // G115: Test code, key length from config is small, safe to convert
 	require.NoError(t, err)
 
 	rootHashes := make(map[Seqno]Hash)
@@ -1014,12 +1005,12 @@ func TestExtensionProofsFailureBranches(t *testing.T) {
 	require.NoError(t, err)
 
 	// make test deterministic
-	randSrc := rand.New(rand.NewSource(1))
+	randSrc := rand.New(rand.NewSource(1)) //nolint:gosec // G404: Deterministic test randomness required for reproducible tests, not security-critical
 
 	tree, err := NewTree(cfg, 2, NewInMemoryStorageEngine(cfg), RootVersionV1)
 	require.NoError(t, err)
 
-	keys, _, err := makeRandomKeysForTesting(uint(cfg.KeysByteLength), 5, 0, randSrc)
+	keys, _, err := makeRandomKeysForTesting(uint(cfg.KeysByteLength), 5, 0, randSrc) //nolint:gosec // G115: Test code, key length from config is small, safe to convert
 	require.NoError(t, err)
 
 	rootHashes := make(map[Seqno]Hash)
@@ -1130,12 +1121,12 @@ func TestInclusionExtensionProofsFailureBranches(t *testing.T) {
 	require.NoError(t, err)
 
 	// make test deterministic
-	randSrc := rand.New(rand.NewSource(1))
+	randSrc := rand.New(rand.NewSource(1)) //nolint:gosec // G404: Deterministic test randomness required for reproducible tests, not security-critical
 
 	tree, err := NewTree(cfg, 2, NewInMemoryStorageEngine(cfg), RootVersionV1)
 	require.NoError(t, err)
 
-	keys, _, err := makeRandomKeysForTesting(uint(cfg.KeysByteLength), 5, 0, randSrc)
+	keys, _, err := makeRandomKeysForTesting(uint(cfg.KeysByteLength), 5, 0, randSrc) //nolint:gosec // G115: Test code, key length from config is small, safe to convert
 	require.NoError(t, err)
 
 	rootHashes := make(map[Seqno]Hash)
@@ -1242,7 +1233,6 @@ func TestInclusionExtensionProofsFailureBranches(t *testing.T) {
 	err = verifier.VerifyInclusionExtensionProof(NewLoggerContextTodoForTesting(t), kvp, &fakeIEProof, startSeqno, rootHashes[startSeqno], endSeqno, rootHashes[endSeqno])
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "expected rootHash does not match the computed one")
-
 }
 
 func NewLoggerContextTodoForTesting(t *testing.T) logger.ContextInterface {

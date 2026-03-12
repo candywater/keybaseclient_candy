@@ -1,18 +1,103 @@
+import * as C from '@/constants'
 import './account-switcher.css'
-import * as Constants from '@/constants/config'
+import {useConfigState} from '@/constants/config'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
 import type * as T from '@/constants/types'
+import {settingsLogOutTab} from '@/constants/settings/util'
+import {useTrackerState} from '@/constants/tracker2'
+import {useProfileState} from '@/constants/profile'
+import {useUsersState} from '@/constants/users'
+import {useCurrentUserState} from '@/constants/current-user'
+import {useProvisionState} from '@/constants/provision'
 
-export type AccountRowItem = {
+const prepareAccountRows = <T extends {username: string; hasStoredSecret: boolean}>(
+  accountRows: ReadonlyArray<T>,
+  myUsername: string
+): Array<T> => accountRows.filter(account => account.username !== myUsername)
+
+const Container = () => {
+  const _fullnames = useUsersState(s => s.infoMap)
+  const _accountRows = useConfigState(s => s.configuredAccounts)
+  const you = useCurrentUserState(s => s.username)
+  const fullname = useTrackerState(s => s.getDetails(you).fullname ?? '')
+  const waiting = C.Waiting.useAnyWaiting(C.waitingKeyConfigLogin)
+  const _onProfileClick = useProfileState(s => s.dispatch.showUserProfile)
+  const onLoginAsAnotherUser = useProvisionState(s => s.dispatch.startProvision)
+  const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
+  const onCancel = () => {
+    navigateUp()
+  }
+
+  const setUserSwitching = useConfigState(s => s.dispatch.setUserSwitching)
+  const login = useConfigState(s => s.dispatch.login)
+  const onSelectAccountLoggedIn = (username: string) => {
+    setUserSwitching(true)
+    login(username, '')
+  }
+  const onSelectAccountLoggedOut = useConfigState(s => s.dispatch.logoutAndTryToLogInAs)
+  const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
+  const onSignOut = React.useCallback(() => {
+    navigateAppend(settingsLogOutTab)
+  }, [navigateAppend])
+
+  const accountRows = prepareAccountRows(_accountRows, you)
+  const props = {
+    accountRows: accountRows.map(account => ({
+      account: account,
+      fullName: (_fullnames.get(account.username) || {fullname: ''}).fullname || '',
+    })),
+    fullname,
+    onCancel,
+    onLoginAsAnotherUser,
+    onProfileClick: () => _onProfileClick(you),
+    onSelectAccount: (username: string) => {
+      const rows = accountRows.filter(account => account.username === username)
+      const loggedIn = (rows.length && rows[0]?.hasStoredSecret) ?? false
+      return loggedIn ? onSelectAccountLoggedIn(username) : onSelectAccountLoggedOut(username)
+    },
+    onSignOut,
+    username: you,
+    waiting,
+  }
+
+  return (
+    <Kb.HeaderHocWrapper
+      leftAction="cancel"
+      onCancel={props.onCancel}
+      // else right isn't pushed over, will address in nav5
+      title=" "
+      rightActionLabel="Sign out"
+      onRightAction={props.onSignOut}
+      rightActionColor="red"
+    >
+      <Kb.ScrollView alwaysBounceVertical={false}>
+        <Kb.Box2 direction="vertical" fullWidth={true} centerChildren={true}>
+          {Kb.Styles.isMobile && <MobileHeader {...props} />}
+          <Kb.Divider style={styles.divider} />
+          {Kb.Styles.isMobile ? (
+            <AccountsRows {...props} />
+          ) : (
+            <Kb.ScrollView style={styles.desktopScrollview} className="accountSwitcherScrollView">
+              <AccountsRows {...props} />
+            </Kb.ScrollView>
+          )}
+          {props.accountRows.length > 0 && !Kb.Styles.isMobile && <Kb.Divider style={styles.divider} />}
+        </Kb.Box2>
+      </Kb.ScrollView>
+    </Kb.HeaderHocWrapper>
+  )
+}
+
+type AccountRowItem = {
   account: T.Config.ConfiguredAccount
   fullName: string
 }
 
-export type Props = {
+type Props = {
   accountRows: Array<AccountRowItem>
   fullname: string
-  onAddAccount: () => void
+  onLoginAsAnotherUser: () => void
   onCancel: () => void
   onProfileClick: () => void
   onSelectAccount: (username: string) => void
@@ -45,11 +130,11 @@ const MobileHeader = (props: Props) => (
     </Kb.Box2>
     <Kb.Box2 direction="vertical" style={styles.buttonBox} fullWidth={true} gap="tiny">
       <Kb.WaitingButton
-        onClick={props.onAddAccount}
+        onClick={props.onLoginAsAnotherUser}
         label="Log in as another user"
         mode="Primary"
         fullWidth={true}
-        waitingKey={Constants.loginAsOtherUserWaitingKey}
+        waitingKey={C.waitingKeyConfigLoginAsOther}
       />
     </Kb.Box2>
   </>
@@ -116,41 +201,12 @@ const AccountsRows = (props: Props) => (
   </Kb.Box2>
 )
 
-const AccountSwitcher = (props: Props) => (
-  <Kb.HeaderHocWrapper
-    leftAction="cancel"
-    onCancel={props.onCancel}
-    // else right isn't pushed over, will address in nav5
-    title=" "
-    rightActions={[{color: 'red', label: 'Sign out', onPress: props.onSignOut}]}
-  >
-    <Kb.ScrollView alwaysBounceVertical={false}>
-      <Kb.Box2 direction="vertical" fullWidth={true} centerChildren={true}>
-        {Kb.Styles.isMobile && <MobileHeader {...props} />}
-        <Kb.Divider style={styles.divider} />
-        {Kb.Styles.isMobile ? (
-          <AccountsRows {...props} />
-        ) : (
-          <Kb.ScrollView style={styles.desktopScrollview} className="accountSwitcherScrollView">
-            <AccountsRows {...props} />
-          </Kb.ScrollView>
-        )}
-        {props.accountRows.length > 0 && !Kb.Styles.isMobile && <Kb.Divider style={styles.divider} />}
-      </Kb.Box2>
-    </Kb.ScrollView>
-  </Kb.HeaderHocWrapper>
-)
-
-export default AccountSwitcher
-
 const styles = Kb.Styles.styleSheetCreate(() => ({
   accountRows: Kb.Styles.platformStyles({
     isTablet: {maxWidth: Kb.Styles.globalStyles.mediumWidth},
   }),
   buttonBox: Kb.Styles.padding(0, Kb.Styles.globalMargins.small, Kb.Styles.globalMargins.tiny),
-  desktopScrollview: {
-    width: '100%',
-  },
+  desktopScrollview: {width: '100%'},
   divider: {width: '100%'},
   nameText: Kb.Styles.platformStyles({
     common: {flexShrink: 1},
@@ -167,7 +223,7 @@ const styles = Kb.Styles.styleSheetCreate(() => ({
     paddingRight: Kb.Styles.globalMargins.small,
     width: '100%',
   },
-  waiting: {
-    opacity: 0.5,
-  },
+  waiting: {opacity: 0.5},
 }))
+
+export default Container

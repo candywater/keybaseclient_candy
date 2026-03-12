@@ -8,9 +8,10 @@
 package libkbfs
 
 import (
-	"github.com/keybase/client/go/logger"
-	"golang.org/x/net/context"
+	"context"
 	"strings"
+
+	"github.com/keybase/client/go/logger"
 )
 
 func chooseDefaultMount(ctx context.Context, dirs []string, log logger.Logger) (string, error) {

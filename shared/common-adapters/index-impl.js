@@ -8,13 +8,10 @@ module.exports = {
     return require('./avatar').default
   },
   get AvatarLine() {
-    return require('./avatar-line').default
+    return require('./avatar/avatar-line').default
   },
   get BackButton() {
     return require('./back-button').default
-  },
-  get BackgroundRepeatBox() {
-    return require('./background-repeat-box').default
   },
   get Badge() {
     return require('./badge').default
@@ -80,14 +77,14 @@ module.exports = {
     return require('./clickable-box').ClickableBox2
   },
   get ConfirmModal() {
-    return require('./confirm-modal/index').default
+    return require('./confirm-modal').default
   },
   get ConnectedNameWithIcon() {
     // explicitly require this to make popup work if it's not been imported
     // explicitly
     require('./profile-card').default
 
-    return require('./name-with-icon/container').default
+    return require('./name-with-icon').default
   },
   get ConnectedUsernames() {
     // explicitly require this to make popup work if it's not been imported
@@ -120,9 +117,6 @@ module.exports = {
   get Emoji() {
     return require('./emoji').default
   },
-  get EmojiIfExists() {
-    return require('./markdown').EmojiIfExists
-  },
   get ErrorBoundary() {
     return require('./error-boundary').default
   },
@@ -150,9 +144,6 @@ module.exports = {
   get HeaderLeftCancel() {
     return require('./header-hoc').HeaderLeftCancel
   },
-  get HotKey() {
-    return require('./hot-key').HotKey
-  },
   get Icon() {
     return require('./icon').default
   },
@@ -165,8 +156,8 @@ module.exports = {
   get InlineDropdown() {
     return require('./dropdown').InlineDropdown
   },
-  get Input() {
-    return require('./input').default
+  get Input2() {
+    return require('./input2').Input2
   },
   get KeyboardAvoidingView2() {
     return require('./keyboard-avoiding-view').KeyboardAvoidingView2
@@ -192,9 +183,6 @@ module.exports = {
   get Markdown() {
     return require('./markdown').default
   },
-  get MaybePopup() {
-    return require('./maybe-popup').MaybePopup
-  },
   get Meta() {
     return require('./meta').default
   },
@@ -212,6 +200,9 @@ module.exports = {
   },
   get NameWithIcon() {
     return require('./name-with-icon').default
+  },
+  get NativeEmoji() {
+    return require('./emoji/native-emoji').default
   },
   get NewInput() {
     return require('./new-input').default
@@ -298,7 +289,7 @@ module.exports = {
     return require('./tabs').default
   },
   get TeamWithPopup() {
-    return require('./team-with-popup/container').default
+    return require('./team-with-popup').default
   },
   get Text() {
     return require('./text').default
@@ -333,9 +324,6 @@ module.exports = {
   get isValidIconType() {
     return require('./icon.shared').isValidIconType
   },
-  get keyboardDismiss() {
-    return require('./keyboard').dismiss
-  },
   get largeListItem2Height() {
     return require('./list-item2').largeHeight
   },
@@ -352,7 +340,7 @@ module.exports = {
     return require('./use-timers').useInterval
   },
   get useModalHeaderTitleAndCancel() {
-    return require('./modal/index').useModalHeaderTitleAndCancel
+    return require('./modal').useModalHeaderTitleAndCancel
   },
   get usePopup2() {
     return require('./use-popup').usePopup2

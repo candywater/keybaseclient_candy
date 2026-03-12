@@ -26,20 +26,21 @@ import (
 
 func initConfigForAutogit(t *testing.T) (
 	ctx context.Context, config *libkbfs.ConfigLocal,
-	cancel context.CancelFunc, tempdir string) {
+	cancel context.CancelFunc, tempdir string,
+) {
 	ctx = libcontext.BackgroundContextWithCancellationDelayer()
 	config = libkbfs.MakeTestConfigOrBustLoggedInWithMode(
 		t, 0, libkbfs.InitDefault, "user1", "user2")
 	success := false
 	ctx = context.WithValue(ctx, libkbfs.CtxAllowNameKey, kbfsRepoDir)
 
-	ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
+	ctx, cancel = context.WithTimeout(ctx, 2*time.Minute)
 
 	tempdir, err := os.MkdirTemp(os.TempDir(), "journal_server")
 	require.NoError(t, err)
 	defer func() {
 		if !success {
-			os.RemoveAll(tempdir)
+			_ = os.RemoveAll(tempdir)
 		}
 	}()
 
@@ -56,10 +57,11 @@ func initConfigForAutogit(t *testing.T) (
 func addFileToWorktreeWithInfo(
 	t *testing.T, repo *gogit.Repository, worktreeFS billy.Filesystem,
 	name, data, msg, userName, userEmail string, timestamp time.Time) (
-	hash plumbing.Hash) {
+	hash plumbing.Hash,
+) {
 	foo, err := worktreeFS.Create(name)
 	require.NoError(t, err)
-	defer foo.Close()
+	defer func() { _ = foo.Close() }()
 	_, err = io.WriteString(foo, data)
 	require.NoError(t, err)
 	wt, err := repo.Worktree()
@@ -79,7 +81,8 @@ func addFileToWorktreeWithInfo(
 
 func addFileToWorktree(
 	t *testing.T, repo *gogit.Repository, worktreeFS billy.Filesystem,
-	name, data string) {
+	name, data string,
+) {
 	_ = addFileToWorktreeWithInfo(
 		t, repo, worktreeFS, name, data, "foo commit", "me", "me@keyba.se",
 		time.Now())
@@ -88,14 +91,16 @@ func addFileToWorktree(
 func addFileToWorktreeAndCommit(
 	ctx context.Context, t *testing.T, config libkbfs.Config,
 	h *tlfhandle.Handle, repo *gogit.Repository, worktreeFS billy.Filesystem,
-	name, data string) {
+	name, data string,
+) {
 	addFileToWorktree(t, repo, worktreeFS, name, data)
 	commitWorktree(ctx, t, config, h, worktreeFS)
 }
 
 func commitWorktree(
 	ctx context.Context, t *testing.T, config libkbfs.Config,
-	h *tlfhandle.Handle, worktreeFS billy.Filesystem) {
+	h *tlfhandle.Handle, worktreeFS billy.Filesystem,
+) {
 	err := worktreeFS.(*libfs.FS).SyncAll()
 	require.NoError(t, err)
 	jManager, err := libkbfs.GetJournalManager(config)

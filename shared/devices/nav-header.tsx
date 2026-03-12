@@ -1,11 +1,12 @@
 import * as C from '@/constants'
-import * as Constants from '@/constants/devices'
+import type * as DevicesType from '@/constants/devices'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
 
 export const HeaderTitle = () => {
-  const numActive = Constants.useActiveDeviceCounts()
-  const numRevoked = Constants.useRevokedDeviceCounts()
+  const Devices = require('@/constants/devices') as typeof DevicesType
+  const numActive = Devices.useActiveDeviceCounts()
+  const numRevoked = Devices.useRevokedDeviceCounts()
   return (
     <Kb.Box2 direction="vertical" style={styles.headerTitle}>
       <Kb.Text type="Header">Devices</Kb.Text>

@@ -1,13 +1,14 @@
 import * as C from '@/constants'
 import * as Kb from '@/common-adapters'
-import * as Container from '@/util/container'
+import * as Teams from '@/constants/teams'
 import * as T from '@/constants/types'
 import {ModalTitle} from '../common'
+import {useSafeNavigation} from '@/util/safe-navigation'
 
 const Skip = () => {
-  const finishNewTeamWizard = C.useTeamsState(s => s.dispatch.finishNewTeamWizard)
+  const finishNewTeamWizard = Teams.useTeamsState(s => s.dispatch.finishNewTeamWizard)
   const onSkip = () => finishNewTeamWizard()
-  const waiting = C.Waiting.useAnyWaiting(C.Teams.teamCreationWaitingKey)
+  const waiting = C.Waiting.useAnyWaiting(C.waitingKeyTeamsCreation)
 
   if (Kb.Styles.isMobile) {
     return waiting ? (
@@ -23,12 +24,12 @@ const Skip = () => {
 }
 
 const AddFromWhere = () => {
-  const nav = Container.useSafeNavigation()
-  const teamID = C.useTeamsState(s => s.addMembersWizard.teamID)
-  const cancelAddMembersWizard = C.useTeamsState(s => s.dispatch.cancelAddMembersWizard)
+  const nav = useSafeNavigation()
+  const teamID = Teams.useTeamsState(s => s.addMembersWizard.teamID)
+  const cancelAddMembersWizard = Teams.useTeamsState(s => s.dispatch.cancelAddMembersWizard)
   const newTeam: boolean = teamID === T.Teams.newTeamWizardTeamID
   // Clicking "skip" concludes the new team wizard. It can error so we should display that here.
-  const createTeamError = C.useTeamsState(s => (newTeam ? s.newTeamWizard.error : undefined))
+  const createTeamError = Teams.useTeamsState(s => (newTeam ? s.newTeamWizard.error : undefined))
   const onClose = () => cancelAddMembersWizard()
   const onBack = () => nav.safeNavigateUp()
   const appendNewTeamBuilder = C.useRouterState(s => s.appendNewTeamBuilder)

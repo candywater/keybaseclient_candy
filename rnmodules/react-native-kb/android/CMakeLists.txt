@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.4.1)
 
 set (CMAKE_VERBOSE_MAKEFILE ON)
 set (CMAKE_CXX_STANDARD 17)
-set (NODE_MODULES_DIR "${CMAKE_SOURCE_DIR}/../../../shared/node_modules")
+set (NODE_MODULES_DIR "${CMAKE_SOURCE_DIR}/../..")
 
 add_library(cpp
             SHARED
@@ -38,12 +38,13 @@ else()
   set(JSEXECUTOR_LIB ReactAndroid::jscexecutor)
 endif()
 
+target_link_options(cpp PRIVATE "-Wl,-z,max-page-size=16384")
+
 target_link_libraries(
         cpp
         ${LOG_LIB}
         fbjni::fbjni
         ReactAndroid::jsi
-        ReactAndroid::turbomodulejsijni
-        ReactAndroid::react_nativemodule_core
+        ReactAndroid::reactnative
         android
 )

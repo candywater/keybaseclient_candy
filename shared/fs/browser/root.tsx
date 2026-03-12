@@ -1,12 +1,13 @@
-import * as C from '@/constants'
-import * as Constants from '@/constants/fs'
 import * as React from 'react'
 import * as T from '@/constants/types'
 import * as Kb from '@/common-adapters'
-import TlfType from './rows/tlf-type-container'
-import Tlf from './rows/tlf-container'
+import TlfType from './rows/tlf-type'
+import Tlf from './rows/tlf'
 import SfmiBanner from '../banner/system-file-manager-integration-banner/container'
 import {WrapRow} from './rows/rows'
+import {useFSState} from '@/constants/fs'
+import * as FS from '@/constants/fs'
+import {useCurrentUserState} from '@/constants/current-user'
 
 type Props = {
   destinationPickerIndex?: number
@@ -32,10 +33,9 @@ const rootRows: Array<SectionListItem> = [
   },
 ]
 
-const getRenderItem =
-  (destinationPickerIndex?: number) =>
-  ({item, section}: {item: SectionListItem; section: {key: string}}) =>
-    section.key === 'section-top' ? (
+const getRenderItem = (destinationPickerIndex?: number) =>
+  function WrapTLF({item, section}: {item: SectionListItem; section: {key: string}}) {
+    return section.key === 'section-top' ? (
       <WrapRow>
         <TlfType name={item.name as T.FS.TlfType} destinationPickerIndex={destinationPickerIndex} />
       </WrapRow>
@@ -50,6 +50,7 @@ const getRenderItem =
         />
       </WrapRow>
     )
+  }
 
 const renderSectionHeader = ({section}: {section: {key: string; title: string}}) =>
   section.key === 'banner-sfmi' ? <SfmiBanner /> : <Kb.SectionDivider label={section.title} />
@@ -79,8 +80,8 @@ const useTopNTlfs = (
   )
 
 const useRecentTlfs = (n: number, destinationPickerIndex?: number): Array<SectionListItem> => {
-  const tlfs = C.useFSState(s => s.tlfs)
-  const username = C.useCurrentUserState(s => s.username)
+  const tlfs = useFSState(s => s.tlfs)
+  const username = useCurrentUserState(s => s.username)
   const privateTopN = useTopNTlfs(T.FS.TlfType.Private, tlfs.private, n)
   const publicTopN = useTopNTlfs(T.FS.TlfType.Public, tlfs.public, n)
   const teamTopN = useTopNTlfs(T.FS.TlfType.Team, tlfs.team, n)
@@ -95,7 +96,7 @@ const useRecentTlfs = (n: number, destinationPickerIndex?: number): Array<Sectio
       typeof destinationPickerIndex === 'number'
         ? recent.filter(
             ({name, tlfType}) =>
-              !Constants.hideOrDisableInDestinationPicker(tlfType, name, username, destinationPickerIndex)
+              !FS.hideOrDisableInDestinationPicker(tlfType, name, username, destinationPickerIndex)
           )
         : recent
     return afterFilter.slice(0, n)

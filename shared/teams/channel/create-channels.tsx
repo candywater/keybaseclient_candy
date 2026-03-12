@@ -1,34 +1,41 @@
-import * as C from '@/constants'
 import * as React from 'react'
+import {useTeamsState} from '@/constants/teams'
 import * as Kb from '@/common-adapters'
-import * as Container from '@/util/container'
 import type * as T from '@/constants/types'
-import CreateChannelsModal from '../new-team/wizard/create-channels'
+import {CreateChannelsModal} from '../new-team/wizard/create-channels'
 
 type Props = {teamID: T.Teams.TeamID}
 
 const CreateChannels = (props: Props) => {
   const teamID = props.teamID
-  const setChannelCreationError = C.useTeamsState(s => s.dispatch.setChannelCreationError)
+  const setChannelCreationError = useTeamsState(s => s.dispatch.setChannelCreationError)
   React.useEffect(
     () => () => {
       setChannelCreationError('')
     },
     [teamID, setChannelCreationError]
   )
-  const waiting = C.useTeamsState(s => s.creatingChannels)
-  const error = C.useTeamsState(s => s.errorInChannelCreation)
-  const prevWaiting = Container.usePrevious(waiting)
+  const waiting = useTeamsState(s => s.creatingChannels)
+  const error = useTeamsState(s => s.errorInChannelCreation)
+  const prevWaitingRef = React.useRef(waiting)
 
-  const loadTeamChannelList = C.useTeamsState(s => s.dispatch.loadTeamChannelList)
-  const createChannels = C.useTeamsState(s => s.dispatch.createChannels)
+  const loadTeamChannelList = useTeamsState(s => s.dispatch.loadTeamChannelList)
+  const createChannels = useTeamsState(s => s.dispatch.createChannels)
   React.useEffect(() => {
-    if (prevWaiting === true && !waiting) {
+    if (!!prevWaitingRef.current && !waiting) {
       loadTeamChannelList(teamID)
     }
-  }, [loadTeamChannelList, prevWaiting, teamID, waiting])
+  }, [loadTeamChannelList, teamID, waiting])
 
-  const success = prevWaiting && !waiting && !error
+  const [success, setSuccess] = React.useState(!waiting && !error)
+
+  React.useEffect(() => {
+    prevWaitingRef.current = waiting
+  }, [waiting])
+
+  React.useEffect(() => {
+    setSuccess(prevWaitingRef.current && !waiting && !error)
+  }, [waiting, error])
 
   const banners = React.useMemo(
     () =>

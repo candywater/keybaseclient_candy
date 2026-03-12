@@ -5,6 +5,7 @@
 package libkbfs
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -21,11 +22,11 @@ import (
 	kbname "github.com/keybase/client/go/kbun"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func readAndCompareData(ctx context.Context, t *testing.T, config Config,
-	name string, expectedData []byte, user kbname.NormalizedUsername) {
+	name string, expectedData []byte, user kbname.NormalizedUsername,
+) {
 	rootNode := GetRootNodeOrBust(ctx, t, config, name, tlf.Private)
 
 	kbfsOps := config.KBFSOps()
@@ -43,12 +44,14 @@ type testCRObserver struct {
 }
 
 func (t *testCRObserver) LocalChange(ctx context.Context, node Node,
-	write WriteRange) {
+	write WriteRange,
+) {
 	// ignore
 }
 
 func (t *testCRObserver) BatchChanges(ctx context.Context,
-	changes []NodeChange, _ []NodeID) {
+	changes []NodeChange, _ []NodeID,
+) {
 	t.changes = append(t.changes, changes...)
 	if len(changes) > 0 {
 		t.c <- struct{}{}
@@ -61,7 +64,8 @@ func (t *testCRObserver) TlfHandleChange(ctx context.Context,
 
 func checkStatus(ctx context.Context, t *testing.T, kbfsOps KBFSOps,
 	staged bool, headWriter kbname.NormalizedUsername, dirtyPaths []string, fb data.FolderBranch,
-	prefix string) {
+	prefix string,
+) {
 	status, _, err := kbfsOps.FolderStatus(ctx, fb)
 	require.NoError(t, err)
 	assert.Equal(t, status.Staged, staged)
@@ -600,7 +604,8 @@ type mdServerLocalRecordingRegisterForUpdate struct {
 // MDServerLocal that records RegisterforUpdate calls.
 func newMDServerLocalRecordingRegisterForUpdate(mdServerRaw mdServerLocal) (
 	mdServer mdServerLocalRecordingRegisterForUpdate,
-	records <-chan registerForUpdateRecord) {
+	records <-chan registerForUpdateRecord,
+) {
 	ch := make(chan registerForUpdateRecord, 8)
 	ret := mdServerLocalRecordingRegisterForUpdate{mdServerRaw, ch}
 	return ret, ch
@@ -608,7 +613,8 @@ func newMDServerLocalRecordingRegisterForUpdate(mdServerRaw mdServerLocal) (
 
 func (md mdServerLocalRecordingRegisterForUpdate) RegisterForUpdate(
 	ctx context.Context,
-	id tlf.ID, currHead kbfsmd.Revision) (<-chan error, error) {
+	id tlf.ID, currHead kbfsmd.Revision,
+) (<-chan error, error) {
 	md.ch <- registerForUpdateRecord{id: id, currHead: currHead}
 	return md.mdServerLocal.RegisterForUpdate(ctx, id, currHead)
 }
@@ -793,7 +799,7 @@ func TestBasicCRFileConflict(t *testing.T) {
 // and that we can move the conflicts out of the way.
 func TestBasicCRFailureAndFixing(t *testing.T) {
 	tempdir, err := ioutil.TempDir(os.TempDir(), "journal_for_fail_fix")
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 
 	// simulate two users
 	var userName1, userName2 kbname.NormalizedUsername = "u1", "u2"
@@ -1665,8 +1671,7 @@ func TestCRCanceledAfterNewOperation(t *testing.T) {
 	err = kbfsOps2.SyncAll(ctx, aNode2.GetFolderBranch())
 	require.NoError(t, err)
 
-	onPutStalledCh, putUnstallCh, putCtx :=
-		StallMDOp(context.Background(), config2, StallableMDResolveBranch, 1)
+	onPutStalledCh, putUnstallCh, putCtx := StallMDOp(context.Background(), config2, StallableMDResolveBranch, 1)
 
 	var wg sync.WaitGroup
 	putCtx, cancel2 := context.WithCancel(putCtx)
@@ -1786,8 +1791,7 @@ func TestBasicCRBlockUnmergedWrites(t *testing.T) {
 	// Start CR, but cancel it before it completes, which should lead
 	// to it locking next time (since it has seen how many revisions
 	// are outstanding).
-	onPutStalledCh, putUnstallCh, putCtx :=
-		StallMDOp(context.Background(), config2, StallableMDResolveBranch, 1)
+	onPutStalledCh, putUnstallCh, putCtx := StallMDOp(context.Background(), config2, StallableMDResolveBranch, 1)
 
 	var wg sync.WaitGroup
 	firstPutCtx, cancel := context.WithCancel(putCtx)
@@ -1922,8 +1926,7 @@ func TestUnmergedPutAfterCanceledUnmergedPut(t *testing.T) {
 	err = kbfsOps2.SyncAll(ctx, rootNode2.GetFolderBranch())
 	require.NoError(t, err)
 
-	onPutStalledCh, putUnstallCh, putCtx :=
-		StallMDOp(ctx, config2, StallableMDPutUnmerged, 1)
+	onPutStalledCh, putUnstallCh, putCtx := StallMDOp(ctx, config2, StallableMDPutUnmerged, 1)
 
 	var wg sync.WaitGroup
 	putCtx, cancel2 := context.WithCancel(putCtx)
@@ -1940,7 +1943,6 @@ func TestUnmergedPutAfterCanceledUnmergedPut(t *testing.T) {
 		if err != nil {
 			assert.Equal(t, context.Canceled, err)
 		}
-
 	}()
 	<-onPutStalledCh
 	cancel2()
@@ -1976,7 +1978,7 @@ func TestUnmergedPutAfterCanceledUnmergedPut(t *testing.T) {
 
 func TestForceStuckConflict(t *testing.T) {
 	tempdir, err := ioutil.TempDir(os.TempDir(), "journal_for_stuck_cr")
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	require.NoError(t, err)
 
 	var u1 kbname.NormalizedUsername = "u1"
@@ -2034,9 +2036,8 @@ func TestForceStuckConflict(t *testing.T) {
 
 // Tests that if clearing a CR conflict can fast-forward if needed.
 func TestBasicCRFailureClearAndFastForward(t *testing.T) {
-	t.Skip()
 	tempdir, err := ioutil.TempDir(os.TempDir(), "journal_for_fail_fix")
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 
 	// simulate two users
 	var userName1, userName2 kbname.NormalizedUsername = "u1", "u2"

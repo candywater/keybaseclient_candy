@@ -1,24 +1,25 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
-import {OrdinalContext, HighlightedContext} from '../ids-context'
+import {useOrdinal, useIsHighlighted} from '../ids-context'
 import type * as T from '@/constants/types'
 
 export const useReply = (ordinal: T.Chat.Ordinal) => {
-  const showReplyTo = C.useChatContext(s => {
+  const showReplyTo = Chat.useChatContext(s => {
     const m = s.messageMap.get(ordinal)
     return m?.type === 'text' ? !!m.replyTo : false
   })
   return showReplyTo ? <Reply /> : null
 }
 
-const emptyMessage = C.Chat.makeMessageText()
+const emptyMessage = Chat.makeMessageText()
 
 const ReplyToContext = React.createContext<T.Chat.MessageReplyTo>(emptyMessage)
 
 const AvatarHolder = () => {
   const {author} = React.useContext(ReplyToContext)
-  const showCenteredHighlight = React.useContext(HighlightedContext)
+  const showCenteredHighlight = useIsHighlighted()
   return (
     <Kb.Box2 direction="horizontal" gap="xtiny" fullWidth={true}>
       <Kb.Avatar username={author} size={16} />
@@ -44,7 +45,7 @@ const ReplyImage = () => {
   if (!imageURL) return null
   const imageHeight = replyTo.previewHeight
   const imageWidth = replyTo.previewWidth
-  const sizing = imageWidth && imageHeight ? C.Chat.zoomImage(imageWidth, imageHeight, 80) : undefined
+  const sizing = imageWidth && imageHeight ? Chat.zoomImage(imageWidth, imageHeight, 80) : undefined
   return (
     <Kb.Box2 direction="vertical" style={styles.replyImageContainer}>
       <Kb.Box style={sizing?.margins}>
@@ -56,7 +57,7 @@ const ReplyImage = () => {
 
 const ReplyText = () => {
   const replyTo = React.useContext(ReplyToContext)
-  const showCenteredHighlight = React.useContext(HighlightedContext)
+  const showCenteredHighlight = useIsHighlighted()
 
   const text =
     replyTo.type === 'attachment'
@@ -124,13 +125,13 @@ const ReplyStructure = React.memo(function ReplyStructure(p: RS) {
 })
 
 const Reply = React.memo(function Reply() {
-  const ordinal = React.useContext(OrdinalContext)
-  const replyTo = C.useChatContext(s => {
+  const ordinal = useOrdinal()
+  const replyTo = Chat.useChatContext(s => {
     const m = s.messageMap.get(ordinal)
     return m?.type === 'text' ? m.replyTo : undefined
   })
 
-  const replyJump = C.useChatContext(s => s.dispatch.replyJump)
+  const replyJump = Chat.useChatContext(s => s.dispatch.replyJump)
   const onClick = C.useEvent(() => {
     const id = replyTo?.id ?? 0
     id && replyJump(id)

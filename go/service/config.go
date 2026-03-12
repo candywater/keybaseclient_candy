@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,8 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/keybase/client/go/engine"
 	"github.com/keybase/client/go/install"
@@ -43,6 +42,7 @@ func NewConfigHandler(xp rpc.Transporter, i libkb.ConnectionID, g *libkb.GlobalC
 
 func (h ConfigHandler) GetCurrentStatus(ctx context.Context, sessionID int) (res keybase1.CurrentStatus, err error) {
 	mctx := libkb.NewMetaContext(ctx, h.G()).WithLogTag("CFG")
+	defer mctx.Trace("GetCurrentStatus", &err)()
 	return status.GetCurrentStatus(mctx)
 }
 
@@ -271,7 +271,6 @@ func (h ConfigHandler) SetPath(_ context.Context, arg keybase1.SetPathArg) error
 }
 
 func mergeIntoPath(g *libkb.GlobalContext, p2 string) error {
-
 	svcPath := os.Getenv("PATH")
 	g.Log.Debug("mergeIntoPath: service path = %s", svcPath)
 	g.Log.Debug("mergeIntoPath: merge path   = %s", p2)
@@ -478,13 +477,14 @@ func (h ConfigHandler) GetProxyData(ctx context.Context) (keybase1.ProxyData, er
 	certPinning := config.IsCertPinningEnabled()
 
 	var convertedProxyType keybase1.ProxyType
-	if proxyType == libkb.NoProxy {
+	switch proxyType {
+	case libkb.NoProxy:
 		convertedProxyType = keybase1.ProxyType_No_Proxy
-	} else if proxyType == libkb.HTTPConnect {
+	case libkb.HTTPConnect:
 		convertedProxyType = keybase1.ProxyType_HTTP_Connect
-	} else if proxyType == libkb.Socks {
+	case libkb.Socks:
 		convertedProxyType = keybase1.ProxyType_Socks
-	} else {
+	default:
 		return keybase1.ProxyData{AddressWithPort: "", ProxyType: keybase1.ProxyType_No_Proxy, CertPinning: true},
 			fmt.Errorf("Failed to convert proxy type into a protocol compatible proxy type!")
 	}
@@ -498,13 +498,14 @@ func (h ConfigHandler) SetProxyData(ctx context.Context, arg keybase1.ProxyData)
 	rpcProxyType := arg.ProxyType
 
 	var convertedProxyType libkb.ProxyType
-	if rpcProxyType == keybase1.ProxyType_No_Proxy {
+	switch rpcProxyType {
+	case keybase1.ProxyType_No_Proxy:
 		convertedProxyType = libkb.NoProxy
-	} else if rpcProxyType == keybase1.ProxyType_HTTP_Connect {
+	case keybase1.ProxyType_HTTP_Connect:
 		convertedProxyType = libkb.HTTPConnect
-	} else if rpcProxyType == keybase1.ProxyType_Socks {
+	case keybase1.ProxyType_Socks:
 		convertedProxyType = libkb.Socks
-	} else {
+	default:
 		// Got a bogus proxy type that we couldn't convert to a libkb enum so return an error
 		return fmt.Errorf("failed to convert given proxy type to a native libkb proxy type")
 	}
@@ -579,7 +580,8 @@ func (h ConfigHandler) GenerateWebAuthToken(ctx context.Context) (ret string, er
 }
 
 func (h ConfigHandler) UpdateLastLoggedInAndServerConfig(
-	ctx context.Context, serverConfigPath string) error {
+	ctx context.Context, serverConfigPath string,
+) error {
 	arg := libkb.APIArg{
 		Endpoint:    "user/features",
 		SessionType: libkb.APISessionTypeREQUIRED,
@@ -620,5 +622,5 @@ func (h ConfigHandler) UpdateLastLoggedInAndServerConfig(
 	if err != nil {
 		return err
 	}
-	return libkb.NewFile(serverConfigPath, newBytes, 0644).Save(h.G().Log)
+	return libkb.NewFile(serverConfigPath, newBytes, 0o644).Save(h.G().Log)
 }

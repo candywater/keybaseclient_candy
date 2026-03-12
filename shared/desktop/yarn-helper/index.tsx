@@ -11,12 +11,12 @@ import {rimrafSync} from 'rimraf'
 const [, , command, ...rest] = process.argv
 
 type Command = {
-  code?: (info: Command, exec: Function) => void
+  code?: (info: Command, exec: (...a: Array<any>) => void) => void
   help?: string
-  env?: {}
+  env?: object
   shell?: string
   nodeEnv?: 'production' | 'development'
-  options?: {}
+  options?: object
 }
 
 const commands: {[key: string]: Command} = {
@@ -29,7 +29,7 @@ const commands: {[key: string]: Command} = {
       const keys = Object.keys(commands) as Array<keyof typeof commands>
       console.log(
         keys
-          .map(c => commands[c]?.help && `yarn run ${c}}${commands[c]?.help || ''}`)
+          .map(c => commands[c]?.help && `yarn run ${c}}${commands[c].help || ''}`)
           .filter(Boolean)
           .join('\n')
       )
@@ -45,7 +45,6 @@ const commands: {[key: string]: Command} = {
       getMsgPack()
       patch()
       patchIosKBLib()
-      prepareSubmodules()
     },
     help: '',
   },
@@ -66,22 +65,6 @@ const commands: {[key: string]: Command} = {
 
 const patch = () => {
   exec('patch-package')
-}
-
-const prepareSubmodules = () => {
-  if (process.platform === 'darwin' || process.platform === 'linux') {
-    const root = path.resolve(__dirname, '..', '..', '..', 'rnmodules')
-    // const tsOverride = path.resolve(__dirname, '..', '..', 'override-d.ts')
-    fs.readdirSync(root, {withFileTypes: true}).forEach(f => {
-      if (f.isDirectory()) {
-        const full = path.resolve(root, f.name)
-        exec(`cd ${full} && yarn`)
-        // need top bring our TS over, hacky but other things were more complex
-        // exec(`cp ${full}/lib/typescript/* ${tsOverride}/${f.name}`)
-        // what it produces is slightly incorrect so we just have to sync this up periodically
-      }
-    })
-  }
 }
 
 const checkFSEvents = () => {
@@ -109,11 +92,11 @@ function fixModules() {
   } catch {}
 }
 
-function exec(command: string, env?: {}, options?: object) {
+function exec(command: string, env?: object, options?: object) {
   console.log(
     execSync(command, {
       encoding: 'utf8',
-      env: env || process.env,
+      env: (env as typeof process.env | undefined) || process.env,
       stdio: 'inherit',
       ...options,
     })
@@ -175,18 +158,23 @@ const getMsgPack = () => {
 const patchIosKBLib = () => {
   if (process.platform === 'darwin') {
     const prefixes = [
-      'ios/keybase.xcframework/ios-arm64',
-      'ios/keybase.xcframework/ios-arm64_x86_64-simulator',
+      'ios/keybasego.xcframework/ios-arm64',
+      'ios/keybasego.xcframework/ios-arm64_x86_64-simulator',
     ]
     const files = ['Keybase.objc.h', 'Universe.objc.h']
     for (const prefix of prefixes) {
       for (const file of files) {
-        const path = `${prefix}/Keybase.framework/Versions/Current/Headers/${file}`
-        try {
-          console.log('Patching go libs', path)
-          exec(`sed -i -e 's/@import Foundation;/#include <Foundation\\/Foundation.h>/' ${path}`)
-        } catch {
-          console.log('Patching skipped')
+        const paths = [
+          `${prefix}/Keybasego.framework/Versions/Current/Headers/${file}`,
+          `${prefix}/Keybasego.framework/Headers/${file}`,
+        ]
+        for (const path of paths) {
+          try {
+            console.log('Patching go libs', path)
+            exec(`sed -i -e 's/@import Foundation;/#include <Foundation\\/Foundation.h>/' ${path}`)
+          } catch {
+            console.log('Patching skipped')
+          }
         }
       }
     }
@@ -194,12 +182,7 @@ const patchIosKBLib = () => {
 }
 
 const clearAndroidBuild = () => {
-  const paths = [
-    '../../android/build',
-    '../../../rnmodules/react-native-kb/android/build',
-    '../../../rnmodules/react-native-kb/android/.cxx',
-    '../../../rnmodules/react-native-drop-view/android/build',
-  ]
+  const paths = ['../../android/build']
   for (const p of paths) {
     try {
       rimrafSync(path.resolve(__dirname, p))

@@ -5,6 +5,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"reflect"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/keybase/client/go/libkb"
 	"github.com/keybase/client/go/protocol/chat1"
-	"golang.org/x/net/context"
 )
 
 type handlerTracker struct {
@@ -262,12 +262,14 @@ func (c *chatEcho) ReactionV1(context.Context, reactionOptionsV1) Reply {
 }
 
 func (c *chatEcho) AttachV1(context.Context, attachOptionsV1, chat1.ChatUiInterface,
-	chat1.NotifyChatInterface) Reply {
+	chat1.NotifyChatInterface,
+) Reply {
 	return Reply{Result: echoOK}
 }
 
 func (c *chatEcho) DownloadV1(context.Context, downloadOptionsV1, chat1.ChatUiInterface,
-	chat1.NotifyChatInterface) Reply {
+	chat1.NotifyChatInterface,
+) Reply {
 	return Reply{Result: echoOK}
 }
 

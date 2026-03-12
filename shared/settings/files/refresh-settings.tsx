@@ -1,25 +1,14 @@
 import * as React from 'react'
-import * as C from '@/constants'
+import {useFSState} from '@/constants/fs'
 
-type Props = {
-  refresh: () => void
+const RefreshSettings = () => {
+  const refresh = useFSState(s => s.dispatch.loadSettings)
+
+  React.useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  return null
 }
 
-class Component extends React.PureComponent<Props> {
-  componentDidMount() {
-    this.props.refresh()
-  }
-  render() {
-    return null
-  }
-}
-
-const Container = () => {
-  const refresh = C.useFSState(s => s.dispatch.loadSettings)
-  const props = {
-    refresh,
-  }
-  return <Component {...props} />
-}
-
-export default Container
+export default RefreshSettings

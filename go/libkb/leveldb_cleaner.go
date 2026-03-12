@@ -2,6 +2,7 @@ package libkb
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -13,7 +14,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"golang.org/x/net/context"
 )
 
 type DbCleanerConfig struct {
@@ -102,7 +102,8 @@ func newLevelDbCleanerWithConfig(mctx MetaContext, dbName string, config DbClean
 		cancelCh: make(chan struct{}),
 	}
 	if isMobile {
-		go c.monitorAppState()
+		stopCh := c.stopCh
+		go c.monitorAppState(stopCh)
 	}
 	return c
 }
@@ -128,7 +129,7 @@ func (c *levelDbCleaner) Stop() {
 	}
 }
 
-func (c *levelDbCleaner) monitorAppState() {
+func (c *levelDbCleaner) monitorAppState(stopCh chan struct{}) {
 	c.log("monitorAppState")
 	state := keybase1.MobileAppState_FOREGROUND
 	for {
@@ -145,7 +146,7 @@ func (c *levelDbCleaner) monitorAppState() {
 				}
 				c.Unlock()
 			}
-		case <-c.stopCh:
+		case <-stopCh:
 			c.log("monitorAppState: stop")
 			return
 		}
@@ -200,7 +201,7 @@ func (c *levelDbCleaner) getDbSize() (size uint64, err error) {
 	if err != nil {
 		return 0, err
 	}
-	return uint64(sizes.Sum()), nil
+	return uint64(sizes.Sum()), nil //nolint:gosec // G115: Database size is non-negative, safe to convert
 }
 
 func (c *levelDbCleaner) clean(force bool) (err error) {
@@ -212,6 +213,8 @@ func (c *levelDbCleaner) clean(force bool) (err error) {
 	}
 	c.running = true
 	key := c.lastKey
+	stopCh := c.stopCh
+	cancelCh := c.cancelCh
 	c.Unlock()
 
 	defer c.M().Trace(fmt.Sprintf("levelDbCleaner(%s) clean, config: %v", c.dbName, c.config), &err)()
@@ -238,10 +241,10 @@ func (c *levelDbCleaner) clean(force bool) (err error) {
 	var totalNumPurged, numPurged int
 	for i := 0; i < 100; i++ {
 		select {
-		case <-c.cancelCh:
+		case <-cancelCh:
 			c.log("aborting clean, %d runs, canceled", i)
 			return nil
-		case <-c.stopCh:
+		case <-stopCh:
 			c.log("aborting clean %d runs, stopped", i)
 			return nil
 		default:

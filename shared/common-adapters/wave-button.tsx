@@ -1,10 +1,11 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as React from 'react'
 import {Box2, Box} from './box'
 import Icon from './icon'
 import Text from './text'
 import Button from './button'
-import Emoji from './emoji'
+import NativeEmoji from './emoji/native-emoji'
 import * as Styles from '@/styles'
 import type * as T from '@/constants/types'
 import logger from '@/logger'
@@ -13,8 +14,8 @@ const Kb = {
   Box,
   Box2,
   Button,
-  Emoji,
   Icon,
+  NativeEmoji,
   Text,
 }
 
@@ -33,15 +34,15 @@ const getWaveWaitingKey = (recipient: string) => {
 }
 
 const WaveButton = (props: Props) => {
-  const hasContext = C.Chat.useHasContext()
+  const hasContext = Chat.useHasContext()
   if (props.username) {
     if (hasContext) {
       return <WaveButtonImpl {...props} />
     } else {
       return (
-        <C.ChatProvider key="wave" id="" canBeNull={true}>
+        <Chat.ChatProvider key="wave" id="" canBeNull={true}>
           <WaveButtonImpl {...props} />
-        </C.ChatProvider>
+        </Chat.ChatProvider>
       )
     }
   }
@@ -58,13 +59,13 @@ const WaveButtonImpl = (props: Props) => {
   const [waved, setWaved] = React.useState(false)
   const waitingKey = getWaveWaitingKey(props.username || props.conversationIDKey || 'missing')
   const waving = C.Waiting.useAnyWaiting(waitingKey)
-  const messageSend = C.useChatContext(s => s.dispatch.messageSend)
-  const messageSendByUsername = C.useChatState(s => s.dispatch.messageSendByUsername)
+  const sendMessage = Chat.useChatContext(s => s.dispatch.sendMessage)
+  const messageSendByUsername = Chat.useChatState(s => s.dispatch.messageSendByUsername)
   const onWave = () => {
     if (props.username) {
       messageSendByUsername(props.username, ':wave:', waitingKey)
     } else if (props.conversationIDKey) {
-      messageSend(':wave:', undefined, waitingKey)
+      sendMessage(':wave:')
     } else {
       logger.warn('WaveButton: need one of username or conversationIDKey')
       return
@@ -94,7 +95,7 @@ const WaveButtonImpl = (props: Props) => {
         <Kb.Text type="BodySemibold" style={styles.blueText}>
           {waveText}
         </Kb.Text>
-        <Kb.Emoji emojiName=":wave:" size={18} />
+        <Kb.NativeEmoji emojiName=":wave:" size={18} />
       </Kb.Button>
     </Kb.Box>
   )

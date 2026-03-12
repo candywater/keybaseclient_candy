@@ -4,6 +4,8 @@
 package keybase
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -12,14 +14,14 @@ import (
 	"runtime"
 	"runtime/debug"
 	"runtime/trace"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/keybase/client/go/chat/globals"
+	"github.com/keybase/client/go/chat/types"
 	"github.com/keybase/client/go/status"
 	"golang.org/x/sync/errgroup"
-
-	"strings"
 
 	"github.com/keybase/client/go/externals"
 	"github.com/keybase/client/go/kbfs/env"
@@ -34,18 +36,38 @@ import (
 	"github.com/keybase/client/go/service"
 	"github.com/keybase/client/go/uidmap"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
-	context "golang.org/x/net/context"
 )
 
-var kbCtx *libkb.GlobalContext
-var kbChatCtx *globals.ChatContext
-var kbSvc *service.Service
-var conn net.Conn
-var startOnce sync.Once
-var logSendContext status.LogSendContext
+var (
+	kbCtx          *libkb.GlobalContext
+	kbChatCtx      *globals.ChatContext
+	kbSvc          *service.Service
+	conn           net.Conn
+	startOnce      sync.Once
+	logSendContext status.LogSendContext
+)
 
-var initMutex sync.Mutex
-var initComplete bool
+var (
+	initMutex    sync.Mutex
+	initComplete bool
+)
+
+// JS readiness synchronization
+var (
+	jsReadyOnce sync.Once
+	jsReadyCh   = make(chan struct{})
+	connMutex   sync.Mutex // Protects conn operations
+)
+
+// log writes to kbCtx.Log if available, otherwise falls back to fmt.Printf
+func log(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	if kbCtx != nil && kbCtx.Log != nil {
+		kbCtx.Log.Info(msg)
+	} else {
+		fmt.Printf("%s\n", msg)
+	}
+}
 
 type PushNotifier interface {
 	LocalNotification(ident string, msg string, badgeCount int, soundName string, convID string, typ string)
@@ -55,6 +77,47 @@ type PushNotifier interface {
 type NativeVideoHelper interface {
 	Thumbnail(filename string) []byte
 	Duration(filename string) int
+}
+
+// ShareIntentDonator is implemented by the native iOS layer to donate INSendMessageIntent
+// for recent conversations. When nil (Android, desktop), donations are skipped.
+// Uses JSON string because gomobile does not support []struct in interface methods.
+type ShareIntentDonator interface {
+	DonateShareConversations(conversationsJSON string)
+	DeleteAllDonations()
+	DeleteDonation(conversationID string)
+}
+
+// shareIntentDonatorAdapter adapts keybase.ShareIntentDonator to types.ShareIntentDonator.
+type shareIntentDonatorAdapter struct {
+	wrapped ShareIntentDonator
+}
+
+func (a shareIntentDonatorAdapter) DonateShareConversations(conversations []types.ShareConversation) {
+	if a.wrapped == nil {
+		return
+	}
+	// Serialize to JSON; gomobile does not support []struct in interface methods.
+	data, err := json.Marshal(conversations)
+	if err != nil {
+		log("shareIntentDonatorAdapter: JSON marshal failed: %v", err)
+		return
+	}
+	a.wrapped.DonateShareConversations(string(data))
+}
+
+func (a shareIntentDonatorAdapter) DeleteAllDonations() {
+	if a.wrapped == nil {
+		return
+	}
+	a.wrapped.DeleteAllDonations()
+}
+
+func (a shareIntentDonatorAdapter) DeleteDonation(conversationID string) {
+	if a.wrapped == nil {
+		return
+	}
+	a.wrapped.DeleteDonation(conversationID)
 }
 
 // NativeInstallReferrerListener is implemented in Java on Android.
@@ -150,9 +213,11 @@ func setInited() {
 // InitOnce runs the Keybase services (only runs one time)
 func InitOnce(homeDir, mobileSharedHome, logFile, runModeStr string,
 	accessGroupOverride bool, dnsNSFetcher ExternalDNSNSFetcher, nvh NativeVideoHelper,
-	mobileOsVersion string, isIPad bool, installReferrerListener NativeInstallReferrerListener, isIOS bool) {
+	mobileOsVersion string, isIPad bool, installReferrerListener NativeInstallReferrerListener, isIOS bool,
+	shareIntentDonator ShareIntentDonator,
+) {
 	startOnce.Do(func() {
-		if err := Init(homeDir, mobileSharedHome, logFile, runModeStr, accessGroupOverride, dnsNSFetcher, nvh, mobileOsVersion, isIPad, installReferrerListener, isIOS); err != nil {
+		if err := Init(homeDir, mobileSharedHome, logFile, runModeStr, accessGroupOverride, dnsNSFetcher, nvh, mobileOsVersion, isIPad, installReferrerListener, isIOS, shareIntentDonator); err != nil {
 			kbCtx.Log.Errorf("Init error: %s", err)
 		}
 	})
@@ -161,15 +226,23 @@ func InitOnce(homeDir, mobileSharedHome, logFile, runModeStr string,
 // Init runs the Keybase services
 func Init(homeDir, mobileSharedHome, logFile, runModeStr string,
 	accessGroupOverride bool, externalDNSNSFetcher ExternalDNSNSFetcher, nvh NativeVideoHelper,
-	mobileOsVersion string, isIPad bool, installReferrerListener NativeInstallReferrerListener, isIOS bool) (err error) {
+	mobileOsVersion string, isIPad bool, installReferrerListener NativeInstallReferrerListener, isIOS bool,
+	shareIntentDonator ShareIntentDonator,
+) (err error) {
+	// better crash logging
+	os.Setenv("GOTRACEBACK", "crash")
+	debug.SetTraceback("all")
+
+	begin := time.Now()
+	log("Go: Initializing: home: %s mobileSharedHome: %s", homeDir, mobileSharedHome)
 	defer func() {
 		err = flattenError(err)
 		if err == nil {
 			setInited()
 		}
+		log("Go: Init complete: %v err: %v", time.Since(begin), err)
 	}()
 
-	fmt.Printf("Go: Initializing: home: %s mobileSharedHome: %s\n", homeDir, mobileSharedHome)
 	if isIOS {
 		// buffer of bytes
 		buffer = make([]byte, 300*1024)
@@ -185,31 +258,31 @@ func Init(homeDir, mobileSharedHome, logFile, runModeStr string,
 
 	var perfLogFile, ekLogFile, guiLogFile string
 	if logFile != "" {
-		fmt.Printf("Go: Using log: %s\n", logFile)
+		log("Go: Using log: %s", logFile)
 		ekLogFile = logFile + ".ek"
-		fmt.Printf("Go: Using eklog: %s\n", ekLogFile)
+		log("Go: Using eklog: %s", ekLogFile)
 		perfLogFile = logFile + ".perf"
-		fmt.Printf("Go: Using perfLog: %s\n", perfLogFile)
+		log("Go: Using perfLog: %s", perfLogFile)
 		guiLogFile = logFile + ".gui"
-		fmt.Printf("Go: Using guilog: %s\n", guiLogFile)
+		log("Go: Using guilog: %s", guiLogFile)
 	}
 	libkb.IsIPad = isIPad
 
 	// Reduce OS threads on mobile so we don't have too much contention with JS thread
-	oldProcs := runtime.GOMAXPROCS(0)
-	newProcs := oldProcs - 2
-	if newProcs <= 0 {
-		newProcs = 1
-	}
-	runtime.GOMAXPROCS(newProcs)
-	fmt.Printf("Go: setting GOMAXPROCS to: %d previous: %d\n", newProcs, oldProcs)
+	// oldProcs := runtime.GOMAXPROCS(0)
+	// newProcs := oldProcs - 2
+	// if newProcs <= 0 {
+	// 	newProcs = 1
+	// }
+	// runtime.GOMAXPROCS(newProcs)
+	// fmt.Printf("Go: setting GOMAXPROCS to: %d previous: %d\n", newProcs, oldProcs)
 
 	startTrace(logFile)
 
 	dnsNSFetcher := newDNSNSFetcher(externalDNSNSFetcher)
 	dnsServers := dnsNSFetcher.GetServers()
 	for _, srv := range dnsServers {
-		fmt.Printf("Go: DNS Server: %s\n", srv)
+		log("Go: DNS Server: %s", srv)
 	}
 
 	kbCtx = libkb.NewGlobalContext()
@@ -220,7 +293,7 @@ func Init(homeDir, mobileSharedHome, logFile, runModeStr string,
 	if isIPad {
 		suffix = " (iPad)"
 	}
-	fmt.Printf("Go (GOOS:%s): Mobile OS version is: %q%v\n", runtime.GOOS, mobileOsVersion, suffix)
+	log("Go (GOOS:%s): Mobile OS version is: %q%v", runtime.GOOS, mobileOsVersion, suffix)
 	kbCtx.MobileOsVersion = mobileOsVersion
 
 	// 10k uid -> FullName cache entries allowed
@@ -251,13 +324,13 @@ func Init(homeDir, mobileSharedHome, logFile, runModeStr string,
 		LinkCacheSize:                  1000,
 	}
 	if err = kbCtx.Configure(config, usage); err != nil {
-		fmt.Printf("failed to configure: %s\n", err)
+		log("failed to configure: %s", err)
 		return err
 	}
 
 	kbSvc = service.NewService(kbCtx, false)
 	if err = kbSvc.StartLoopbackServer(libkb.LoginAttemptOffline); err != nil {
-		fmt.Printf("failed to start loopback: %s\n", err)
+		log("failed to start loopback: %s", err)
 		return err
 	}
 	kbCtx.SetService()
@@ -265,7 +338,7 @@ func Init(homeDir, mobileSharedHome, logFile, runModeStr string,
 	kbCtx.SetUIRouter(uir)
 	kbCtx.SetDNSNameServerFetcher(dnsNSFetcher)
 	if err = kbSvc.SetupCriticalSubServices(); err != nil {
-		fmt.Printf("failed subservices setup: %s\n", err)
+		log("failed subservices setup: %s", err)
 		return err
 	}
 	kbSvc.SetupChatModules(nil)
@@ -273,8 +346,11 @@ func Init(homeDir, mobileSharedHome, logFile, runModeStr string,
 		kbSvc.SetInstallReferrerListener(newInstallReferrerListener(installReferrerListener))
 	}
 	kbSvc.RunBackgroundOperations(uir)
-	kbChatCtx = kbSvc.ChatContextified.ChatG()
+	kbChatCtx = kbSvc.ChatG()
 	kbChatCtx.NativeVideoHelper = newVideoHelper(nvh)
+	if shareIntentDonator != nil {
+		kbChatCtx.ShareIntentDonator = shareIntentDonatorAdapter{wrapped: shareIntentDonator}
+	}
 
 	logs := status.Logs{
 		Service: config.GetLogFile(),
@@ -282,7 +358,7 @@ func Init(homeDir, mobileSharedHome, logFile, runModeStr string,
 		Perf:    config.GetPerfLogFile(),
 	}
 
-	fmt.Printf("Go: Using config: %+v\n", kbCtx.Env.GetLogFileConfig(config.GetLogFile()))
+	log("Go: Using config: %+v", kbCtx.Env.GetLogFileConfig(config.GetLogFile()))
 
 	logSendContext = status.LogSendContext{
 		Contextified: libkb.NewContextified(kbCtx),
@@ -291,7 +367,7 @@ func Init(homeDir, mobileSharedHome, logFile, runModeStr string,
 
 	// open the connection
 	if err = Reset(); err != nil {
-		fmt.Printf("failed conn setup %s\n", err)
+		log("failed conn setup %s", err)
 		return err
 	}
 
@@ -307,7 +383,7 @@ func Init(homeDir, mobileSharedHome, logFile, runModeStr string,
 		if _, err = libkbfs.Init(
 			context.Background(), kbfsCtx, kbfsParams, serviceCn{}, nil,
 			kbCtx.Log); err != nil {
-			fmt.Printf("unable to init KBFS: %s", err)
+			log("unable to init KBFS: %s", err)
 		}
 	}()
 
@@ -375,10 +451,23 @@ func WriteArr(b []byte) (err error) {
 	bytes := make([]byte, len(b))
 	copy(bytes, b)
 	defer func() { err = flattenError(err) }()
+
+	// Lazily initialize connection on first write
+	connMutex.Lock()
 	if conn == nil {
+		if err := ensureConnection(); err != nil {
+			connMutex.Unlock()
+			return fmt.Errorf("Failed to establish connection: %s", err)
+		}
+	}
+	currentConn := conn
+	connMutex.Unlock()
+
+	if currentConn == nil {
 		return errors.New("connection not initialized")
 	}
-	n, err := conn.Write(bytes)
+
+	n, err := currentConn.Write(bytes)
 	if err != nil {
 		return fmt.Errorf("Write error: %s", err)
 	}
@@ -397,10 +486,26 @@ var buffer = make([]byte, bufferSize)
 // It is called serially by the mobile run loops.
 func ReadArr() (data []byte, err error) {
 	defer func() { err = flattenError(err) }()
+
+	// Wait for JS to signal it's ready (only blocks once)
+	<-jsReadyCh
+
+	// Lazily initialize connection on first read
+	connMutex.Lock()
 	if conn == nil {
+		if err := ensureConnection(); err != nil {
+			connMutex.Unlock()
+			return nil, fmt.Errorf("Failed to establish connection: %s", err)
+		}
+	}
+	currentConn := conn
+	connMutex.Unlock()
+
+	if currentConn == nil {
 		return nil, errors.New("connection not initialized")
 	}
-	n, err := conn.Read(buffer)
+
+	n, err := currentConn.Read(buffer)
 	if n > 0 && err == nil {
 		return buffer[0:n], nil
 	}
@@ -408,7 +513,7 @@ func ReadArr() (data []byte, err error) {
 	if err != nil {
 		// Attempt to fix the connection
 		if ierr := Reset(); ierr != nil {
-			fmt.Printf("failed to Reset: %v\n", ierr)
+			log("failed to Reset: %v", ierr)
 		}
 		return nil, fmt.Errorf("Read error: %s", err)
 	}
@@ -416,32 +521,61 @@ func ReadArr() (data []byte, err error) {
 	return nil, nil
 }
 
-// Reset resets the socket connection
-func Reset() error {
-	if conn != nil {
-		conn.Close()
+// ensureConnection establishes the loopback connection if not already connected.
+// Must be called with connMutex held.
+func ensureConnection() error {
+	if !isInited() {
+		return errors.New("keybase not initialized")
 	}
 	if kbCtx == nil || kbCtx.LoopbackListener == nil {
-		return nil
+		return errors.New("loopback listener not initialized")
 	}
 
 	var err error
 	conn, err = kbCtx.LoopbackListener.Dial()
 	if err != nil {
-		return fmt.Errorf("Socket error: %s", err)
+		return fmt.Errorf("Failed to dial loopback listener: %s", err)
 	}
+	log("Go: Established loopback connection")
 	return nil
+}
+
+// Reset resets the socket connection
+func Reset() error {
+	connMutex.Lock()
+	defer connMutex.Unlock()
+
+	if conn != nil {
+		conn.Close()
+		conn = nil
+	}
+	if kbCtx == nil || kbCtx.LoopbackListener == nil {
+		return nil
+	}
+
+	// Connection will be re-established lazily on next read/write
+	log("Go: Connection reset, will reconnect on next operation")
+	return nil
+}
+
+// NotifyJSReady signals that the JavaScript side is ready to send/receive RPCs.
+// This unblocks the ReadArr loop and allows bidirectional communication.
+func NotifyJSReady() {
+	jsReadyOnce.Do(func() {
+		log("Go: JS signaled ready, unblocking RPC communication")
+		close(jsReadyCh)
+	})
 }
 
 // ForceGC Forces a gc
 func ForceGC() {
-	fmt.Printf("Flushing global caches\n")
+	log("Flushing global caches")
 	kbCtx.FlushCaches()
-	fmt.Printf("Done flushing global caches\n")
-
-	fmt.Printf("Starting force gc\n")
+	log("Done flushing global caches")
+	runtime.GC()
+	log("Starting force gc")
 	debug.FreeOSMemory()
-	fmt.Printf("Done force gc\n")
+	log("Done force gc")
 }
 
 // Version returns semantic version string
@@ -463,6 +597,7 @@ func SetAppStateForeground() {
 	defer kbCtx.Trace("SetAppStateForeground", nil)()
 	kbCtx.MobileAppState.Update(keybase1.MobileAppState_FOREGROUND)
 }
+
 func SetAppStateBackground() {
 	if !isInited() {
 		return
@@ -470,6 +605,7 @@ func SetAppStateBackground() {
 	defer kbCtx.Trace("SetAppStateBackground", nil)()
 	kbCtx.MobileAppState.Update(keybase1.MobileAppState_BACKGROUND)
 }
+
 func SetAppStateInactive() {
 	if !isInited() {
 		return
@@ -477,6 +613,7 @@ func SetAppStateInactive() {
 	defer kbCtx.Trace("SetAppStateInactive", nil)()
 	kbCtx.MobileAppState.Update(keybase1.MobileAppState_INACTIVE)
 }
+
 func SetAppStateBackgroundActive() {
 	if !isInited() {
 		return
@@ -694,17 +831,17 @@ func startTrace(logFile string) {
 	tname := filepath.Join(filepath.Dir(logFile), "svctrace.out")
 	f, err := os.Create(tname)
 	if err != nil {
-		fmt.Printf("error creating %s\n", tname)
+		log("error creating %s", tname)
 		return
 	}
-	fmt.Printf("Go: starting trace %s\n", tname)
+	log("Go: starting trace %s", tname)
 	_ = trace.Start(f)
 	go func() {
-		fmt.Printf("Go: sleeping 30s for trace\n")
+		log("Go: sleeping 30s for trace")
 		time.Sleep(30 * time.Second)
-		fmt.Printf("Go: stopping trace %s\n", tname)
+		log("Go: stopping trace %s", tname)
 		trace.Stop()
 		time.Sleep(5 * time.Second)
-		fmt.Printf("Go: trace stopped\n")
+		log("Go: trace stopped")
 	}()
 }

@@ -1,16 +1,17 @@
 import * as C from '@/constants'
 import * as React from 'react'
-import * as Container from '@/util/container'
+import {useTeamsState} from '@/constants/teams'
 import * as Kb from '@/common-adapters'
-import {Success} from '.'
+import {Success} from './container'
+import {useSafeNavigation} from '@/util/safe-navigation'
 
 const JoinFromInvite = () => {
-  const {inviteID: id, inviteKey: key, inviteDetails: details} = C.useTeamsState(s => s.teamInviteDetails)
-  const error = C.useTeamsState(s => s.errorInTeamJoin)
+  const {inviteID: id, inviteKey: key, inviteDetails: details} = useTeamsState(s => s.teamInviteDetails)
+  const error = useTeamsState(s => s.errorInTeamJoin)
   const loaded = details !== undefined || !!error
 
-  const joinTeam = C.useTeamsState(s => s.dispatch.joinTeam)
-  const requestInviteLinkDetails = C.useTeamsState(s => s.dispatch.requestInviteLinkDetails)
+  const joinTeam = useTeamsState(s => s.dispatch.joinTeam)
+  const requestInviteLinkDetails = useTeamsState(s => s.dispatch.requestInviteLinkDetails)
 
   React.useEffect(() => {
     if (loaded) {
@@ -28,10 +29,10 @@ const JoinFromInvite = () => {
   }, [requestInviteLinkDetails, joinTeam, loaded, key, id])
 
   const [clickedJoin, setClickedJoin] = React.useState(false)
-  const nav = Container.useSafeNavigation()
+  const nav = useSafeNavigation()
 
   const onNavUp = () => nav.safeNavigateUp()
-  const respondToInviteLink = C.useTeamsState(s => s.dispatch.dynamic.respondToInviteLink)
+  const respondToInviteLink = useTeamsState(s => s.dispatch.dynamic.respondToInviteLink)
   const onJoinTeam = () => {
     setClickedJoin(true)
     respondToInviteLink?.(true)
@@ -41,10 +42,19 @@ const JoinFromInvite = () => {
     onNavUp()
   }
 
-  const rpcWaiting = C.Waiting.useAnyWaiting(C.Teams.joinTeamWaitingKey)
+  const rpcWaiting = C.Waiting.useAnyWaiting(C.waitingKeyTeamsJoinTeam)
   const waiting = rpcWaiting && clickedJoin
-  const wasWaiting = Container.usePrevious(waiting)
-  const showSuccess = wasWaiting && !waiting && !error
+  const wasWaitingRef = React.useRef(waiting)
+  React.useEffect(() => {
+    wasWaitingRef.current = waiting
+  }, [waiting])
+
+  const [showSuccess, setShowSuccess] = React.useState(false)
+
+  React.useEffect(() => {
+    setShowSuccess(wasWaitingRef.current && !waiting && !error)
+  }, [waiting, error])
+
   const teamname = (details?.teamName.parts || []).join('.')
 
   const body =

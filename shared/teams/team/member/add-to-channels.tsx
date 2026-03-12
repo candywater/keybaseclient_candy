@@ -1,11 +1,14 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as T from '@/constants/types'
+import * as Teams from '@/constants/teams'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
-import * as Container from '@/util/container'
 import * as Common from '@/teams/common'
 import {pluralize} from '@/util/string'
 import {useAllChannelMetas} from '@/teams/common/channel-hooks'
+import {useSafeNavigation} from '@/util/safe-navigation'
+import {useCurrentUserState} from '@/constants/current-user'
 
 type Props = {
   teamID: T.Teams.TeamID
@@ -19,7 +22,7 @@ const getChannelsForList = (
   const processed = [...channels.values()].reduce(
     ({list, general}: {general: T.Chat.ConversationMeta; list: Array<T.Chat.ConversationMeta>}, c) =>
       c.channelname === 'general' ? {general: c, list} : {general, list: [...list, c]},
-    {general: C.Chat.makeConversationMeta(), list: []}
+    {general: Chat.makeConversationMeta(), list: []}
   )
   const {list, general} = processed
   const sortedList = list.sort((a, b) => a.channelname.localeCompare(b.channelname))
@@ -27,7 +30,7 @@ const getChannelsForList = (
     .map(c => c.conversationIDKey)
     .filter(convIDKey => {
       // TODO not reactive
-      const participants = C.getConvoState(convIDKey).participants.all
+      const participants = Chat.getConvoState(convIDKey).participants.all
       // At least one person is not in the channel
       return usernames.some(member => !participants.includes(member))
     })
@@ -40,11 +43,11 @@ const getChannelsForList = (
 
 const AddToChannels = React.memo(function AddToChannels(props: Props) {
   const teamID = props.teamID
-  const myUsername = C.useCurrentUserState(s => s.username)
+  const myUsername = useCurrentUserState(s => s.username)
   const justMe = React.useMemo(() => [myUsername], [myUsername])
   const usernames = props.usernames ?? justMe
   const mode = props.usernames ? 'others' : 'self'
-  const nav = Container.useSafeNavigation()
+  const nav = useSafeNavigation()
 
   const {channelMetas, loadingChannels, reloadChannels} = useAllChannelMetas(teamID)
   const {channelMetasAll, channelMetaGeneral, convIDKeysAvailable} = React.useMemo(
@@ -69,7 +72,7 @@ const AddToChannels = React.memo(function AddToChannels(props: Props) {
     ...(filtering ? [] : [{type: 'header' as const}]),
     ...channels.map(c => {
       // TODO not reactive
-      const p = C.getConvoState(c.conversationIDKey).participants
+      const p = Chat.getConvoState(c.conversationIDKey).participants
       return {
         channelMeta: c,
         numMembers: p.name.length || p.all.length || 0,
@@ -78,11 +81,9 @@ const AddToChannels = React.memo(function AddToChannels(props: Props) {
     }),
   ]
 
-  const [forceLayout, setForceLayout] = React.useState(0)
   const [numItems, setNumItems] = React.useState(0)
   if (numItems !== items.length) {
     setNumItems(items.length)
-    setForceLayout(s => s + 1)
   }
 
   const [selected, setSelected] = React.useState(new Set<T.Chat.ConversationIDKey>())
@@ -98,9 +99,7 @@ const AddToChannels = React.memo(function AddToChannels(props: Props) {
   }
   const onSelectAll = () => setSelected(new Set(convIDKeysAvailable))
   const onSelectNone = convIDKeysAvailable.length === 0 ? undefined : () => setSelected(new Set())
-
   const onCancel = () => nav.safeNavigateUp()
-  const onCreate = () => nav.safeNavigateAppend({props: {teamID}, selected: 'chatCreateChannel'})
 
   const submit = C.useRPC(T.RPCChat.localBulkAddToManyConvsRpcPromise)
   const [waiting, setWaiting] = React.useState(false)
@@ -130,7 +129,7 @@ const AddToChannels = React.memo(function AddToChannels(props: Props) {
   const itemHeight = React.useMemo(() => {
     const headerHeight = filtering ? 0 : Kb.Styles.isMobile ? 48 : 40
     const getItemLayout = (index: number, item?: T.Unpacked<typeof items>) => {
-      return item && item.type === 'header'
+      return item?.type === 'header'
         ? {index, length: headerHeight, offset: 0}
         : {
             index,
@@ -138,7 +137,7 @@ const AddToChannels = React.memo(function AddToChannels(props: Props) {
             offset: headerHeight + (index > 0 ? index - 1 : index) * rowHeight,
           }
     }
-    return {getItemLayout, type: 'variable'} as const
+    return {getItemLayout, type: 'variable' as const}
   }, [rowHeight, filtering])
 
   const renderItem = (_: unknown, item: T.Unpacked<typeof items>) => {
@@ -149,7 +148,7 @@ const AddToChannels = React.memo(function AddToChannels(props: Props) {
           <HeaderRow
             key="{header}"
             mode={mode}
-            onCreate={onCreate}
+            teamID={teamID}
             onSelectAll={allSelected ? undefined : onSelectAll}
             onSelectNone={allSelected ? onSelectNone : undefined}
           />
@@ -186,7 +185,7 @@ const AddToChannels = React.memo(function AddToChannels(props: Props) {
       header={{
         hideBorder: Kb.Styles.isMobile,
         leftButton: Kb.Styles.isMobile ? (
-          <Kb.Text type="BodyBigLink" onClick={onCancel}>
+          <Kb.Text type="BodyBigLink" onClick={onCancel} style={{flexShrink: 0}}>
             Cancel
           </Kb.Text>
         ) : undefined,
@@ -250,22 +249,15 @@ const AddToChannels = React.memo(function AddToChannels(props: Props) {
               hotkey="f"
               onFocus={() => {
                 setFiltering(true)
-                setForceLayout(s => s + 1)
               }}
               onBlur={() => {
                 setFiltering(false)
-                setForceLayout(s => s + 1)
               }}
             />
           </Kb.Box2>
-          <Kb.Box2 direction="vertical" style={Kb.Styles.globalStyles.flexOne} fullWidth={true}>
-            <Kb.List2
-              items={items}
-              renderItem={renderItem}
-              itemHeight={itemHeight}
-              forceLayout={forceLayout}
-            />
-          </Kb.Box2>
+          <Kb.BoxGrow2>
+            <Kb.List2 items={items} renderItem={renderItem} itemHeight={itemHeight} />
+          </Kb.BoxGrow2>
         </Kb.Box2>
       )}
     </Kb.Modal>
@@ -273,12 +265,16 @@ const AddToChannels = React.memo(function AddToChannels(props: Props) {
 })
 
 const HeaderRow = React.memo(function HeaderRow(p: {
+  teamID: T.Teams.TeamID
   mode: 'others' | 'self'
-  onCreate: () => void
   onSelectAll?: () => void
   onSelectNone?: () => void
 }) {
-  const {mode, onCreate, onSelectAll, onSelectNone} = p
+  const {mode, teamID, onSelectAll, onSelectNone} = p
+  const nav = useSafeNavigation()
+  const onCreate = () => nav.safeNavigateAppend({props: {teamID}, selected: 'chatCreateChannel'})
+  const canCreate = Teams.useTeamsState(s => Teams.getCanPerformByID(s, teamID).createChannel)
+
   return (
     <Kb.Box2
       direction="horizontal"
@@ -289,6 +285,7 @@ const HeaderRow = React.memo(function HeaderRow(p: {
     >
       <Kb.BoxGrow2 />
       <Kb.Button
+        disabled={!canCreate}
         label="Create channel"
         small={true}
         mode="Secondary"
@@ -312,8 +309,8 @@ const SelfChannelActions = React.memo(function SelfChannelActions(p: {
   selfMode: boolean
 }) {
   const {meta, reloadChannels, selfMode} = p
-  const nav = Container.useSafeNavigation()
-  const yourOperations = C.useTeamsState(s => C.Teams.getCanPerformByID(s, meta.teamID))
+  const nav = useSafeNavigation()
+  const yourOperations = Teams.useTeamsState(s => Teams.getCanPerformByID(s, meta.teamID))
   const isAdmin = yourOperations.deleteChannel
   const canEdit = yourOperations.editChannelDescription
   const inChannel = meta.membershipType === 'active'
@@ -462,15 +459,15 @@ const ChannelRow = React.memo(function ChannelRow(p: ChannelRowProps) {
   const {channelMeta, mode, selected, onSelect: _onSelect, reloadChannels, usernames, rowHeight} = p
   const {conversationIDKey} = channelMeta
   const selfMode = mode === 'self'
-  const participants = C.useConvoState(conversationIDKey, s => {
+  const participants = Chat.useConvoState(conversationIDKey, s => {
     const {name, all} = s.participants
     return name.length ? name : all
   })
-  const activityLevel = C.useTeamsState(
+  const activityLevel = Teams.useTeamsState(
     s => s.activityLevels.channels.get(channelMeta.conversationIDKey) || 'none'
   )
   const allInChannel = usernames.every(member => participants.includes(member))
-  const previewConversation = C.useChatState(s => s.dispatch.previewConversation)
+  const previewConversation = Chat.useChatState(s => s.dispatch.previewConversation)
   const onPreviewChannel = () =>
     previewConversation({
       conversationIDKey: channelMeta.conversationIDKey,

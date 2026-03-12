@@ -1,15 +1,16 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
+import * as Teams from '@/constants/teams'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import * as T from '@/constants/types'
-import * as Data from '@/util/emoji'
 import type {LayoutEvent} from '@/common-adapters/box'
 import startCase from 'lodash/startCase'
-import debounce from 'lodash/debounce'
 import SkinTonePicker from './skin-tone-picker'
 import EmojiPicker, {getSkinToneModifierStrIfAvailable} from '.'
-import {emojiDataToRenderableEmoji, renderEmoji, type EmojiData, type RenderableEmoji} from '@/util/emoji'
+import {type EmojiData, type RenderableEmoji, emojiData} from '@/common-adapters/emoji'
 import {usePickerState, type PickKey} from './use-picker'
+import {Keyboard} from 'react-native'
 
 type Props = {
   disableCustomEmoji?: boolean
@@ -30,13 +31,13 @@ type RoutableProps = {
 }
 
 const useReacji = ({onDidPick, onPickAction, onPickAddToMessageOrdinal}: Props) => {
-  const topReacjis = C.useChatState(s => s.userReacjis.topReacjis)
+  const topReacjis = Chat.useChatState(s => s.userReacjis.topReacjis)
   const [filter, setFilter] = React.useState('')
-  const toggleMessageReaction = C.useChatContext(s => s.dispatch.toggleMessageReaction)
-  const conversationIDKey = C.useChatContext(s => s.id)
+  const toggleMessageReaction = Chat.useChatContext(s => s.dispatch.toggleMessageReaction)
+  const conversationIDKey = Chat.useChatContext(s => s.id)
   const onChoose = React.useCallback(
     (emoji: string, renderableEmoji: RenderableEmoji) => {
-      if (conversationIDKey !== C.Chat.noConversationIDKey && onPickAddToMessageOrdinal) {
+      if (conversationIDKey !== Chat.noConversationIDKey && onPickAddToMessageOrdinal) {
         toggleMessageReaction(onPickAddToMessageOrdinal, emoji)
       }
       onPickAction?.(emoji, renderableEmoji)
@@ -53,50 +54,50 @@ const useReacji = ({onDidPick, onPickAction, onPickAddToMessageOrdinal}: Props) 
 }
 
 const useSkinTone = () => {
-  const currentSkinTone = T.Chat.EmojiSkinToneFromRPC(C.useChatState(s => s.userReacjis.skinTone))
+  const currentSkinTone = T.Chat.EmojiSkinToneFromRPC(Chat.useChatState(s => s.userReacjis.skinTone))
   const rpc = C.useRPC(T.RPCChat.localPutReacjiSkinToneRpcPromise)
-  const updateUserReacjis = C.useChatState(s => s.dispatch.updateUserReacjis)
-  const setSkinTone = (emojiSkinTone: undefined | T.Chat.EmojiSkinTone) => {
-    rpc(
-      [
-        {
-          skinTone: T.Chat.EmojiSkinToneToRPC(emojiSkinTone),
-        },
-      ],
-      res => updateUserReacjis(res),
-      err => {
-        throw err
-      }
-    )
-  }
+  const updateUserReacjis = Chat.useChatState(s => s.dispatch.updateUserReacjis)
+  const setSkinTone = React.useCallback(
+    (emojiSkinTone: undefined | T.Chat.EmojiSkinTone) => {
+      rpc(
+        [{skinTone: T.Chat.EmojiSkinToneToRPC(emojiSkinTone)}],
+        res => updateUserReacjis(res),
+        err => {
+          throw err
+        }
+      )
+    },
+    [rpc, updateUserReacjis]
+  )
   return {currentSkinTone, setSkinTone}
 }
 
 const useCustomReacji = (onlyInTeam: boolean | undefined, disabled?: boolean) => {
-  const conversationIDKey = C.useChatContext(s => s.id)
-  const customEmojiGroups = C.useChatState(s => s.userEmojis)
-  const waiting = C.Waiting.useAnyWaiting(C.Chat.waitingKeyLoadingEmoji)
-  const cidChanged = C.Chat.useCIDChanged(conversationIDKey, undefined, true)
+  const conversationIDKey = Chat.useChatContext(s => s.id)
+  const customEmojiGroups = Chat.useChatState(s => s.userEmojis)
+  const waiting = C.Waiting.useAnyWaiting(C.waitingKeyChatLoadingEmoji)
   const [lastOnlyInTeam, setLastOnlyInTeam] = React.useState(onlyInTeam)
   const [lastDisabled, setLastDisabled] = React.useState(disabled)
-  const fetchUserEmoji = C.useChatState(s => s.dispatch.fetchUserEmoji)
+  const fetchUserEmoji = Chat.useChatState(s => s.dispatch.fetchUserEmoji)
 
-  if (cidChanged || lastOnlyInTeam !== onlyInTeam || lastDisabled !== disabled) {
-    setLastOnlyInTeam(onlyInTeam)
-    setLastDisabled(disabled)
+  React.useEffect(() => {
+    if (lastOnlyInTeam !== onlyInTeam || lastDisabled !== disabled) {
+      setLastOnlyInTeam(onlyInTeam)
+      setLastDisabled(disabled)
+    }
     if (!disabled) {
       fetchUserEmoji(conversationIDKey, onlyInTeam)
     }
-  }
+  }, [conversationIDKey, fetchUserEmoji, lastDisabled, lastOnlyInTeam, onlyInTeam, disabled])
 
   return disabled ? {customEmojiGroups: undefined, waiting: false} : {customEmojiGroups, waiting}
 }
 
 const useCanManageEmoji = () => {
-  const canManageEmoji = C.useChatContext(s => {
+  const canManageEmoji = Chat.useChatContext(s => {
     const meta = s.meta
     // TODO not reactive
-    return !meta.teamname || C.Teams.getCanPerformByID(C.useTeamsState.getState(), meta.teamID).manageEmojis
+    return !meta.teamname || Teams.getCanPerformByID(Teams.useTeamsState.getState(), meta.teamID).manageEmojis
   })
   return canManageEmoji
 }
@@ -112,7 +113,7 @@ const WrapperMobile = (props: Props) => {
   const [skinTonePickerExpanded, setSkinTonePickerExpanded] = React.useState(false)
   const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
   const onCancel = navigateUp
-  const navigateAppend = C.Chat.useChatNavigateAppend()
+  const navigateAppend = Chat.useChatNavigateAppend()
   const addEmoji = React.useCallback(
     () =>
       navigateAppend(conversationIDKey => ({
@@ -177,19 +178,22 @@ const WrapperMobile = (props: Props) => {
 }
 
 export const EmojiPickerDesktop = (props: Props) => {
-  const {filter, onChoose, setFilter, topReacjis} = useReacji(props)
+  const {onDidPick} = props
+  const {filter, onChoose, setFilter: _setFilter, topReacjis} = useReacji(props)
   const {currentSkinTone, setSkinTone} = useSkinTone()
-  const [hoveredEmoji, setHoveredEmoji] = React.useState<EmojiData>(Data.defaultHoverEmoji as any)
+  const [hoveredEmoji, setHoveredEmoji] = React.useState<EmojiData>(emojiData.defaultHoverEmoji)
   const {waiting, customEmojiGroups} = useCustomReacji(props.onlyTeamCustomEmoji, props.disableCustomEmoji)
   const canManageEmoji = useCanManageEmoji()
-  const navigateAppend = C.Chat.useChatNavigateAppend()
-  const addEmoji = () => {
-    props.onDidPick?.()
+  const navigateAppend = Chat.useChatNavigateAppend()
+  const addEmoji = React.useCallback(() => {
+    onDidPick?.()
     navigateAppend(conversationIDKey => ({
       props: {conversationIDKey, teamID: T.Teams.noTeamID},
       selected: 'teamAddEmoji',
     }))
-  }
+  }, [onDidPick, navigateAppend])
+
+  const setFilter = C.useThrottledCallback(_setFilter, 200)
 
   return (
     <Kb.Box2
@@ -213,7 +217,7 @@ export const EmojiPickerDesktop = (props: Props) => {
           size="full-width"
           icon="iconfont-search"
           placeholderText="Search"
-          onChange={debounce(setFilter, 200)}
+          onChange={setFilter}
         />
         <SkinTonePicker currentSkinTone={currentSkinTone} setSkinTone={setSkinTone} />
       </Kb.Box2>
@@ -237,15 +241,13 @@ export const EmojiPickerDesktop = (props: Props) => {
           style={styles.footerContainer}
           gap="small"
         >
-          {renderEmoji({
-            emoji: emojiDataToRenderableEmoji(
-              hoveredEmoji,
-              getSkinToneModifierStrIfAvailable(hoveredEmoji, currentSkinTone),
-              currentSkinTone
-            ),
-            showTooltip: false,
-            size: 36,
-          })}
+          <Kb.Emoji
+            emojiData={hoveredEmoji}
+            skinToneModifier={getSkinToneModifierStrIfAvailable(hoveredEmoji, currentSkinTone)}
+            skinToneKey={currentSkinTone}
+            showTooltip={false}
+            size={36}
+          />
           {hoveredEmoji.teamname ? (
             <Kb.Box2 direction="vertical" style={Kb.Styles.globalStyles.flexOne}>
               <Kb.Text type="BodyBig" lineClamp={1}>
@@ -349,10 +351,10 @@ const Routable = (props: RoutableProps) => {
     [updatePickerMap, pickKey]
   )
   const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
-  const onDidPick = () => navigateUp()
+  const onDidPick = navigateUp
 
   C.useOnMountOnce(() => {
-    Kb.keyboardDismiss()
+    Keyboard.dismiss()
   })
 
   return (

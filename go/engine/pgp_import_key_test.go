@@ -5,12 +5,12 @@ package engine
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/keybase/client/go/libkb"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 
 	"github.com/keybase/go-crypto/openpgp"
 	"github.com/keybase/go-crypto/openpgp/armor"
@@ -463,6 +463,7 @@ pr9YE8HhWfG0w9fddZe9ZYcwFs+Qe6bM+JSFJkB+o47AtEcv9dEhQ0g87oRH+DO5
 =DDQ1
 -----END PGP PUBLIC KEY BLOCK-----`
 
+//nolint:gosec // G101: Test PGP key for import functionality testing, not real credentials
 const keyIssue454 = `-----BEGIN PGP PRIVATE KEY BLOCK-----
 Comment: GPGTools - http://gpgtools.org
 
@@ -571,6 +572,7 @@ LpRtxqDTDVA6H/R+dqEhg/ni2jAapEr4VzIbew==
 =bXrj
 -----END PGP PRIVATE KEY BLOCK-----`
 
+//nolint:gosec // G101: Test PGP key for issue 2147 regression testing, not real credentials
 const keyIssue2147 = `-----BEGIN PGP PRIVATE KEY BLOCK-----
 Version: GnuPG v1
 

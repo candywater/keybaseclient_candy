@@ -32,59 +32,51 @@ type DropdownButtonProps = {
   selected?: React.ReactNode
   selectedBoxStyle?: Styles.StylesCrossPlatform
   style?: Styles.StylesCrossPlatform
-  popupAnchor?: React.MutableRefObject<MeasureRef | null>
+  popupAnchor?: React.RefObject<MeasureRef | null>
   toggleOpen: (e: React.BaseSyntheticEvent) => void
   inline?: boolean
   loading?: boolean
 }
-export const DropdownButton = (props: DropdownButtonProps) => (
-  <Kb.ClickableBox
-    onClick={!props.disabled ? props.toggleOpen : undefined}
-    style={Styles.collapseStyles([styles.dropdownBoxContainer, props.style])}
-  >
-    <Kb.Box2Measure
-      direction="vertical"
-      ref={props.popupAnchor}
-      className={Styles.classNames('dropdown_border', {
-        hover: !props.disabled,
-      })}
-      style={
-        {
-          ...Styles.globalStyles.flexBoxRow,
-          ...(props.disabled ? {opacity: 0.3} : {}),
-          alignItems: 'center',
-          ...(Styles.isMobile
-            ? {
-                borderColor: Styles.globalColors.black_10,
-                color: Styles.globalColors.black_50,
-              }
-            : {}),
-          borderRadius: Styles.borderRadius,
-          borderStyle: 'solid',
-          borderWidth: 1,
-          cursor: !props.disabled ? 'pointer' : undefined,
-          paddingRight: props.inline
-            ? Styles.globalMargins.tiny
-            : Styles.isMobile
-              ? Styles.globalMargins.large
-              : Styles.globalMargins.small,
-          width: props.inline ? undefined : '100%',
-          ...(Styles.isTablet ? {maxWidth: 460} : {}),
-        } as any
-      }
+export const DropdownButton = (props: DropdownButtonProps) => {
+  const {disabled, toggleOpen, style, popupAnchor, selectedBoxStyle, inline, loading, selected} = props
+  return (
+    <Kb.ClickableBox
+      onClick={!disabled ? toggleOpen : undefined}
+      style={Styles.collapseStyles([styles.dropdownBoxContainer, style])}
     >
-      <Kb.Box style={Styles.collapseStyles([styles.selectedBox, props.selectedBoxStyle])}>
-        {props.loading ? <Kb.ProgressIndicator type="Small" /> : props.selected}
-      </Kb.Box>
-      <Kb.Icon
-        type="iconfont-caret-down"
-        inheritColor={true}
-        sizeType="Tiny"
-        style={{marginTop: Styles.isMobile ? 2 : -8}}
-      />
-    </Kb.Box2Measure>
-  </Kb.ClickableBox>
-)
+      <Kb.Box2Measure
+        direction="vertical"
+        ref={popupAnchor}
+        className={Styles.classNames('dropdown_border', {
+          hover: !disabled,
+        })}
+        style={Styles.collapseStyles([
+          styles.measureBox,
+          {
+            paddingRight: inline
+              ? Styles.globalMargins.tiny
+              : Styles.isMobile
+                ? Styles.globalMargins.large
+                : Styles.globalMargins.small,
+          },
+          disabled ? {opacity: 0.3} : {},
+          {cursor: !disabled ? 'pointer' : undefined},
+          {width: inline ? undefined : '100%'},
+        ])}
+      >
+        <Kb.Box style={Styles.collapseStyles([styles.selectedBox, selectedBoxStyle])}>
+          {loading ? <Kb.ProgressIndicator type="Small" /> : selected}
+        </Kb.Box>
+        <Kb.Icon
+          type="iconfont-caret-down"
+          inheritColor={true}
+          sizeType="Tiny"
+          style={{marginTop: Styles.isMobile ? 2 : -8}}
+        />
+      </Kb.Box2Measure>
+    </Kb.ClickableBox>
+  )
+}
 
 type Props<N> = {
   disabled?: boolean
@@ -159,7 +151,7 @@ function Dropdown<N extends React.ReactNode>(p: Props<N>) {
     <Kb.Box style={Styles.collapseStyles([styles.overlayContainer, style])}>
       <DropdownButton
         disabled={disabled}
-        selected={selected as any}
+        selected={selected}
         selectedBoxStyle={selectedBoxStyle}
         popupAnchor={popupAnchor}
         toggleOpen={toggleOpen}
@@ -210,80 +202,97 @@ export const InlineDropdown = (props: InlineDropdownProps) => {
   )
 }
 
-const styles = Styles.styleSheetCreate(() => ({
-  dropdownBoxContainer: Styles.platformStyles({
-    isTablet: {
-      maxWidth: 460,
-    },
-  }),
-  inlineDropdown: {
-    paddingRight: Styles.globalMargins.tiny,
-  },
-  inlineDropdownSelected: Styles.platformStyles({
-    common: {minHeight: smallHeight},
-    isMobile: {width: undefined},
-  }),
-  inlineSelected: Styles.platformStyles({
-    common: {
-      alignItems: 'center',
-      flexShrink: 0,
-      paddingLeft: Styles.globalMargins.tiny,
-      paddingRight: Styles.globalMargins.tiny,
-    },
-  }),
-  itemBox: {
-    borderBottomWidth: 1,
-    borderColor: Styles.globalColors.black_10,
-    borderStyle: 'solid',
-    justifyContent: 'center',
-    minHeight: Styles.isMobile ? 40 : 32,
-    width: '100%',
-  },
-  itemClickBox: Styles.platformStyles({
-    common: {
-      flexShrink: 0,
-      width: '100%',
-    },
-    isMobile: {
-      minHeight: 40,
-    },
-  }),
-  overlay: Styles.platformStyles({
-    common: {
-      ...Styles.globalStyles.flexBoxColumn,
-      backgroundColor: Styles.globalColors.white,
-      marginTop: Styles.globalMargins.xtiny,
-    },
-    isElectron: {
-      border: `1px solid ${Styles.globalColors.blue}`,
-      borderRadius: 4,
-      maxHeight: 300,
-      width: 270,
-    },
-  }),
-  overlayContainer: Styles.platformStyles({
-    isElectron: {
-      width: 270,
-    },
-    isMobile: {
-      width: '100%',
-    },
-  }),
-  scrollView: Styles.platformStyles({
-    common: {
-      height: '100%',
-      width: '100%',
-    },
-    isMobile: {
-      backgroundColor: Styles.globalColors.white,
-      maxHeight: '50%',
-    },
-  }),
-  selectedBox: {
-    ...Styles.globalStyles.flexBoxCenter,
-    minHeight: regularHeight,
-    width: '100%',
-  },
-}))
+const styles = Styles.styleSheetCreate(
+  () =>
+    ({
+      dropdownBoxContainer: Styles.platformStyles({
+        isTablet: {
+          maxWidth: 460,
+        },
+      }),
+      inlineDropdown: {
+        paddingRight: Styles.globalMargins.tiny,
+      },
+      inlineDropdownSelected: Styles.platformStyles({
+        common: {minHeight: smallHeight},
+        isMobile: {width: undefined},
+      }),
+      inlineSelected: Styles.platformStyles({
+        common: {
+          alignItems: 'center',
+          flexShrink: 0,
+          paddingLeft: Styles.globalMargins.tiny,
+          paddingRight: Styles.globalMargins.tiny,
+        },
+      }),
+      itemBox: {
+        borderBottomWidth: 1,
+        borderColor: Styles.globalColors.black_10,
+        borderStyle: 'solid',
+        justifyContent: 'center',
+        minHeight: Styles.isMobile ? 40 : 32,
+        width: '100%',
+      },
+      itemClickBox: Styles.platformStyles({
+        common: {
+          flexShrink: 0,
+          width: '100%',
+        },
+        isMobile: {
+          minHeight: 40,
+        },
+      }),
+      measureBox: {
+        ...Styles.globalStyles.flexBoxRow,
+        alignItems: 'center',
+        ...(Styles.isMobile
+          ? {
+              borderColor: Styles.globalColors.black_10,
+              color: Styles.globalColors.black_50,
+            }
+          : {}),
+        borderRadius: Styles.borderRadius,
+        borderStyle: 'solid',
+        borderWidth: 1,
+        ...(Styles.isTablet ? {maxWidth: 460} : {}),
+      },
+      overlay: Styles.platformStyles({
+        common: {
+          ...Styles.globalStyles.flexBoxColumn,
+          backgroundColor: Styles.globalColors.white,
+          marginTop: Styles.globalMargins.xtiny,
+        },
+        isElectron: {
+          border: `1px solid ${Styles.globalColors.blue}`,
+          borderRadius: 4,
+          maxHeight: 300,
+          width: 270,
+        },
+      }),
+      overlayContainer: Styles.platformStyles({
+        isElectron: {
+          width: 270,
+        },
+        isMobile: {
+          width: '100%',
+        },
+      }),
+      scrollView: Styles.platformStyles({
+        common: {
+          height: '100%',
+          width: '100%',
+        },
+        isMobile: {
+          backgroundColor: Styles.globalColors.white,
+          maxHeight: '50%',
+        },
+      }),
+      selectedBox: {
+        ...Styles.globalStyles.flexBoxCenter,
+        minHeight: regularHeight,
+        width: '100%',
+      },
+    }) as const
+)
 
 export default Dropdown

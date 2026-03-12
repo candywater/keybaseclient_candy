@@ -1,9 +1,8 @@
-import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Kb from '@/common-adapters'
-import * as Styles from '@/styles'
 
 const ConversationError = () => {
-  const text = C.useChatContext(s => s.meta.snippet ?? '')
+  const text = Chat.useChatContext(s => s.meta.snippet ?? '')
   return (
     <Kb.Box style={styles.container}>
       <Kb.Text type="Header">There was an error loading this conversation.</Kb.Text>
@@ -17,18 +16,18 @@ const ConversationError = () => {
   )
 }
 
-const styles = Styles.styleSheetCreate(
+const styles = Kb.Styles.styleSheetCreate(
   () =>
     ({
-      body: {marginTop: Styles.globalMargins.small},
+      body: {marginTop: Kb.Styles.globalMargins.small},
       container: {
-        ...Styles.globalStyles.flexBoxColumn,
-        padding: Styles.globalMargins.medium,
+        ...Kb.Styles.globalStyles.flexBoxColumn,
+        padding: Kb.Styles.globalMargins.medium,
         width: '100%',
       },
       errorBox: {
-        ...Styles.globalStyles.flexBoxRow,
-        marginTop: Styles.globalMargins.small,
+        ...Kb.Styles.globalStyles.flexBoxRow,
+        marginTop: Kb.Styles.globalMargins.small,
       },
       errorText: {flexGrow: 1},
     }) as const

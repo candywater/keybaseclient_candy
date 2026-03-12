@@ -1,9 +1,10 @@
 package systests
 
 import (
+	"context"
+
 	"github.com/keybase/client/go/protocol/stellar1"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
-	context "golang.org/x/net/context"
 )
 
 const retryCount = 5
@@ -256,7 +257,6 @@ func (s *stellarRetryClient) BuildRequestLocal(ctx context.Context, arg stellar1
 		}
 	}
 	return res, err
-
 }
 
 func (s *stellarRetryClient) StartBuildPaymentLocal(ctx context.Context, arg int) (res stellar1.BuildPaymentID, err error) {

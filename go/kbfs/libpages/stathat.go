@@ -82,7 +82,8 @@ const stathatReportInterval = time.Second * 10
 // generate activity-based stats. Caller should not modify
 // enableActivityBasedStats passed into this function.
 func NewStathatReporter(logger *zap.Logger, prefix string, ezKey string,
-	enableActivityBasedStats *ActivityStatsEnabler) StatsReporter {
+	enableActivityBasedStats *ActivityStatsEnabler,
+) StatsReporter {
 	if len(ezKey) == 0 {
 		return &stathatReporter{}
 	}
@@ -125,7 +126,7 @@ func (s *stathatReporter) postCountOneOrLog(statName string) {
 	}
 }
 
-// ReportServedRequest implementes the StatsReporter interface.
+// ReportServedRequest implements the StatsReporter interface.
 func (s *stathatReporter) ReportServedRequest(sri *ServedRequestInfo) {
 	s.postCountOneOrLog(s.statNameRequests)
 	s.postCountOneOrLog(s.statPrefixProto + sri.Proto)

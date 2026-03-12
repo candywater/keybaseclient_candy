@@ -2,12 +2,11 @@ package systests
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/keybase/client/go/client"
 	"github.com/keybase/client/go/kbtest"
@@ -23,8 +22,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const disable = true
-const disableMsg = "new protocol version on testnet incompatible with stellard"
+const (
+	disable    = true
+	disableMsg = "new protocol version on testnet incompatible with stellard"
+)
 
 func TestStellarNoteRoundtripAndResets(t *testing.T) {
 	if disable {
@@ -126,7 +127,7 @@ func testStellarRelayAutoClaims(t *testing.T, startWithPUK, skipPart2 bool) {
 	t.Logf("alice gets funded")
 	acceptDisclaimer(alice)
 
-	baseFeeStroops := int64(alice.tc.G.GetStellar().(*stellar.Stellar).WalletStateForTest().BaseFee(alice.tc.MetaContext()))
+	baseFeeStroops := int64(alice.tc.G.GetStellar().(*stellar.Stellar).WalletStateForTest().BaseFee(alice.tc.MetaContext())) //nolint:gosec // G115: Stellar base fee is a small bounded value, safe to convert
 
 	res, err := alice.stellarClient.GetWalletAccountsLocal(context.Background(), 0)
 	require.NoError(t, err)
@@ -237,7 +238,6 @@ func testStellarRelayAutoClaims(t *testing.T, startWithPUK, skipPart2 bool) {
 		assertWithinFeeBounds(t, res[0].BalanceDescription, "90", baseFeeStroops*4)
 		return true
 	})
-
 }
 
 // XLM is sent to a rooter assertion that does not resolve.
@@ -281,7 +281,7 @@ func TestStellarRelayAutoClaimsSBS(t *testing.T) {
 		}
 	}
 	require.NoError(t, err)
-	baseFeeStroops := int64(alice.tc.G.GetStellar().(*stellar.Stellar).WalletStateForTest().BaseFee(alice.tc.MetaContext()))
+	baseFeeStroops := int64(alice.tc.G.GetStellar().(*stellar.Stellar).WalletStateForTest().BaseFee(alice.tc.MetaContext())) //nolint:gosec // G115: Stellar base fee is small bounded value, safe to convert
 	t.Logf("baseFeeStroops %v", baseFeeStroops)
 
 	t.Logf("get the impteam seqno to wait on later")
@@ -356,7 +356,7 @@ func gift(t testing.TB, accountID stellar1.AccountID) {
 	url := "https://friendbot.stellar.org/?addr=" + accountID.String()
 	for i := 0; i < retryCount; i++ {
 		t.Logf("gift url: %v", url)
-		res, err := http.Get(url)
+		res, err := http.Get(url) //nolint:gosec // G107: Test code calling Stellar testnet friendbot with account ID parameter
 		if err != nil {
 			t.Logf("http get %s error: %s", url, err)
 			continue

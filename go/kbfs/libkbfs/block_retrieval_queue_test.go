@@ -5,6 +5,7 @@
 package libkbfs
 
 import (
+	"context"
 	"io"
 	"testing"
 	"time"
@@ -21,7 +22,6 @@ import (
 	"github.com/keybase/client/go/libkb"
 	"github.com/keybase/client/go/protocol/keybase1"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 type testBlockRetrievalConfig struct {
@@ -40,7 +40,8 @@ type testBlockRetrievalConfig struct {
 }
 
 func newTestBlockRetrievalConfig(t *testing.T, bg blockGetter,
-	dbc DiskBlockCache) *testBlockRetrievalConfig {
+	dbc DiskBlockCache,
+) *testBlockRetrievalConfig {
 	clock := clocktest.NewTestClockNow()
 	ctlr := gomock.NewController(t)
 	mockPublisher := NewMockSubscriptionManagerPublisher(ctlr)
@@ -91,7 +92,8 @@ func (c testBlockRetrievalConfig) GetSettingsDB() *SettingsDB {
 
 func (c testBlockRetrievalConfig) SubscriptionManager(
 	_ SubscriptionManagerClientID, _ bool,
-	_ SubscriptionNotifier) SubscriptionManager {
+	_ SubscriptionNotifier,
+) SubscriptionManager {
 	return c.subscriptionManager
 }
 

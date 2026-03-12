@@ -4,6 +4,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -14,7 +15,6 @@ import (
 	"github.com/keybase/client/go/protocol/chat1"
 	gregor1 "github.com/keybase/client/go/protocol/gregor1"
 	"github.com/keybase/client/go/protocol/keybase1"
-	"golang.org/x/net/context"
 )
 
 type CmdChatSetRetention struct {
@@ -278,10 +278,7 @@ func (c *CmdChatSetRetention) parseEphemeralAgeLimited(s string) (gregor1.Durati
 	var d time.Duration
 	var err error
 	switch s {
-	case "30s",
-		"5m",
-		"1h",
-		"6h":
+	case "30s", "5m", "1h", "6h":
 		d, err = time.ParseDuration(s)
 	case "1d", "24h":
 		d = 24 * time.Hour

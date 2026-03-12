@@ -25,7 +25,7 @@ import (
 func testBrowser(t *testing.T, sharedCache sharedInBrowserCache) {
 	ctx, config, cancel, tempdir := initConfigForAutogit(t)
 	defer cancel()
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	h, err := tlfhandle.ParseHandle(
@@ -46,7 +46,7 @@ func testBrowser(t *testing.T, sharedCache sharedInBrowserCache) {
 	require.NoError(t, err)
 	require.Len(t, fis, 0)
 
-	err = rootFS.MkdirAll("worktree", 0600)
+	err = rootFS.MkdirAll("worktree", 0o600)
 	require.NoError(t, err)
 	worktreeFS, err := rootFS.Chroot("worktree")
 	require.NoError(t, err)
@@ -92,7 +92,7 @@ func testBrowser(t *testing.T, sharedCache sharedInBrowserCache) {
 	t.Log("Verify the data in foo.")
 	f, err := b.Open("foo")
 	require.NoError(t, err)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	data, err := io.ReadAll(f)
 	require.NoError(t, err)
 	require.Equal(t, "hello", string(data))
@@ -153,7 +153,7 @@ func testBrowser(t *testing.T, sharedCache sharedInBrowserCache) {
 		require.Zero(t, fi.Mode()&os.ModeSymlink)
 		f2, err := b.Open(link)
 		require.NoError(t, err)
-		defer f2.Close()
+		defer func() { _ = f2.Close() }()
 		data, err = io.ReadAll(f2)
 		require.NoError(t, err)
 		require.Equal(t, "hello", string(data))
@@ -162,7 +162,7 @@ func testBrowser(t *testing.T, sharedCache sharedInBrowserCache) {
 	addSymlink("foo", "symfoo")
 
 	t.Log("Add and read a second symlink in a chain.")
-	err = worktreeFS.MkdirAll("dir", 0700)
+	err = worktreeFS.MkdirAll("dir", 0o700)
 	require.NoError(t, err)
 	addSymlink("../symfoo", "dir/symfoo")
 }

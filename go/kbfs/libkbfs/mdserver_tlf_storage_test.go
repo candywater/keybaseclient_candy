@@ -5,6 +5,7 @@
 package libkbfs
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -16,13 +17,12 @@ import (
 	"github.com/keybase/client/go/kbfs/tlf"
 	"github.com/keybase/client/go/protocol/keybase1"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func getMDStorageLength(t *testing.T, s *mdServerTlfStorage, bid kbfsmd.BranchID) int {
-	len, err := s.journalLength(bid)
+	journalLen, err := s.journalLength(bid)
 	require.NoError(t, err)
-	return int(len)
+	return int(journalLen) //nolint:gosec // G115: Test data with bounded values
 }
 
 // TestMDServerTlfStorageBasic copies TestMDServerBasics, but for a

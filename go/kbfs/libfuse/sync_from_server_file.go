@@ -8,12 +8,14 @@
 package libfuse
 
 import (
+	"context"
+
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+
 	"github.com/keybase/client/go/kbfs/data"
 	"github.com/keybase/client/go/kbfs/libfs"
 	"github.com/keybase/client/go/kbfs/libkbfs"
-	"golang.org/x/net/context"
 )
 
 // SyncFromServerFile represents a write-only file when any write of
@@ -36,7 +38,7 @@ var _ fs.Node = (*SyncFromServerFile)(nil)
 // Attr implements the fs.Node interface for SyncFromServerFile.
 func (f *SyncFromServerFile) Attr(ctx context.Context, a *fuse.Attr) error {
 	a.Size = 0
-	a.Mode = 0222
+	a.Mode = 0o222
 	return nil
 }
 
@@ -46,7 +48,8 @@ var _ fs.HandleWriter = (*SyncFromServerFile)(nil)
 
 // Write implements the fs.HandleWriter interface for SyncFromServerFile.
 func (f *SyncFromServerFile) Write(ctx context.Context, req *fuse.WriteRequest,
-	resp *fuse.WriteResponse) (err error) {
+	resp *fuse.WriteResponse,
+) (err error) {
 	f.folder.fs.log.CDebugf(ctx, "SyncFromServerFile Write")
 	defer func() { err = f.folder.processError(ctx, libkbfs.WriteMode, err) }()
 	if len(req.Data) == 0 {

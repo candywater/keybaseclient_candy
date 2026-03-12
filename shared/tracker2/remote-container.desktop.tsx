@@ -1,14 +1,19 @@
 // Inside tracker we use an embedded Avatar which is connected.
 import * as React from 'react'
 import * as C from '@/constants'
+import {useConfigState} from '@/constants/config'
 import * as R from '@/constants/remote'
 import * as RemoteGen from '../actions/remote-gen'
-import * as Constants from '@/constants/tracker2'
 import type * as T from '@/constants/types'
 import Tracker from './index.desktop'
 import type {DeserializeProps} from './remote-serializer.desktop'
 import KB2 from '@/util/electron.desktop'
-import {useAvatarState} from '@/common-adapters/avatar-zus'
+import {useAvatarState} from '@/common-adapters/avatar/store'
+import {useTrackerState} from '@/constants/tracker2'
+import {useUsersState} from '@/constants/users'
+import {useFollowerState} from '@/constants/followers'
+import {useCurrentUserState} from '@/constants/current-user'
+import {useDarkModeState} from '@/constants/darkmode'
 
 const {closeWindow} = KB2.functions
 
@@ -31,47 +36,80 @@ const RemoteContainer = (d: DeserializeProps) => {
   const {guiID, location, reason, state: trackerState, teamShowcase} = details
 
   const replaceAvatar = useAvatarState(s => s.dispatch.replace)
-  const replaceFollower = C.useFollowerState(s => s.dispatch.replace)
-  const replaceUsers = C.useUsersState(s => s.dispatch.replace)
-  const replaceCurrent = C.useCurrentUserState(s => s.dispatch.replaceUsername)
-  const replaceHTTP = C.useConfigState(s => s.dispatch.setHTTPSrvInfo)
-  const replaceTracker = C.useTrackerState(s => s.dispatch.replace)
+  const replaceFollower = useFollowerState(s => s.dispatch.replace)
+  const replaceUsers = useUsersState(s => s.dispatch.replace)
+  const replaceCurrent = useCurrentUserState(s => s.dispatch.replaceUsername)
+  const replaceHTTP = useConfigState(s => s.dispatch.setHTTPSrvInfo)
+  const replaceTracker = useTrackerState(s => s.dispatch.replace)
+  const setSystemDarkMode = useDarkModeState(s => s.dispatch.setSystemDarkMode)
+
+  React.useEffect(() => {
+    const id = setTimeout(() => {
+      setSystemDarkMode(darkMode)
+    }, 1)
+    return () => {
+      clearTimeout(id)
+    }
+  }, [setSystemDarkMode, darkMode])
 
   React.useEffect(() => {
     const id = setTimeout(() => {
       replaceAvatar(avatarRefreshCounter)
+    }, 1)
+    return () => {
+      clearTimeout(id)
+    }
+  }, [replaceAvatar, avatarRefreshCounter])
+
+  React.useEffect(() => {
+    const id = setTimeout(() => {
       replaceFollower(followers, following)
+    }, 1)
+    return () => {
+      clearTimeout(id)
+    }
+  }, [replaceFollower, followers, following])
+
+  React.useEffect(() => {
+    const id = setTimeout(() => {
       replaceUsers(infoMap, blockMap)
+    }, 1)
+    return () => {
+      clearTimeout(id)
+    }
+  }, [replaceUsers, infoMap, blockMap])
+
+  React.useEffect(() => {
+    const id = setTimeout(() => {
       replaceCurrent(username)
+    }, 1)
+    return () => {
+      clearTimeout(id)
+    }
+  }, [replaceCurrent, username])
+
+  React.useEffect(() => {
+    const id = setTimeout(() => {
       replaceHTTP(httpSrvAddress, httpSrvToken)
+    }, 1)
+    return () => {
+      clearTimeout(id)
+    }
+  }, [replaceHTTP, httpSrvAddress, httpSrvToken])
+
+  React.useEffect(() => {
+    const id = setTimeout(() => {
       replaceTracker(tracker2.usernameToDetails)
     }, 1)
     return () => {
       clearTimeout(id)
     }
-  }, [
-    avatarRefreshCounter,
-    blockMap,
-    followers,
-    following,
-    httpSrvAddress,
-    httpSrvToken,
-    infoMap,
-    replaceAvatar,
-    replaceCurrent,
-    replaceFollower,
-    replaceHTTP,
-    replaceTracker,
-    replaceUsers,
-    tracker2.usernameToDetails,
-    username,
-  ])
+  }, [replaceTracker, tracker2.usernameToDetails])
 
   return (
     <Tracker
       assertionKeys={assertions ? [...assertions.keys()] : undefined}
       bio={bio}
-      darkMode={darkMode}
       followersCount={followersCount}
       followingCount={followingCount}
       guiID={guiID}
@@ -95,7 +133,7 @@ const RemoteContainer = (d: DeserializeProps) => {
             assertion: trackerUsername,
             forceDisplay: true,
             fromDaemon: false,
-            guiID: Constants.generateGUIID(),
+            guiID: C.generateGUIID(),
             ignoreCache: true,
             inTracker: true,
             reason: '',

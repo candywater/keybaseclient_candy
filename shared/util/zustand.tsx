@@ -4,7 +4,7 @@ import isEqual from 'lodash/isEqual'
 import {type StateCreator} from 'zustand'
 import {create} from 'zustand'
 import {immer as immerZustand} from 'zustand/middleware/immer'
-import {registerDebugUnClear, registerDebugClear, wrapErrors} from '@/util/debug'
+import {wrapErrors} from '@/util/debug'
 
 // needed for tsc
 export type {WritableDraft} from 'immer'
@@ -13,14 +13,6 @@ type HasReset = {dispatch: {resetDeleteMe?: boolean; resetState: 'default' | (()
 
 const resetters: ((isDebug?: boolean) => void)[] = []
 const resettersAndDelete: ((isDebug?: boolean) => void)[] = []
-
-registerDebugClear(() => {
-  resetAllStores(true)
-})
-// so we can rebootstrap
-registerDebugUnClear(() => {
-  resetAllStores()
-})
 
 // Auto adds immer and keeps track of resets
 export const createZustand = <T extends HasReset>(
@@ -39,7 +31,7 @@ export const createZustand = <T extends HasReset>(
     if (typeof orig === 'function') {
       unsafeISD[d] = wrapErrors(orig as () => void, d)
       // copy over things like .cancel etc
-      Object.assign(unsafeISD[d] as {}, orig)
+      Object.assign(unsafeISD[d] as object, orig)
     }
   }
 
@@ -47,7 +39,8 @@ export const createZustand = <T extends HasReset>(
   let resetFunc: () => void
   if (reset === 'default') {
     resetFunc = () => {
-      store.setState(initialState, true)
+      // eslint-disable-next-line
+      store.setState(initialState as any, true)
     }
   } else {
     resetFunc = reset
@@ -75,7 +68,7 @@ export type ImmerStateCreator<T> = StateCreator<T, [['zustand/immer', never]]>
 export {useShallow} from 'zustand/react/shallow'
 
 export function useDeep<S, U>(selector: (state: S) => U): (state: S) => U {
-  const prev = React.useRef<U>()
+  const prev = React.useRef<U>(undefined)
 
   return state => {
     const next = selector(state)

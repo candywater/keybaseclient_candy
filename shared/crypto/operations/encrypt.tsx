@@ -1,5 +1,5 @@
 import * as C from '@/constants'
-import * as Constants from '@/constants/crypto'
+import * as Crypto from '@/constants/crypto'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
 import Recipients from '../recipients'
@@ -7,10 +7,10 @@ import openURL from '@/util/open-url'
 import {DragAndDrop, Input, InputActionsBar, OperationBanner} from '../input'
 import {OutputInfoBanner, OperationOutput, OutputActionsBar, SignedSender} from '../output'
 
-const operation = Constants.Operations.Encrypt
+const operation = Crypto.Operations.Encrypt
 
 const EncryptOptions = React.memo(function EncryptOptions() {
-  const {hasSBS, hasRecipients, hideIncludeSelf, includeSelf, inProgress, sign} = C.useCryptoState(
+  const {hasSBS, hasRecipients, hideIncludeSelf, includeSelf, inProgress, sign} = Crypto.useCryptoState(
     C.useShallow(s => {
       const o = s[operation]
       const {inProgress} = o
@@ -20,7 +20,7 @@ const EncryptOptions = React.memo(function EncryptOptions() {
     })
   )
 
-  const setEncryptOptions = C.useCryptoState(s => s.dispatch.setEncryptOptions)
+  const setEncryptOptions = Crypto.useCryptoState(s => s.dispatch.setEncryptOptions)
 
   const onSetOptions = (opts: {newIncludeSelf: boolean; newSign: boolean}) => {
     const {newIncludeSelf, newSign} = opts
@@ -57,7 +57,7 @@ const EncryptOptions = React.memo(function EncryptOptions() {
 })
 
 const EncryptOutputBanner = () => {
-  const {hasRecipients, includeSelf, recipients, outputType} = C.useCryptoState(
+  const {hasRecipients, includeSelf, recipients, outputType} = Crypto.useCryptoState(
     C.useShallow(s => {
       const o = s[operation]
       const {recipients, outputType} = o
@@ -82,7 +82,7 @@ const EncryptOutputBanner = () => {
       content={[
         `This is your encrypted ${outputType === 'file' ? 'file' : 'message'}, using `,
         {
-          onClick: () => openURL(Constants.saltpackDocumentation),
+          onClick: () => openURL(Crypto.saltpackDocumentation),
           text: 'Saltpack',
         },
         '.',
@@ -126,8 +126,13 @@ const styles = Kb.Styles.styleSheetCreate(
 )
 
 export const EncryptInput = () => {
+  const blurCBRef = React.useRef(() => {})
+  const setBlurCB = React.useCallback((cb: () => void) => {
+    blurCBRef.current = cb
+  }, [])
+
   const options = C.isMobile ? (
-    <InputActionsBar operation={operation}>
+    <InputActionsBar operation={operation} blurCBRef={blurCBRef}>
       <EncryptOptions />
     </InputActionsBar>
   ) : (
@@ -137,12 +142,12 @@ export const EncryptInput = () => {
     <>
       <OperationBanner operation={operation} />
       <Recipients />
-      <Input operation={operation} />
+      <Input operation={operation} setBlurCB={setBlurCB} />
       {options}
     </>
   )
 
-  const resetOperation = C.useCryptoState(s => s.dispatch.resetOperation)
+  const resetOperation = Crypto.useCryptoState(s => s.dispatch.resetOperation)
   React.useEffect(() => {
     return () => {
       if (C.isMobile) {
@@ -153,7 +158,7 @@ export const EncryptInput = () => {
   return C.isMobile ? (
     <Kb.KeyboardAvoidingView2>{content}</Kb.KeyboardAvoidingView2>
   ) : (
-    <Kb.Box2 direction="vertical" fullHeight={true} style={Constants.inputDesktopMaxHeight}>
+    <Kb.Box2 direction="vertical" fullHeight={true} style={Crypto.inputDesktopMaxHeight}>
       {content}
     </Kb.Box2>
   )
@@ -163,7 +168,7 @@ export const EncryptOutput = () => (
   <Kb.Box2
     direction="vertical"
     fullHeight={true}
-    style={C.isMobile ? undefined : Constants.outputDesktopMaxHeight}
+    style={C.isMobile ? undefined : Crypto.outputDesktopMaxHeight}
   >
     <EncryptOutputBanner />
     <SignedSender operation={operation} />

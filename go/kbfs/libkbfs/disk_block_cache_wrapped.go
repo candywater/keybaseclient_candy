@@ -5,6 +5,7 @@
 package libkbfs
 
 import (
+	"context"
 	"path/filepath"
 	"sync"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/keybase/client/go/kbfs/tlf"
 	"github.com/pkg/errors"
 	ldberrors "github.com/syndtr/goleveldb/leveldb/errors"
-	"golang.org/x/net/context"
 )
 
 const (
@@ -49,7 +49,8 @@ type diskBlockCacheWrapped struct {
 var _ DiskBlockCache = (*diskBlockCacheWrapped)(nil)
 
 func (cache *diskBlockCacheWrapped) enableCache(
-	typ diskLimitTrackerType, cacheFolder string, mode InitMode) (err error) {
+	typ diskLimitTrackerType, cacheFolder string, mode InitMode,
+) (err error) {
 	cache.mtx.Lock()
 	defer cache.mtx.Unlock()
 	var cachePtr **DiskBlockCacheLocal
@@ -79,7 +80,8 @@ func (cache *diskBlockCacheWrapped) enableCache(
 
 func newDiskBlockCacheWrapped(
 	config diskBlockCacheConfig, storageRoot string, mode InitMode) (
-	cache *diskBlockCacheWrapped, err error) {
+	cache *diskBlockCacheWrapped, err error,
+) {
 	cache = &diskBlockCacheWrapped{
 		config:      config,
 		storageRoot: storageRoot,
@@ -93,7 +95,7 @@ func newDiskBlockCacheWrapped(
 		syncCacheLimitTrackerType, syncCacheFolderName, mode)
 	if syncCacheErr != nil {
 		log := config.MakeLogger("DBC")
-		log.Warning("Could not initialize sync block cache.")
+		log.Warning("Could not initialize sync block cache: %v", syncCacheErr)
 		// We still return success because the working set cache successfully
 		// initialized.
 	}
@@ -101,7 +103,8 @@ func newDiskBlockCacheWrapped(
 }
 
 func (cache *diskBlockCacheWrapped) getCacheLocked(
-	cacheType DiskBlockCacheType) (*DiskBlockCacheLocal, error) {
+	cacheType DiskBlockCacheType,
+) (*DiskBlockCacheLocal, error) {
 	if cacheType == DiskBlockSyncCache {
 		if cache.syncCache == nil {
 			return nil, errors.New("Sync cache not enabled")
@@ -114,7 +117,8 @@ func (cache *diskBlockCacheWrapped) getCacheLocked(
 // DoesCacheHaveSpace implements the DiskBlockCache interface for
 // diskBlockCacheWrapped.
 func (cache *diskBlockCacheWrapped) DoesCacheHaveSpace(
-	ctx context.Context, cacheType DiskBlockCacheType) (bool, int64, error) {
+	ctx context.Context, cacheType DiskBlockCacheType,
+) (bool, int64, error) {
 	cache.mtx.RLock()
 	defer cache.mtx.RUnlock()
 	c, err := cache.getCacheLocked(cacheType)
@@ -131,7 +135,8 @@ func (cache *diskBlockCacheWrapped) IsSyncCacheEnabled() bool {
 
 func (cache *diskBlockCacheWrapped) rankCachesLocked(
 	preferredCacheType DiskBlockCacheType) (
-	primaryCache, secondaryCache *DiskBlockCacheLocal) {
+	primaryCache, secondaryCache *DiskBlockCacheLocal,
+) {
 	if preferredCacheType != DiskBlockWorkingSetCache {
 		if cache.syncCache == nil {
 			log := cache.config.MakeLogger("DBC")
@@ -146,7 +151,8 @@ func (cache *diskBlockCacheWrapped) rankCachesLocked(
 func (cache *diskBlockCacheWrapped) moveBetweenCachesWithBlockLocked(
 	ctx context.Context, tlfID tlf.ID, blockID kbfsblock.ID, buf []byte,
 	serverHalf kbfscrypto.BlockCryptKeyServerHalf,
-	prefetchStatus PrefetchStatus, newCacheType DiskBlockCacheType) {
+	prefetchStatus PrefetchStatus, newCacheType DiskBlockCacheType,
+) {
 	primaryCache, secondaryCache := cache.rankCachesLocked(newCacheType)
 	// Move the block into its preferred cache.
 	err := primaryCache.Put(ctx, tlfID, blockID, buf, serverHalf)
@@ -174,7 +180,9 @@ func (cache *diskBlockCacheWrapped) moveBetweenCachesWithBlockLocked(
 	go func() {
 		defer cache.deleteGroup.Done()
 		// Don't catch the errors -- this is just best effort.
-		_, _, _ = secondaryCache.Delete(ctx, []kbfsblock.ID{blockID})
+		if secondaryCache != nil {
+			_, _, _ = secondaryCache.Delete(ctx, []kbfsblock.ID{blockID})
+		}
 	}()
 }
 
@@ -183,7 +191,8 @@ func (cache *diskBlockCacheWrapped) Get(
 	ctx context.Context, tlfID tlf.ID, blockID kbfsblock.ID,
 	preferredCacheType DiskBlockCacheType) (
 	buf []byte, serverHalf kbfscrypto.BlockCryptKeyServerHalf,
-	prefetchStatus PrefetchStatus, err error) {
+	prefetchStatus PrefetchStatus, err error,
+) {
 	cache.mtx.RLock()
 	defer cache.mtx.RUnlock()
 	primaryCache, secondaryCache := cache.rankCachesLocked(preferredCacheType)
@@ -208,7 +217,8 @@ func (cache *diskBlockCacheWrapped) Get(
 // GetMetadata implements the DiskBlockCache interface for
 // diskBlockCacheWrapped.
 func (cache *diskBlockCacheWrapped) GetMetadata(ctx context.Context,
-	blockID kbfsblock.ID) (metadata DiskBlockCacheMetadata, err error) {
+	blockID kbfsblock.ID,
+) (metadata DiskBlockCacheMetadata, err error) {
 	cache.mtx.RLock()
 	defer cache.mtx.RUnlock()
 	if cache.syncCache != nil {
@@ -226,8 +236,12 @@ func (cache *diskBlockCacheWrapped) GetMetadata(ctx context.Context,
 
 func (cache *diskBlockCacheWrapped) moveBetweenCachesLocked(
 	ctx context.Context, tlfID tlf.ID, blockID kbfsblock.ID,
-	newCacheType DiskBlockCacheType) (moved bool) {
+	newCacheType DiskBlockCacheType,
+) (moved bool) {
 	_, secondaryCache := cache.rankCachesLocked(newCacheType)
+	if secondaryCache == nil {
+		return false
+	}
 	buf, serverHalf, prefetchStatus, err := secondaryCache.Get(
 		ctx, tlfID, blockID)
 	if err != nil {
@@ -243,7 +257,8 @@ func (cache *diskBlockCacheWrapped) moveBetweenCachesLocked(
 // diskBlockCacheWrapped.
 func (cache *diskBlockCacheWrapped) GetPrefetchStatus(
 	ctx context.Context, tlfID tlf.ID, blockID kbfsblock.ID,
-	cacheType DiskBlockCacheType) (prefetchStatus PrefetchStatus, err error) {
+	cacheType DiskBlockCacheType,
+) (prefetchStatus PrefetchStatus, err error) {
 	cache.mtx.RLock()
 	defer cache.mtx.RUnlock()
 
@@ -288,7 +303,8 @@ func (cache *diskBlockCacheWrapped) GetPrefetchStatus(
 func (cache *diskBlockCacheWrapped) Put(ctx context.Context, tlfID tlf.ID,
 	blockID kbfsblock.ID, buf []byte,
 	serverHalf kbfscrypto.BlockCryptKeyServerHalf,
-	cacheType DiskBlockCacheType) error {
+	cacheType DiskBlockCacheType,
+) error {
 	// This is a write operation but we are only reading the pointers to the
 	// caches. So we use a read lock.
 	cache.mtx.RLock()
@@ -321,7 +337,8 @@ func (cache *diskBlockCacheWrapped) Put(ctx context.Context, tlfID tlf.ID,
 // Delete implements the DiskBlockCache interface for diskBlockCacheWrapped.
 func (cache *diskBlockCacheWrapped) Delete(ctx context.Context,
 	blockIDs []kbfsblock.ID, cacheType DiskBlockCacheType) (
-	numRemoved int, sizeRemoved int64, err error) {
+	numRemoved int, sizeRemoved int64, err error,
+) {
 	// This is a write operation but we are only reading the pointers to the
 	// caches. So we use a read lock.
 	cache.mtx.RLock()
@@ -351,7 +368,8 @@ func (cache *diskBlockCacheWrapped) Delete(ctx context.Context,
 // diskBlockCacheWrapped.
 func (cache *diskBlockCacheWrapped) UpdateMetadata(
 	ctx context.Context, tlfID tlf.ID, blockID kbfsblock.ID,
-	prefetchStatus PrefetchStatus, cacheType DiskBlockCacheType) error {
+	prefetchStatus PrefetchStatus, cacheType DiskBlockCacheType,
+) error {
 	// This is a write operation but we are only reading the pointers to the
 	// caches. So we use a read lock.
 	cache.mtx.RLock()
@@ -372,10 +390,12 @@ func (cache *diskBlockCacheWrapped) UpdateMetadata(
 		}
 		return err
 	}
-	err = secondaryCache.UpdateMetadata(ctx, blockID, prefetchStatus)
-	_, isNoSuchBlockError = errors.Cause(err).(data.NoSuchBlockError)
-	if !isNoSuchBlockError {
-		return err
+	if secondaryCache != nil {
+		err = secondaryCache.UpdateMetadata(ctx, blockID, prefetchStatus)
+		_, isNoSuchBlockError = errors.Cause(err).(data.NoSuchBlockError)
+		if !isNoSuchBlockError {
+			return err
+		}
 	}
 	// Try one last time in the primary cache, in case of this
 	// sequence of events:
@@ -390,7 +410,8 @@ func (cache *diskBlockCacheWrapped) UpdateMetadata(
 // ClearAllTlfBlocks implements the DiskBlockCache interface for
 // diskBlockCacheWrapper.
 func (cache *diskBlockCacheWrapped) ClearAllTlfBlocks(
-	ctx context.Context, tlfID tlf.ID, cacheType DiskBlockCacheType) error {
+	ctx context.Context, tlfID tlf.ID, cacheType DiskBlockCacheType,
+) error {
 	cache.mtx.RLock()
 	defer cache.mtx.RUnlock()
 	c, err := cache.getCacheLocked(cacheType)
@@ -404,7 +425,8 @@ func (cache *diskBlockCacheWrapped) ClearAllTlfBlocks(
 // diskBlockCacheWrapped.
 func (cache *diskBlockCacheWrapped) GetLastUnrefRev(
 	ctx context.Context, tlfID tlf.ID, cacheType DiskBlockCacheType) (
-	kbfsmd.Revision, error) {
+	kbfsmd.Revision, error,
+) {
 	cache.mtx.RLock()
 	defer cache.mtx.RUnlock()
 	c, err := cache.getCacheLocked(cacheType)
@@ -418,7 +440,8 @@ func (cache *diskBlockCacheWrapped) GetLastUnrefRev(
 // diskBlockCacheWrapped.
 func (cache *diskBlockCacheWrapped) PutLastUnrefRev(
 	ctx context.Context, tlfID tlf.ID, rev kbfsmd.Revision,
-	cacheType DiskBlockCacheType) error {
+	cacheType DiskBlockCacheType,
+) error {
 	cache.mtx.RLock()
 	defer cache.mtx.RUnlock()
 	c, err := cache.getCacheLocked(cacheType)
@@ -430,7 +453,8 @@ func (cache *diskBlockCacheWrapped) PutLastUnrefRev(
 
 // Status implements the DiskBlockCache interface for diskBlockCacheWrapped.
 func (cache *diskBlockCacheWrapped) Status(
-	ctx context.Context) map[string]DiskBlockCacheStatus {
+	ctx context.Context,
+) map[string]DiskBlockCacheStatus {
 	// This is a write operation but we are only reading the pointers to the
 	// caches. So we use a read lock.
 	cache.mtx.RLock()
@@ -453,7 +477,8 @@ func (cache *diskBlockCacheWrapped) Status(
 // Mark implements the DiskBlockCache interface for diskBlockCacheWrapped.
 func (cache *diskBlockCacheWrapped) Mark(
 	ctx context.Context, blockID kbfsblock.ID, tag string,
-	cacheType DiskBlockCacheType) error {
+	cacheType DiskBlockCacheType,
+) error {
 	cache.mtx.RLock()
 	defer cache.mtx.RUnlock()
 	c, err := cache.getCacheLocked(cacheType)
@@ -467,7 +492,8 @@ func (cache *diskBlockCacheWrapped) Mark(
 // diskBlockCacheWrapped.
 func (cache *diskBlockCacheWrapped) DeleteUnmarked(
 	ctx context.Context, tlfID tlf.ID, tag string,
-	cacheType DiskBlockCacheType) error {
+	cacheType DiskBlockCacheType,
+) error {
 	cache.mtx.RLock()
 	defer cache.mtx.RUnlock()
 	c, err := cache.getCacheLocked(cacheType)
@@ -483,7 +509,8 @@ func (cache *diskBlockCacheWrapped) waitForDeletes(ctx context.Context) error {
 
 // AddHomeTLF implements the DiskBlockCache interface for diskBlockCacheWrapped.
 func (cache *diskBlockCacheWrapped) AddHomeTLF(ctx context.Context,
-	tlfID tlf.ID) error {
+	tlfID tlf.ID,
+) error {
 	cache.mtx.RLock()
 	defer cache.mtx.RUnlock()
 	if cache.syncCache == nil {
@@ -507,7 +534,8 @@ func (cache *diskBlockCacheWrapped) ClearHomeTLFs(ctx context.Context) error {
 // diskBlockCacheWrapped.
 func (cache *diskBlockCacheWrapped) GetTlfSize(
 	ctx context.Context, tlfID tlf.ID, cacheType DiskBlockCacheType) (
-	size uint64, err error) {
+	size uint64, err error,
+) {
 	cache.mtx.RLock()
 	defer cache.mtx.RUnlock()
 
@@ -536,7 +564,8 @@ func (cache *diskBlockCacheWrapped) GetTlfSize(
 // diskBlockCacheWrapped.
 func (cache *diskBlockCacheWrapped) GetTlfIDs(
 	ctx context.Context, cacheType DiskBlockCacheType) (
-	tlfIDs []tlf.ID, err error) {
+	tlfIDs []tlf.ID, err error,
+) {
 	cache.mtx.RLock()
 	defer cache.mtx.RUnlock()
 
@@ -579,7 +608,8 @@ func (cache *diskBlockCacheWrapped) GetTlfIDs(
 // WaitUntilStarted implements the DiskBlockCache interface for
 // diskBlockCacheWrapped.
 func (cache *diskBlockCacheWrapped) WaitUntilStarted(
-	cacheType DiskBlockCacheType) (err error) {
+	cacheType DiskBlockCacheType,
+) (err error) {
 	cache.mtx.RLock()
 	defer cache.mtx.RUnlock()
 

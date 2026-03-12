@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/ed25519"
 	"encoding/hex"
 	"io"
 	"log"
@@ -10,7 +11,6 @@ import (
 	docopt "github.com/docopt/docopt-go"
 	"github.com/keybase/client/go/chat/signencrypt"
 	"github.com/keybase/client/go/kbcrypto"
-	"github.com/keybase/go-crypto/ed25519"
 )
 
 func failf(format string, args ...interface{}) {

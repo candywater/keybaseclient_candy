@@ -2,22 +2,26 @@ import * as C from '@/constants'
 import * as React from 'react'
 import * as Styles from '@/styles'
 import * as Platforms from '@/util/platforms'
-import * as TrackerConstants from '@/constants/tracker2'
+import * as Tracker from '@/constants/tracker2'
 import type * as T from '@/constants/types'
 import capitalize from 'lodash/capitalize'
 import Box, {Box2, Box2Measure} from './box'
 import ClickableBox from './clickable-box'
-import ConnectedNameWithIcon from './name-with-icon/container'
+import ConnectedNameWithIcon from './name-with-icon'
 import {_setWithProfileCardPopup} from './usernames'
 import FloatingMenu from './floating-menu'
 import Icon from './icon'
 import Meta from './meta'
+import {useProfileState} from '@/constants/profile'
+import {useFollowerState} from '@/constants/followers'
+import {useCurrentUserState} from '@/constants/current-user'
 import ProgressIndicator from './progress-indicator'
 import Text from './text'
 import WithTooltip from './with-tooltip'
 import DelayedMounting from './delayed-mounting'
 import {type default as FollowButtonType} from '../profile/user/actions/follow-button'
 import type ChatButtonType from '../chat/chat-button'
+import {useTrackerState} from '@/constants/tracker2'
 import type {MeasureRef} from './measure-ref'
 
 const positionFallbacks = ['top center', 'bottom center'] as const
@@ -87,7 +91,7 @@ const ServiceIcons = ({userDetailsAssertions}: ServiceIconsProps) => {
       centerChildren={true}
     >
       {serviceIdsShowing.map(serviceId => {
-        const assertion = services.get(serviceId) || TrackerConstants.noAssertion
+        const assertion = services.get(serviceId) || Tracker.noAssertion
         return (
           <Kb.WithTooltip
             key={serviceId}
@@ -133,10 +137,10 @@ const ProfileCard = ({
   username,
 }: Props) => {
   const {default: ChatButton} = require('../chat/chat-button') as {default: typeof ChatButtonType}
-  const userDetails = C.useTrackerState(s => TrackerConstants.getDetails(s, username))
-  const followThem = C.useFollowerState(s => s.following.has(username))
-  const followsYou = C.useFollowerState(s => s.followers.has(username))
-  const isSelf = C.useCurrentUserState(s => s.username === username)
+  const userDetails = useTrackerState(s => s.getDetails(username))
+  const followThem = useFollowerState(s => s.following.has(username))
+  const followsYou = useFollowerState(s => s.followers.has(username))
+  const isSelf = useCurrentUserState(s => s.username === username)
   const hasBrokenProof = userDetails.assertions
     ? [...userDetails.assertions.values()].find(assertion => assertion.state !== 'valid')
     : false
@@ -157,7 +161,7 @@ const ProfileCard = ({
     bio: userDetailsBio,
     fullname: userDetailsFullname,
   } = userDetails
-  const showUser = C.useTrackerState(s => s.dispatch.showUser)
+  const showUser = useTrackerState(s => s.dispatch.showUser)
   React.useEffect(() => {
     userDetailsState === 'unknown' && showUser(username, false, true)
   }, [showUser, username, userDetailsState])
@@ -173,13 +177,13 @@ const ProfileCard = ({
     showFollowButton,
   ])
 
-  const changeFollow = C.useTrackerState(s => s.dispatch.changeFollow)
+  const changeFollow = useTrackerState(s => s.dispatch.changeFollow)
   const _changeFollow = React.useCallback(
     (follow: boolean) => changeFollow(userDetails.guiID, follow),
     [changeFollow, userDetails]
   )
 
-  const showUserProfile = C.useProfileState(s => s.dispatch.showUserProfile)
+  const showUserProfile = useProfileState(s => s.dispatch.showUserProfile)
   const openProfile = React.useCallback(() => {
     showUserProfile(username)
     onHide?.()
@@ -224,7 +228,7 @@ const ProfileCard = ({
             key="unfollow"
             following={true}
             onUnfollow={() => _changeFollow(false)}
-            waitingKey={TrackerConstants.waitingKey}
+            waitingKey={C.waitingKeyTracker}
             small={true}
             style={styles.button}
           />
@@ -234,7 +238,7 @@ const ProfileCard = ({
             following={false}
             followsYou={followsYou}
             onFollow={() => _changeFollow(true)}
-            waitingKey={TrackerConstants.waitingKey}
+            waitingKey={C.waitingKeyTracker}
             small={true}
             style={styles.button}
           />
@@ -251,28 +255,34 @@ type WithProfileCardPopupProps = {
 }
 
 export const WithProfileCardPopup = ({username, children, ellipsisStyle}: WithProfileCardPopupProps) => {
-  const popupAnchor = React.useRef<MeasureRef>(null)
+  const popupAnchor = React.useRef<MeasureRef | null>(null)
   const [showing, setShowing] = React.useState(false)
   const [remeasureHint, setRemeasureHint] = React.useState(0)
   const onLayoutChange = React.useCallback(() => setRemeasureHint(Date.now()), [setRemeasureHint])
-  const you = C.useCurrentUserState(s => s.username)
+  const you = useCurrentUserState(s => s.username)
   const isSelf = you === username
-  const onShow = React.useCallback(() => {
-    setShowing(true)
-  }, [])
+  const onShow = C.useDebouncedCallback(
+    React.useCallback(() => {
+      setShowing(true)
+    }, []),
+    200
+  )
   const onHide = React.useCallback(() => {
+    onShow.cancel()
     setShowing(false)
-  }, [])
+  }, [onShow])
+
   if (isSelf) {
     return children()
   }
   const popup = showing && (
-    <DelayedMounting delay={Styles.isMobile ? 0 : 500}>
+    <DelayedMounting delay={Styles.isMobile ? 0 : 300}>
       <Kb.FloatingMenu
         attachTo={popupAnchor}
         closeOnSelect={true}
-        onHidden={() => setShowing(false)}
+        onHidden={onHide}
         position="top center"
+        offset={Styles.isMobile ? 0 : 10}
         positionFallbacks={positionFallbacks}
         propagateOutsideClicks={!Styles.isMobile}
         remeasureHint={remeasureHint}
@@ -313,71 +323,79 @@ _setWithProfileCardPopup(WithProfileCardPopup)
 
 export default ProfileCard
 
-const styles = Styles.styleSheetCreate(() => ({
-  brokenBadge: Styles.platformStyles({
-    common: {
-      borderColor: Styles.globalColors.white,
-      borderStyle: 'solid',
-      borderWidth: Styles.globalMargins.xxtiny,
-      bottom: -Styles.globalMargins.xxtiny,
-      position: 'absolute',
-      right: -Styles.globalMargins.xxtiny,
-    },
-    isElectron: {
-      borderRadius: '50%',
-    },
-    isMobile: {
-      borderRadius: 8,
-    },
-  }),
-  button: {
-    marginTop: Styles.globalMargins.xtiny + Styles.globalMargins.xxtiny,
-  },
-  close: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
-  connectedNameWithIconMetaStyle: Styles.platformStyles({
-    isElectron: {
-      marginTop: Styles.globalMargins.xxtiny + Styles.globalMargins.xtiny,
-    },
-    isMobile: {
-      marginTop: (Styles.globalMargins.xxtiny + Styles.globalMargins.xtiny) / 2,
-    },
-  }),
-  container: Styles.platformStyles({
-    common: {
-      backgroundColor: Styles.globalColors.white,
-      ...Styles.padding(
-        Styles.globalMargins.small,
-        Styles.globalMargins.tiny,
-        Styles.globalMargins.small,
-        Styles.globalMargins.tiny
-      ),
-      position: 'relative',
-    },
-    isElectron: {
-      width: 170,
-    },
-  }),
-  expand: {
-    marginTop: -Styles.globalMargins.xxtiny,
-    paddingLeft: Styles.globalMargins.xtiny,
-  },
-  iconContainer: {
-    position: 'relative',
-  },
-  popupTextContainer: Styles.platformStyles({
-    isElectron: {
-      display: 'inline-block',
-    },
-  }),
-  profileCardPopup: Styles.platformStyles({
-    isMobile: Styles.padding(Styles.globalMargins.large, undefined, Styles.globalMargins.small, undefined),
-  }),
-  serviceIcons: {
-    flexWrap: 'wrap',
-    padding: Styles.globalMargins.xtiny + Styles.globalMargins.xxtiny,
-  },
-}))
+const styles = Styles.styleSheetCreate(
+  () =>
+    ({
+      brokenBadge: Styles.platformStyles({
+        common: {
+          borderColor: Styles.globalColors.white,
+          borderStyle: 'solid',
+          borderWidth: Styles.globalMargins.xxtiny,
+          bottom: -Styles.globalMargins.xxtiny,
+          position: 'absolute',
+          right: -Styles.globalMargins.xxtiny,
+        },
+        isElectron: {
+          borderRadius: '50%',
+        },
+        isMobile: {
+          borderRadius: 8,
+        },
+      }),
+      button: {
+        marginTop: Styles.globalMargins.xtiny + Styles.globalMargins.xxtiny,
+      },
+      close: {
+        position: 'absolute',
+        right: 0,
+        top: 0,
+      },
+      connectedNameWithIconMetaStyle: Styles.platformStyles({
+        isElectron: {
+          marginTop: Styles.globalMargins.xxtiny + Styles.globalMargins.xtiny,
+        },
+        isMobile: {
+          marginTop: (Styles.globalMargins.xxtiny + Styles.globalMargins.xtiny) / 2,
+        },
+      }),
+      container: Styles.platformStyles({
+        common: {
+          backgroundColor: Styles.globalColors.white,
+          ...Styles.padding(
+            Styles.globalMargins.small,
+            Styles.globalMargins.tiny,
+            Styles.globalMargins.small,
+            Styles.globalMargins.tiny
+          ),
+          position: 'relative',
+        },
+        isElectron: {
+          width: 170,
+        },
+      }),
+      expand: {
+        marginTop: -Styles.globalMargins.xxtiny,
+        paddingLeft: Styles.globalMargins.xtiny,
+      },
+      iconContainer: {
+        position: 'relative',
+      },
+      popupTextContainer: Styles.platformStyles({
+        isElectron: {
+          display: 'inline-block',
+        },
+      }),
+      profileCardPopup: Styles.platformStyles({
+        isMobile: Styles.padding(
+          Styles.globalMargins.large,
+          undefined,
+          Styles.globalMargins.small,
+          undefined
+        ),
+      }),
+      serviceIcons: {
+        flexWrap: 'wrap',
+        padding: Styles.globalMargins.xtiny + Styles.globalMargins.xxtiny,
+      },
+    }) as const
+)

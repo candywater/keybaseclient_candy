@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"crypto/rand"
 	"math/big"
 	"sort"
@@ -17,7 +18,6 @@ import (
 	"github.com/keybase/client/go/protocol/gregor1"
 	insecureTriplesec "github.com/keybase/go-triplesec-insecure"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func setupCommonTest(t testing.TB, name string) kbtest.ChatTestContext {
@@ -48,13 +48,14 @@ func setupCommonTest(t testing.TB, name string) kbtest.ChatTestContext {
 
 func setupStorageTest(t testing.TB, name string) (kbtest.ChatTestContext, *Storage, gregor1.UID) {
 	ctc := setupCommonTest(t, name)
-	u, err := kbtest.CreateAndSignupFakeUser("cs", ctc.TestContext.G)
+	u, err := kbtest.CreateAndSignupFakeUser("cs", ctc.G)
 	require.NoError(t, err)
 	return ctc, New(ctc.Context(), kbtest.NewDummyAssetDeleter()), gregor1.UID(u.User.GetUID().ToBytes())
 }
 
 func mustMerge(t testing.TB, storage *Storage,
-	convID chat1.ConversationID, uid gregor1.UID, msgs []chat1.MessageUnboxed) MergeResult {
+	convID chat1.ConversationID, uid gregor1.UID, msgs []chat1.MessageUnboxed,
+) MergeResult {
 	conv, err := NewInbox(storage.G()).GetConversation(context.Background(), uid, convID)
 	switch err.(type) {
 	case nil:
@@ -78,7 +79,7 @@ func makeMsgRange(maxMsgs int) (res []chat1.MessageUnboxed) {
 func addMsgs(num int, msgs []chat1.MessageUnboxed) []chat1.MessageUnboxed {
 	maxID := msgs[0].GetMessageID()
 	for i := 0; i < num; i++ {
-		msgs = append([]chat1.MessageUnboxed{MakeText(chat1.MessageID(int(maxID)+i+1), "addMsgs junk text")},
+		msgs = append([]chat1.MessageUnboxed{MakeText(chat1.MessageID(int(maxID)+i+1), "addMsgs junk text")}, //nolint:gosec // G115: Test code generating sequential MessageIDs, safe to convert
 			msgs...)
 	}
 	return msgs
@@ -137,7 +138,7 @@ func doRandomBench(b *testing.B, storage *Storage, uid gregor1.UID, num, length 
 					break
 				}
 			}
-			next, err := encode(chat1.MessageID(bi.Int64()))
+			next, err := encode(chat1.MessageID(bi.Int64())) //nolint:gosec // G115: Test code, bi is positive random bounded by num
 			require.NoError(b, err)
 			p := chat1.Pagination{
 				Num:  length,
@@ -209,7 +210,6 @@ func TestStorageLargeList(t *testing.T) {
 	res := fetchRes.Thread
 	require.Equal(t, len(msgs), len(res.Messages), "wrong amount of messages")
 	require.Equal(t, utils.PluckMUMessageIDs(msgs), utils.PluckMUMessageIDs(res.Messages))
-
 }
 
 func TestStorageBlockBoundary(t *testing.T) {
@@ -625,7 +625,6 @@ func TestStorageMiss(t *testing.T) {
 }
 
 func TestStoragePagination(t *testing.T) {
-
 	tc, storage, uid := setupStorageTest(t, "basic")
 	defer tc.Cleanup()
 
@@ -722,7 +721,6 @@ func TestStorageTypeFilter(t *testing.T) {
 	for i := 0; i < len(restexts); i++ {
 		require.Equal(t, textmsgs[i].GetMessageID(), restexts[i].GetMessageID(), "msg mismatch")
 	}
-
 }
 
 func TestStorageLocalMax(t *testing.T) {

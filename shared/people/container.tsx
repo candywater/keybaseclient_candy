@@ -2,43 +2,47 @@ import * as C from '@/constants'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import People from '.'
+import {useSignupState} from '@/constants/signup'
+import {useProfileState} from '@/constants/profile'
+import {usePeopleState, getPeopleDataWaitingKey} from '@/constants/people'
+import {useCurrentUserState} from '@/constants/current-user'
 
-let lastRefresh: number = 0
 const waitToRefresh = 1000 * 60 * 5
 
 const PeopleReloadable = () => {
-  const followSuggestions = C.usePeopleState(s => s.followSuggestions)
-  const username = C.useCurrentUserState(s => s.username)
-  const newItems = C.usePeopleState(s => s.newItems)
-  const oldItems = C.usePeopleState(s => s.oldItems)
-  const signupEmail = C.useSignupState(s => s.justSignedUpEmail)
-  const waiting = C.Waiting.useAnyWaiting(C.People.getPeopleDataWaitingKey)
+  const followSuggestions = usePeopleState(s => s.followSuggestions)
+  const username = useCurrentUserState(s => s.username)
+  const newItems = usePeopleState(s => s.newItems)
+  const oldItems = usePeopleState(s => s.oldItems)
+  const signupEmail = useSignupState(s => s.justSignedUpEmail)
+  const waiting = C.Waiting.useAnyWaiting(getPeopleDataWaitingKey)
+  const lastRefreshRef = React.useRef<number>(0)
 
-  const loadPeople = C.usePeopleState(s => s.dispatch.loadPeople)
+  const loadPeople = usePeopleState(s => s.dispatch.loadPeople)
   // const wotUpdates = Container.useSelector(state => state.people.wotUpdates)
 
   const getData = React.useCallback(
     (markViewed = true, force = false) => {
       const now = Date.now()
-      if (force || !lastRefresh || lastRefresh + waitToRefresh < now) {
-        lastRefresh = now
+      if (force || !lastRefreshRef.current || lastRefreshRef.current + waitToRefresh < now) {
+        lastRefreshRef.current = now
         loadPeople(markViewed, 10)
       }
     },
     [loadPeople]
   )
 
-  const showUserProfile = C.useProfileState(s => s.dispatch.showUserProfile)
+  const showUserProfile = useProfileState(s => s.dispatch.showUserProfile)
 
   const onClickUser = React.useCallback((username: string) => showUserProfile(username), [showUserProfile])
 
   const onReload = React.useCallback(
-    () => getData(false, !followSuggestions.length),
+    (isRetry?: boolean) => getData(false, isRetry === true || !followSuggestions.length),
     [getData, followSuggestions.length]
   )
 
   return (
-    <Kb.Reloadable onReload={onReload} reloadOnMount={true} waitingKeys={C.People.getPeopleDataWaitingKey}>
+    <Kb.Reloadable onReload={onReload} reloadOnMount={true} waitingKeys={getPeopleDataWaitingKey}>
       <People
         followSuggestions={followSuggestions}
         getData={getData}

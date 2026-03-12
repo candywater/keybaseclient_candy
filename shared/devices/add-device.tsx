@@ -1,7 +1,8 @@
 import * as C from '@/constants'
+import * as Devices from '@/constants/devices'
 import * as React from 'react'
-import * as Constants from '@/constants/devices'
 import * as Kb from '@/common-adapters'
+import {useProvisionState} from '@/constants/provision'
 
 type OwnProps = {
   highlight?: Array<'computer' | 'phone' | 'paper key'>
@@ -10,31 +11,36 @@ const noHighlight = new Array<'computer' | 'phone' | 'paper key'>()
 
 export default function AddDevice(ownProps: OwnProps) {
   const highlight = ownProps.highlight ?? noHighlight
-  const iconNumbers = Constants.useNextDeviceIconNumber()
-  const safeOptions = {onlyOnce: true}
-  const addNewDevice = C.useProvisionState(s => s.dispatch.addNewDevice)
+  const iconNumbers = Devices.useNextDeviceIconNumber()
+  const addNewDevice = useProvisionState(s => s.dispatch.addNewDevice)
 
   const onAddComputer = React.useCallback(() => {
     addNewDevice('desktop')
   }, [addNewDevice])
 
   const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
-  const onAddPaperKey = C.useSafeCallback(
-    React.useCallback(() => {
-      navigateAppend('devicePaperKey')
-    }, [navigateAppend]),
-    safeOptions
-  )
+
+  // don't allow mutliple clicks to add paper key
+  const canAddPaperKeyRef = React.useRef(true)
+  const onAddPaperKey = React.useCallback(() => {
+    if (!canAddPaperKeyRef.current) return
+    canAddPaperKeyRef.current = false
+    navigateAppend('devicePaperKey')
+    setTimeout(() => {
+      canAddPaperKeyRef.current = true
+    }, 1000)
+  }, [navigateAppend])
 
   const onAddPhone = React.useCallback(() => {
     addNewDevice('mobile')
   }, [addNewDevice])
-  const cancel = C.useProvisionState(s => s.dispatch.dynamic.cancel)
+  const cancel = useProvisionState(s => s.dispatch.dynamic.cancel)
   const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
   const onCancel = React.useCallback(() => {
     cancel?.()
     navigateUp()
   }, [cancel, navigateUp])
+
   return (
     <Kb.PopupWrapper onCancel={onCancel}>
       <Kb.ScrollView alwaysBounceVertical={false}>

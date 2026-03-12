@@ -4,8 +4,7 @@
 package client
 
 import (
-	"golang.org/x/net/context"
-
+	"context"
 	"fmt"
 
 	humanize "github.com/dustin/go-humanize"

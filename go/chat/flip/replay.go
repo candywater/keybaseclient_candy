@@ -76,7 +76,7 @@ func (g GameHistory) start(rh ReplayHelper) (game *Game, rest GameHistory, err e
 
 func runReplayLoop(ctx context.Context, game *Game, gh GameHistory) (err error) {
 	for _, m := range gh {
-		gmw, err := m.GameMessageWrappedEncoded.Decode()
+		gmw, err := m.Decode()
 		if err != nil {
 			return err
 		}
@@ -100,7 +100,6 @@ func Replay(ctx context.Context, rh ReplayHelper, gh GameHistory) (*GameSummary,
 }
 
 func replay(ctx context.Context, rh ReplayHelper, gh GameHistory) (*GameSummary, error) {
-
 	var game *Game
 	var err error
 	game, gh, err = gh.start(rh)

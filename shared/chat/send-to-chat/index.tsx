@@ -1,11 +1,14 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as T from '@/constants/types'
 import * as React from 'react'
-import * as Constants from '@/constants/fs'
 import * as Kb from '@/common-adapters'
 import * as Kbfs from '@/fs/common'
 import ConversationList from './conversation-list/conversation-list'
 import ChooseConversation from './conversation-list/choose-conversation'
+import {useFSState} from '@/constants/fs'
+import * as FS from '@/constants/fs'
+import {useCurrentUserState} from '@/constants/current-user'
 
 type Props = {
   canBack?: boolean
@@ -35,7 +38,7 @@ const MobileSendToChatRoutable = (props: Props) => {
             Cancel
           </Kb.Text>
         ),
-        title: Constants.getSharePathArrayDescription(sendPaths || []),
+        title: FS.getSharePathArrayDescription(sendPaths || []),
       }}
     >
       <MobileSendToChat
@@ -51,9 +54,10 @@ const MobileSendToChatRoutable = (props: Props) => {
 export const MobileSendToChat = (props: Props) => {
   const {isFromShareExtension, sendPaths, text} = props
   const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
-  const fileContext = C.useFSState(s => s.fileContext)
+  const clearModals = C.useRouterState(s => s.dispatch.clearModals)
+  const fileContext = useFSState(s => s.fileContext)
   const onSelect = (conversationIDKey: T.Chat.ConversationIDKey, tlfName: string) => {
-    const {dispatch} = C.getConvoState(conversationIDKey)
+    const {dispatch} = Chat.getConvoState(conversationIDKey)
     text && dispatch.injectIntoInput(text)
     if (sendPaths?.length) {
       navigateAppend({
@@ -69,10 +73,10 @@ export const MobileSendToChat = (props: Props) => {
         selected: 'chatAttachmentGetTitles',
       })
     } else {
+      clearModals()
       dispatch.navigateToThread(isFromShareExtension ? 'extension' : 'files')
     }
   }
-
   return <ConversationList {...props} onSelect={onSelect} />
 }
 
@@ -80,9 +84,9 @@ const noPaths = new Array<string>()
 const DesktopSendToChat = (props: Props) => {
   const sendPaths = props.sendPaths ?? noPaths
   const [title, setTitle] = React.useState('')
-  const [conversationIDKey, setConversationIDKey] = React.useState(C.Chat.noConversationIDKey)
+  const [conversationIDKey, setConversationIDKey] = React.useState(Chat.noConversationIDKey)
   const [convName, setConvName] = React.useState('')
-  const username = C.useCurrentUserState(s => s.username)
+  const username = useCurrentUserState(s => s.username)
   const clearModals = C.useRouterState(s => s.dispatch.clearModals)
   const onCancel = () => {
     clearModals()
@@ -92,7 +96,7 @@ const DesktopSendToChat = (props: Props) => {
     setConvName(convname)
   }
   const onSend = () => {
-    const {dispatch} = C.getConvoState(conversationIDKey)
+    const {dispatch} = Chat.getConvoState(conversationIDKey)
     sendPaths.forEach(path =>
       dispatch.attachmentsUpload(
         [{path: T.FS.pathToString(path)}],
@@ -101,12 +105,12 @@ const DesktopSendToChat = (props: Props) => {
       )
     )
     clearModals()
-    C.getConvoState(conversationIDKey).dispatch.navigateToThread('files')
+    Chat.getConvoState(conversationIDKey).dispatch.navigateToThread('files')
   }
   return (
     <Kb.PopupWrapper>
       <DesktopSendToChatRender
-        enabled={conversationIDKey !== C.Chat.noConversationIDKey}
+        enabled={conversationIDKey !== Chat.noConversationIDKey}
         convName={convName}
         // If we ever support sending multiples from desktop this will need to
         // change.

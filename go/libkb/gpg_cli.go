@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-
 	"strings"
 	"sync"
 
@@ -45,7 +44,6 @@ func (g *GpgCLI) SetTTY(t string) {
 }
 
 func (g *GpgCLI) Configure(mctx MetaContext) (err error) {
-
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
 
@@ -138,7 +136,6 @@ func (g *GpgCLI) ImportKeyArmored(mctx MetaContext, secret bool, fp PGPFingerpri
 }
 
 func (g *GpgCLI) ImportKey(mctx MetaContext, secret bool, fp PGPFingerprint, tty string) (*PGPKeyBundle, error) {
-
 	armored, err := g.ImportKeyArmored(mctx, secret, fp, tty)
 	if err != nil {
 		return nil, err
@@ -255,7 +252,7 @@ func (g *GpgCLI) Version() (string, error) {
 
 	args := g.options
 	args = append(args, "--version")
-	out, err := exec.Command(g.path, args...).Output()
+	out, err := exec.Command(g.path, args...).Output() //nolint:gosec // G204: GPG binary path from config, args validated
 	if err != nil {
 		return "", err
 	}
@@ -403,7 +400,7 @@ func (g *GpgCLI) MakeCmd(mctx MetaContext, args []string, tty string) *exec.Cmd 
 		nargs = append([]string{"--no-tty"}, nargs...)
 	}
 	mctx.Debug("| running Gpg: %s %s", g.path, strings.Join(nargs, " "))
-	ret := exec.Command(g.path, nargs...)
+	ret := exec.Command(g.path, nargs...) //nolint:gosec // G204: GPG binary path from config, args validated
 	if tty == "" {
 		tty = g.tty
 	}

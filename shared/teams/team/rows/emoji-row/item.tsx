@@ -1,12 +1,14 @@
 import * as C from '@/constants'
 import * as T from '@/constants/types'
+import * as Teams from '@/constants/teams'
 import * as React from 'react'
-import * as Container from '@/util/container'
 import * as Kb from '@/common-adapters'
 import * as dateFns from 'date-fns'
-import {emojiDataToRenderableEmoji, renderEmoji, RPCToEmojiData} from '@/util/emoji'
+import {RPCToEmojiData} from '@/common-adapters/emoji'
 import EmojiMenu from './emoji-menu'
 import {useEmojiState} from '@/teams/emojis/use-emoji'
+import {useSafeNavigation} from '@/util/safe-navigation'
+import {useCurrentUserState} from '@/constants/current-user'
 
 type OwnProps = {
   conversationIDKey: T.Chat.ConversationIDKey
@@ -17,10 +19,10 @@ type OwnProps = {
 
 const ItemRow = ({conversationIDKey, emoji, firstItem, teamID}: OwnProps) => {
   const emojiData = RPCToEmojiData(emoji, false)
-  const nav = Container.useSafeNavigation()
-  const username = C.useCurrentUserState(s => s.username)
-  const canManageEmoji = C.useTeamsState(s => C.Teams.getCanPerformByID(s, teamID).manageEmojis)
-  const deleteOtherEmoji = C.useTeamsState(s => C.Teams.getCanPerformByID(s, teamID).deleteOtherEmojis)
+  const nav = useSafeNavigation()
+  const username = useCurrentUserState(s => s.username)
+  const canManageEmoji = Teams.useTeamsState(s => Teams.getCanPerformByID(s, teamID).manageEmojis)
+  const deleteOtherEmoji = Teams.useTeamsState(s => Teams.getCanPerformByID(s, teamID).deleteOtherEmojis)
   const canRemove = canManageEmoji && (deleteOtherEmoji || emoji.creationInfo?.username === username)
   const onAddAlias = C.useEvent(() => {
     nav.safeNavigateAppend({
@@ -83,11 +85,11 @@ const ItemRow = ({conversationIDKey, emoji, firstItem, teamID}: OwnProps) => {
             style={styles.container}
             gap="small"
           >
-            {renderEmoji({
-              emoji: emojiDataToRenderableEmoji(RPCToEmojiData(emoji, false)),
-              showTooltip: false,
-              size: Kb.Styles.isMobile ? 32 : 26,
-            })}
+            <Kb.Emoji
+              emojiData={RPCToEmojiData(emoji, false)}
+              showTooltip={false}
+              size={Kb.Styles.isMobile ? 32 : 26}
+            />
             <Kb.Text type="Body" style={styles.alias}>{`:${emoji.alias}:`}</Kb.Text>
             {!Kb.Styles.isMobile && emoji.creationInfo && (
               <Kb.Text type="Body" style={styles.date}>

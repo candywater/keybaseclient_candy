@@ -6,6 +6,7 @@ package libkbfs
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"reflect"
 	"testing"
@@ -21,7 +22,6 @@ import (
 	"github.com/keybase/client/go/libkb"
 	"github.com/keybase/client/go/protocol/keybase1"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func totalBlockRefs(m map[kbfsblock.ID]blockRefMap) int {
@@ -37,7 +37,8 @@ func totalBlockRefs(m map[kbfsblock.ID]blockRefMap) int {
 // sure that all historical blocks have been deleted.
 func testQuotaReclamation(ctx context.Context, t *testing.T, config Config,
 	userName kbname.NormalizedUsername) (
-	ops *folderBranchOps, preBlocks map[kbfsblock.ID]blockRefMap) {
+	ops *folderBranchOps, preBlocks map[kbfsblock.ID]blockRefMap,
+) {
 	clock, now := clocktest.NewTestClockAndTimeNow()
 	config.SetClock(clock)
 
@@ -102,7 +103,8 @@ func testQuotaReclamation(ctx context.Context, t *testing.T, config Config,
 
 func ensureFewerBlocksPostQR(
 	ctx context.Context, t *testing.T, config *ConfigLocal,
-	ops *folderBranchOps, preBlocks map[kbfsblock.ID]blockRefMap) {
+	ops *folderBranchOps, preBlocks map[kbfsblock.ID]blockRefMap,
+) {
 	ops.fbm.forceQuotaReclamation()
 	err := ops.fbm.waitForQuotaReclamations(ctx)
 	require.NoError(t, err, "Couldn't wait for QR: %+v", err)

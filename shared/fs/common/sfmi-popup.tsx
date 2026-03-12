@@ -3,22 +3,24 @@ import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import * as T from '@/constants/types'
 import {useFuseClosedSourceConsent} from './hooks'
+import {useFSState} from '@/constants/fs'
 
 type Props = {
   mode: 'Icon' | 'Button'
+  invert?: boolean
 }
 
 const SFMIPopup = (props: Props) => {
-  const sfmi = C.useFSState(s => s.sfmi)
-  const driverEnable = C.useFSState(s => s.dispatch.driverEnable)
+  const {invert} = props
+  const sfmi = useFSState(s => s.sfmi)
+  const driverEnable = useFSState(s => s.dispatch.driverEnable)
   const {driverStatus} = sfmi
   const {type} = driverStatus
   const isEnabling = type === T.FS.DriverStatusType.Disabled ? driverStatus.isEnabling : false
   const enableDriver = React.useCallback(() => driverEnable(), [driverEnable])
   const {canContinue, component: fuseConsentComponent} = useFuseClosedSourceConsent(
     type === T.FS.DriverStatusType.Disabled && isEnabling,
-    undefined,
-    undefined
+    invert
   )
 
   const makePopup = React.useCallback(
@@ -40,7 +42,7 @@ const SFMIPopup = (props: Props) => {
               Enable Keybase in {C.fileUIName}?
             </Kb.Text>
             <Kb.Text type="BodySmall" style={styles.text} center={true}>
-              Get access to your files and folders just like you normally do with your local files. It's
+              Get access to your files and folders just like you normally do with your local files. It&apos;s
               encrypted and secure.
             </Kb.Text>
             <Kb.Divider style={styles.divider} />

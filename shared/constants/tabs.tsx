@@ -41,9 +41,9 @@ export const desktopTabs = [
   gitTab,
   devicesTab,
   settingsTab,
-] as const
-export const phoneTabs = [chatTab, peopleTab, fsTab, teamsTab, settingsTab] as const
-export const tabletTabs = [chatTab, peopleTab, fsTab, teamsTab, settingsTab] as const
+] satisfies readonly Tab[]
+export const phoneTabs = [chatTab, peopleTab, fsTab, teamsTab, settingsTab] satisfies readonly Tab[]
+export const tabletTabs = [chatTab, peopleTab, fsTab, teamsTab, settingsTab] satisfies readonly Tab[]
 
 export const desktopTabMeta = {
   [chatTab]: {icon: 'iconfont-nav-2-chat', label: 'Chat'},

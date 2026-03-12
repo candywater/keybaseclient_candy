@@ -1,11 +1,12 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as T from '@/constants/types'
 import * as React from 'react'
 import UnfurlGeneric from './generic'
 import UnfurlGiphy from './giphy'
 import UnfurlMap from './map'
 import * as Kb from '@/common-adapters'
-import {OrdinalContext} from '@/chat/conversation/messages/ids-context'
+import {useOrdinal} from '@/chat/conversation/messages/ids-context'
 
 export type UnfurlListItem = {
   unfurl: T.RPCChat.UnfurlDisplay
@@ -55,8 +56,8 @@ const renderTypeToClass = new Map<UnfurlRenderType, React.ExoticComponent<{idx: 
 ])
 
 const UnfurlListContainer = React.memo(function UnfurlListContainer() {
-  const ordinal = React.useContext(OrdinalContext)
-  const unfurlTypes: Array<UnfurlRenderType | 'none'> = C.useChatContext(
+  const ordinal = useOrdinal()
+  const unfurlTypes: Array<UnfurlRenderType | 'none'> = Chat.useChatContext(
     C.useShallow(s =>
       [...(s.messageMap.get(ordinal)?.unfurls?.values() ?? [])].map(u => {
         const ut = u.unfurl.unfurlType

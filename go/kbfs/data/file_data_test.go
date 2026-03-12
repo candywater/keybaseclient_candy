@@ -6,6 +6,7 @@ package data
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"math"
 	"reflect"
@@ -19,11 +20,11 @@ import (
 	"github.com/keybase/client/go/logger"
 	"github.com/keybase/client/go/protocol/keybase1"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func setupFileDataTest(t *testing.T, maxBlockSize int64,
-	maxPtrsPerBlock int) (*FileData, BlockCache, DirtyBlockCache, *DirtyFile) {
+	maxPtrsPerBlock int,
+) (*FileData, BlockCache, DirtyBlockCache, *DirtyFile) {
 	// Make a fake file.
 	ptr := BlockPointer{
 		ID:         kbfsblock.FakeID(42),
@@ -42,7 +43,8 @@ func setupFileDataTest(t *testing.T, maxBlockSize int64,
 	cleanCache := NewBlockCacheStandard(1<<10, 1<<20)
 	dirtyBcache := SimpleDirtyBlockCacheStandard()
 	getter := func(ctx context.Context, _ libkey.KeyMetadata, ptr BlockPointer,
-		_ Path, _ BlockReqType) (*FileBlock, bool, error) {
+		_ Path, _ BlockReqType,
+	) (*FileBlock, bool, error) {
 		isDirty := true
 		block, err := dirtyBcache.Get(ctx, id, ptr, MasterBranch)
 		if err != nil {
@@ -87,7 +89,8 @@ type testFileDataHole struct {
 func testFileDataLevelFromData(t *testing.T, maxBlockSize Int64Offset,
 	maxPtrsPerBlock int, existingLevels int, fullDataLen Int64Offset,
 	holes []testFileDataHole, startWrite, endWrite,
-	holeShiftAfter Int64Offset, truncateExtend bool) testFileDataLevel {
+	holeShiftAfter Int64Offset, truncateExtend bool,
+) testFileDataLevel {
 	// First fill in the leaf level.
 	var prevChildren []testFileDataLevel
 	var off Int64Offset
@@ -206,7 +209,8 @@ func testFileDataLevelFromData(t *testing.T, maxBlockSize Int64Offset,
 
 func (tfdl testFileDataLevel) check(t *testing.T, fd *FileData,
 	ptr BlockPointer, off Int64Offset, dirtyBcache DirtyBlockCache) (
-	dirtyPtrs map[BlockPointer]bool) {
+	dirtyPtrs map[BlockPointer]bool,
+) {
 	dirtyPtrs = make(map[BlockPointer]bool)
 	levelString := fmt.Sprintf("ptr=%s, off=%d", ptr, off)
 	t.Logf("Checking %s", levelString)
@@ -250,11 +254,11 @@ func testFileDataCheckWrite(t *testing.T, fd *FileData,
 	dirtyBcache DirtyBlockCache, df *DirtyFile, data []byte, off Int64Offset,
 	topBlock *FileBlock, oldDe DirEntry, expectedSize uint64,
 	expectedUnrefs []BlockInfo, expectedDirtiedBytes int64,
-	expectedBytesExtended int64, expectedTopLevel testFileDataLevel) {
+	expectedBytesExtended int64, expectedTopLevel testFileDataLevel,
+) {
 	// Do the write.
 	ctx := context.Background()
-	newDe, dirtyPtrs, unrefs, newlyDirtiedChildBytes, bytesExtended, err :=
-		fd.Write(ctx, data, off, topBlock, oldDe, df)
+	newDe, dirtyPtrs, unrefs, newlyDirtiedChildBytes, bytesExtended, err := fd.Write(ctx, data, off, topBlock, oldDe, df)
 	require.NoError(t, err)
 
 	// Check the basics.
@@ -279,7 +283,8 @@ func testFileDataCheckWrite(t *testing.T, fd *FileData,
 }
 
 func testFileDataWriteExtendEmptyFile(t *testing.T, maxBlockSize Int64Offset,
-	maxPtrsPerBlock int, fullDataLen Int64Offset) {
+	maxPtrsPerBlock int, fullDataLen Int64Offset,
+) {
 	fd, cleanBcache, dirtyBcache, df := setupFileDataTest(
 		t, int64(maxBlockSize), maxPtrsPerBlock)
 	topBlock := NewFileBlock().(*FileBlock)
@@ -297,7 +302,7 @@ func testFileDataWriteExtendEmptyFile(t *testing.T, maxBlockSize Int64Offset,
 		fullDataLen, 0, false)
 
 	testFileDataCheckWrite(
-		t, fd, dirtyBcache, df, data, 0, topBlock, de, uint64(fullDataLen),
+		t, fd, dirtyBcache, df, data, 0, topBlock, de, uint64(fullDataLen), //nolint:gosec // G115: Test data with bounded values
 		nil, int64(fullDataLen), int64(fullDataLen), expectedTopLevel)
 
 	// Make sure we can read back the complete data.
@@ -318,7 +323,6 @@ func testFileDataWriteNewLevel(t *testing.T, levels float64) {
 	testFileDataWriteExtendEmptyFile(t, 2, 2, Int64Offset(halfCapacity))
 	// Fills whole leaf level.
 	testFileDataWriteExtendEmptyFile(t, 2, 2, Int64Offset(capacity))
-
 }
 
 func TestFileDataWriteNewLevel(t *testing.T) {
@@ -333,7 +337,8 @@ func TestFileDataWriteNewLevel(t *testing.T) {
 
 func testFileDataLevelExistingBlocks(t *testing.T, fd *FileData,
 	maxBlockSize Int64Offset, maxPtrsPerBlock int, existingData []byte,
-	holes []testFileDataHole, cleanBcache BlockCache) (*FileBlock, int) {
+	holes []testFileDataHole, cleanBcache BlockCache,
+) (*FileBlock, int) {
 	// First fill in the leaf blocks.
 	var off Int64Offset
 	existingDataLen := Int64Offset(len(existingData))
@@ -437,7 +442,8 @@ func testFileDataLevelExistingBlocks(t *testing.T, fd *FileData,
 }
 
 func testFileDataWriteExtendExistingFile(t *testing.T, maxBlockSize Int64Offset,
-	maxPtrsPerBlock int, existingLen, fullDataLen Int64Offset) {
+	maxPtrsPerBlock int, existingLen, fullDataLen Int64Offset,
+) {
 	fd, cleanBcache, dirtyBcache, df := setupFileDataTest(
 		t, int64(maxBlockSize), maxPtrsPerBlock)
 	data := make([]byte, fullDataLen)
@@ -449,7 +455,7 @@ func testFileDataWriteExtendExistingFile(t *testing.T, maxBlockSize Int64Offset,
 		cleanBcache)
 	de := DirEntry{
 		EntryInfo: EntryInfo{
-			Size: uint64(existingLen),
+			Size: uint64(existingLen), //nolint:gosec // G115: Test data with bounded values
 		},
 	}
 	expectedTopLevel := testFileDataLevelFromData(
@@ -471,7 +477,7 @@ func testFileDataWriteExtendExistingFile(t *testing.T, maxBlockSize Int64Offset,
 	}
 	testFileDataCheckWrite(
 		t, fd, dirtyBcache, df, data[existingLen:], existingLen,
-		topBlock, de, uint64(fullDataLen),
+		topBlock, de, uint64(fullDataLen), //nolint:gosec // G115: Test data with bounded values
 		nil, int64(dirtiedBytes), int64(extendedBytes), expectedTopLevel)
 
 	// Make sure we can read back the complete data.
@@ -502,7 +508,8 @@ func TestFileDataExtendExistingLevels(t *testing.T) {
 
 func testFileDataOverwriteExistingFile(t *testing.T, maxBlockSize Int64Offset,
 	maxPtrsPerBlock int, fullDataLen Int64Offset, holes []testFileDataHole,
-	startWrite, endWrite Int64Offset, finalHoles []testFileDataHole) {
+	startWrite, endWrite Int64Offset, finalHoles []testFileDataHole,
+) {
 	fd, cleanBcache, dirtyBcache, df := setupFileDataTest(
 		t, int64(maxBlockSize), maxPtrsPerBlock)
 	data := make([]byte, fullDataLen)
@@ -528,7 +535,7 @@ func testFileDataOverwriteExistingFile(t *testing.T, maxBlockSize Int64Offset,
 		t, fd, maxBlockSize, maxPtrsPerBlock, data, holes, cleanBcache)
 	de := DirEntry{
 		EntryInfo: EntryInfo{
-			Size: uint64(fullDataLen),
+			Size: uint64(fullDataLen), //nolint:gosec // G115: Test data with bounded values
 		},
 	}
 
@@ -575,7 +582,7 @@ func testFileDataOverwriteExistingFile(t *testing.T, maxBlockSize Int64Offset,
 	}
 	testFileDataCheckWrite(
 		t, fd, dirtyBcache, df, newData, startWrite,
-		topBlock, de, uint64(fullDataLen),
+		topBlock, de, uint64(fullDataLen), //nolint:gosec // G115: Test data with bounded values
 		nil, int64(dirtiedBytes), int64(extendedBytes), expectedTopLevel)
 
 	copy(data[startWrite:endWrite], newData)
@@ -618,12 +625,12 @@ func TestFileDataWriteHole(t *testing.T) {
 
 func testFileDataCheckTruncateExtend(t *testing.T, fd *FileData,
 	dirtyBcache DirtyBlockCache, df *DirtyFile, size uint64,
-	topBlock *FileBlock, oldDe DirEntry, expectedTopLevel testFileDataLevel) {
+	topBlock *FileBlock, oldDe DirEntry, expectedTopLevel testFileDataLevel,
+) {
 	// Do the extending truncate.
 	ctx := context.Background()
 
-	_, parentBlocks, _, _, _, _, err :=
-		fd.GetFileBlockAtOffset(ctx, topBlock, Int64Offset(size), BlockWrite)
+	_, parentBlocks, _, _, _, _, err := fd.GetFileBlockAtOffset(ctx, topBlock, Int64Offset(size), BlockWrite) //nolint:gosec // G115: Test data with bounded values
 	require.NoError(t, err)
 
 	newDe, dirtyPtrs, err := fd.TruncateExtend(
@@ -647,7 +654,8 @@ func testFileDataCheckTruncateExtend(t *testing.T, fd *FileData,
 
 func testFileDataTruncateExtendFile(t *testing.T, maxBlockSize Int64Offset,
 	maxPtrsPerBlock int, currDataLen Int64Offset, newSize uint64,
-	holes []testFileDataHole) {
+	holes []testFileDataHole,
+) {
 	fd, cleanBcache, dirtyBcache, df := setupFileDataTest(
 		t, int64(maxBlockSize), maxPtrsPerBlock)
 	data := make([]byte, currDataLen)
@@ -663,26 +671,26 @@ func testFileDataTruncateExtendFile(t *testing.T, maxBlockSize Int64Offset,
 		t, fd, maxBlockSize, maxPtrsPerBlock, data, holes, cleanBcache)
 	de := DirEntry{
 		EntryInfo: EntryInfo{
-			Size: uint64(currDataLen),
+			Size: uint64(currDataLen), //nolint:gosec // G115: Test data with bounded values
 		},
 	}
 
 	expectedTopLevel := testFileDataLevelFromData(
 		t, maxBlockSize, maxPtrsPerBlock, levels, currDataLen,
-		append(holes, testFileDataHole{currDataLen, Int64Offset(newSize)}),
-		currDataLen, Int64Offset(newSize), 0, true)
+		append(holes, testFileDataHole{currDataLen, Int64Offset(newSize)}), //nolint:gosec // G115: Test data with bounded values
+		currDataLen, Int64Offset(newSize), 0, true) //nolint:gosec // G115: Test data with bounded values
 
 	testFileDataCheckTruncateExtend(
 		t, fd, dirtyBcache, df, newSize, topBlock, de, expectedTopLevel)
 
-	newZeroes := make([]byte, Int64Offset(newSize)-currDataLen)
+	newZeroes := make([]byte, Int64Offset(newSize)-currDataLen) //nolint:gosec // G115: Test data with bounded values
 	data = append(data, newZeroes...)
 
 	// Make sure we can read back the complete data.
 	gotData := make([]byte, newSize)
 	nRead, err := fd.Read(context.Background(), gotData, 0)
 	require.NoError(t, err)
-	require.Equal(t, nRead, int64(newSize))
+	require.Equal(t, nRead, int64(newSize)) //nolint:gosec // G115: Test data with bounded values
 	require.True(t, bytes.Equal(data, gotData))
 }
 
@@ -711,7 +719,8 @@ func TestFileDataTruncateExtendLevel(t *testing.T) {
 func testFileDataCheckTruncateShrink(t *testing.T, fd *FileData,
 	dirtyBcache DirtyBlockCache, size uint64,
 	topBlock *FileBlock, oldDe DirEntry, expectedUnrefs []BlockInfo,
-	expectedDirtiedBytes int64, expectedTopLevel testFileDataLevel) {
+	expectedDirtiedBytes int64, expectedTopLevel testFileDataLevel,
+) {
 	// Do the extending truncate.
 	ctx := context.Background()
 
@@ -740,7 +749,8 @@ func testFileDataCheckTruncateShrink(t *testing.T, fd *FileData,
 }
 
 func testFileDataShrinkExistingFile(t *testing.T, maxBlockSize Int64Offset,
-	maxPtrsPerBlock int, existingLen int64, newSize uint64) {
+	maxPtrsPerBlock int, existingLen int64, newSize uint64,
+) {
 	fd, cleanBcache, dirtyBcache, _ := setupFileDataTest(
 		t, int64(maxBlockSize), maxPtrsPerBlock)
 	data := make([]byte, existingLen)
@@ -751,17 +761,17 @@ func testFileDataShrinkExistingFile(t *testing.T, maxBlockSize Int64Offset,
 		t, fd, maxBlockSize, maxPtrsPerBlock, data, nil, cleanBcache)
 	de := DirEntry{
 		EntryInfo: EntryInfo{
-			Size: uint64(existingLen),
+			Size: uint64(existingLen), //nolint:gosec // G115: Test data with bounded values
 		},
 	}
 	expectedTopLevel := testFileDataLevelFromData(
-		t, maxBlockSize, maxPtrsPerBlock, levels, Int64Offset(newSize), nil,
-		Int64Offset(newSize),
-		Int64Offset(int64(newSize)-existingLen), /*negative*/
+		t, maxBlockSize, maxPtrsPerBlock, levels, Int64Offset(newSize), nil, //nolint:gosec // G115: Test data with bounded values
+		Int64Offset(newSize),                    //nolint:gosec // G115: Test data with bounded values
+		Int64Offset(int64(newSize)-existingLen), /*negative*/ //nolint:gosec // G115: Test data with bounded values
 		0, false)
 
 	// Round up to find out the number of dirty bytes.
-	dirtiedBytes := int64(newSize) % int64(maxBlockSize)
+	dirtiedBytes := int64(newSize) % int64(maxBlockSize) //nolint:gosec // G115: Test data with bounded values
 	testFileDataCheckTruncateShrink(
 		t, fd, dirtyBcache, newSize, topBlock, de, nil, dirtiedBytes,
 		expectedTopLevel)
@@ -770,7 +780,7 @@ func testFileDataShrinkExistingFile(t *testing.T, maxBlockSize Int64Offset,
 	gotData := make([]byte, newSize)
 	nRead, err := fd.Read(context.Background(), gotData, 0)
 	require.NoError(t, err)
-	require.Equal(t, nRead, int64(newSize))
+	require.Equal(t, nRead, int64(newSize)) //nolint:gosec // G115: Test data with bounded values
 	require.True(t, bytes.Equal(data[:newSize], gotData))
 }
 
@@ -798,7 +808,8 @@ func TestFileDataTruncateShrink(t *testing.T) {
 
 func testFileDataWriteExtendExistingFileWithGap(t *testing.T,
 	maxBlockSize Int64Offset, maxPtrsPerBlock int, existingLen,
-	fullDataLen, startWrite Int64Offset, finalHoles []testFileDataHole) {
+	fullDataLen, startWrite Int64Offset, finalHoles []testFileDataHole,
+) {
 	fd, cleanBcache, dirtyBcache, df := setupFileDataTest(
 		t, int64(maxBlockSize), maxPtrsPerBlock)
 	data := make([]byte, fullDataLen)
@@ -812,7 +823,7 @@ func testFileDataWriteExtendExistingFileWithGap(t *testing.T,
 		cleanBcache)
 	de := DirEntry{
 		EntryInfo: EntryInfo{
-			Size: uint64(existingLen),
+			Size: uint64(existingLen), //nolint:gosec // G115: Test data with bounded values
 		},
 	}
 	// The write starts at `existingLen`, instead of `startWrite`,
@@ -841,7 +852,7 @@ func testFileDataWriteExtendExistingFileWithGap(t *testing.T,
 	}
 	testFileDataCheckWrite(
 		t, fd, dirtyBcache, df, data[startWrite:], startWrite,
-		topBlock, de, uint64(fullDataLen),
+		topBlock, de, uint64(fullDataLen), //nolint:gosec // G115: Test data with bounded values
 		nil, int64(dirtiedBytes), int64(extendedBytes), expectedTopLevel)
 
 	// Make sure we can read back the complete data.

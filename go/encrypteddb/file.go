@@ -1,10 +1,10 @@
 package encrypteddb
 
 import (
+	"context"
 	"os"
 
 	"github.com/keybase/client/go/libkb"
-	"golang.org/x/net/context"
 )
 
 type EncryptedFile struct {
@@ -38,7 +38,7 @@ func (f *EncryptedFile) Put(ctx context.Context, data interface{}) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(f.path, b, 0644)
+	return os.WriteFile(f.path, b, 0o600)
 }
 
 func (f *EncryptedFile) Remove(ctx context.Context) error {

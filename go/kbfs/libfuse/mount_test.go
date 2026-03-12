@@ -9,6 +9,7 @@ package libfuse
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,6 +27,7 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"bazil.org/fuse/fs/fstestutil"
+
 	"github.com/keybase/client/go/kbfs/ioutil"
 	"github.com/keybase/client/go/kbfs/libcontext"
 	"github.com/keybase/client/go/kbfs/libfs"
@@ -37,12 +39,12 @@ import (
 	"github.com/keybase/client/go/protocol/keybase1"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 	"golang.org/x/sys/unix"
 )
 
 func makeFS(ctx context.Context, t testing.TB, config *libkbfs.ConfigLocal) (
-	*fstestutil.Mount, *FS, func()) {
+	*fstestutil.Mount, *FS, func(),
+) {
 	log := logger.NewTestLogger(t)
 	debugLog := log.CloneWithAddedDepth(1)
 	fuse.Debug = MakeFuseDebugFn(debugLog, false /* superVerbose */)
@@ -116,7 +118,8 @@ func mustBeDir(fi os.FileInfo) error {
 }
 
 func checkDirNoTestError(
-	t testing.TB, dir string, want map[string]fileInfoCheck) error {
+	t testing.TB, dir string, want map[string]fileInfoCheck,
+) error {
 	// make a copy of want, to be safe
 	{
 		tmp := make(map[string]fileInfoCheck, len(want))
@@ -492,7 +495,8 @@ type kbserviceBrokenIdentify struct {
 func (k kbserviceBrokenIdentify) Identify(
 	ctx context.Context, assertion, reason string,
 	_ keybase1.OfflineAvailability) (
-	kbname.NormalizedUsername, keybase1.UserOrTeamID, error) {
+	kbname.NormalizedUsername, keybase1.UserOrTeamID, error,
+) {
 	return kbname.NormalizedUsername(""), keybase1.UserOrTeamID(""),
 		errors.New("Fake identify error")
 }
@@ -516,7 +520,7 @@ func TestReaddirPublicFailedIdentifyViaOSCall(t *testing.T) {
 
 	// Create a shared folder via u2.
 	p := path.Join(mnt2.Dir, PrivateName, "u1,u2", "mydir")
-	if err := ioutil.Mkdir(p, 0755); err != nil {
+	if err := ioutil.Mkdir(p, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -526,19 +530,19 @@ func TestReaddirPublicFailedIdentifyViaOSCall(t *testing.T) {
 	})
 
 	// A private non-existing home folder, with write permissions, fails.
-	err := exec.Command("ls", path.Join(mnt1.Dir, PublicName, "u1")).Run()
+	err := exec.Command("ls", path.Join(mnt1.Dir, PublicName, "u1")).Run() //nolint:gosec // G204: Test command with known args
 	if _, ok := err.(*exec.ExitError); !ok {
 		t.Fatalf("No error as expected on broken user identify: %v", err)
 	}
 
 	// A private existing shared folder, with write permissions, fails.
-	err = exec.Command("ls", path.Join(mnt1.Dir, PrivateName, "u1,u2")).Run()
+	err = exec.Command("ls", path.Join(mnt1.Dir, PrivateName, "u1,u2")).Run() //nolint:gosec // G204: Test command with known args
 	if _, ok := err.(*exec.ExitError); !ok {
 		t.Fatalf("No error as expected on broken user identify: %v", err)
 	}
 
 	// A public, non-existing folder, without write permissions, fails.
-	err = exec.Command("ls", path.Join(mnt1.Dir, PublicName, "u2")).Run()
+	err = exec.Command("ls", path.Join(mnt1.Dir, PublicName, "u2")).Run() //nolint:gosec // G204: Test command with known args
 	if _, ok := err.(*exec.ExitError); !ok {
 		t.Fatalf("No error as expected on broken user identify: %v", err)
 	}
@@ -576,11 +580,12 @@ func syncAndClose(t *testing.T, f *os.File) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.Close()
+	err = f.Close()
+	require.NoError(t, err)
 }
 
 func syncFilename(t *testing.T, name string) {
-	f, err := os.OpenFile(name, os.O_WRONLY, 0644)
+	f, err := os.OpenFile(name, os.O_WRONLY, 0o644) //nolint:gosec // G302: Test file, doesn't need restrictive permissions
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -607,7 +612,7 @@ func TestReaddirMyFolderWithFiles(t *testing.T) {
 		}
 		p := path.Join(mnt.Dir, PrivateName, "jdoe", filename)
 		if err := ioutil.WriteFile(
-			p, []byte("data for "+filename), 0644); err != nil {
+			p, []byte("data for "+filename), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		syncFilename(t, p)
@@ -616,7 +621,7 @@ func TestReaddirMyFolderWithFiles(t *testing.T) {
 }
 
 func testOneCreateThenRead(t *testing.T, p string) {
-	f, err := os.Create(p)
+	f, err := os.Create(p) //nolint:gosec // G304: Test file path //nolint:gosec // G304: Test file path from test setup
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -680,7 +685,7 @@ func TestReadUnflushed(t *testing.T) {
 	defer cancelFn()
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
-	f, err := os.Create(p)
+	f, err := os.Create(p) //nolint:gosec // G304: Test file path //nolint:gosec // G304: Test file path from test setup
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -714,7 +719,7 @@ func TestMountAgain(t *testing.T) {
 		defer cancelFn()
 
 		p := path.Join(mnt.Dir, PrivateName, "jdoe", filename)
-		if err := ioutil.WriteFile(p, []byte(input), 0644); err != nil {
+		if err := ioutil.WriteFile(p, []byte(input), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		syncFilename(t, p)
@@ -745,7 +750,7 @@ func TestCreateExecutable(t *testing.T) {
 	defer cancelFn()
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
-	if err := ioutil.WriteFile(p, []byte("fake binary"), 0755); err != nil {
+	if err := ioutil.WriteFile(p, []byte("fake binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -768,7 +773,7 @@ func TestMkdir(t *testing.T) {
 	defer cancelFn()
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "mydir")
-	if err := ioutil.Mkdir(p, 0755); err != nil {
+	if err := ioutil.Mkdir(p, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	fi, err := ioutil.Lstat(p)
@@ -793,15 +798,15 @@ func TestMkdirAndCreateDeep(t *testing.T) {
 		defer cancelFn()
 
 		one := path.Join(mnt.Dir, PrivateName, "jdoe", "one")
-		if err := ioutil.Mkdir(one, 0755); err != nil {
+		if err := ioutil.Mkdir(one, 0o755); err != nil {
 			t.Fatal(err)
 		}
 		two := path.Join(one, "two")
-		if err := ioutil.Mkdir(two, 0755); err != nil {
+		if err := ioutil.Mkdir(two, 0o755); err != nil {
 			t.Fatal(err)
 		}
 		three := path.Join(two, "three")
-		if err := ioutil.WriteFile(three, []byte(input), 0644); err != nil {
+		if err := ioutil.WriteFile(three, []byte(input), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		syncFilename(t, three)
@@ -870,7 +875,7 @@ func TestRename(t *testing.T) {
 	p1 := path.Join(mnt.Dir, PrivateName, "jdoe", "old")
 	p2 := path.Join(mnt.Dir, PrivateName, "jdoe", "new")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p1, []byte(input), 0644); err != nil {
+	if err := ioutil.WriteFile(p1, []byte(input), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p1)
@@ -910,11 +915,11 @@ func TestRenameOverwrite(t *testing.T) {
 	p1 := path.Join(mnt.Dir, PrivateName, "jdoe", "old")
 	p2 := path.Join(mnt.Dir, PrivateName, "jdoe", "new")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p1, []byte(input), 0644); err != nil {
+	if err := ioutil.WriteFile(p1, []byte(input), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p1)
-	if err := ioutil.WriteFile(p2, []byte("loser\n"), 0644); err != nil {
+	if err := ioutil.WriteFile(p2, []byte("loser\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p2)
@@ -949,16 +954,16 @@ func TestRenameCrossDir(t *testing.T) {
 	defer mnt.Close()
 	defer cancelFn()
 
-	if err := ioutil.Mkdir(path.Join(mnt.Dir, PrivateName, "jdoe", "one"), 0755); err != nil {
+	if err := ioutil.Mkdir(path.Join(mnt.Dir, PrivateName, "jdoe", "one"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.Mkdir(path.Join(mnt.Dir, PrivateName, "jdoe", "two"), 0755); err != nil {
+	if err := ioutil.Mkdir(path.Join(mnt.Dir, PrivateName, "jdoe", "two"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	p1 := path.Join(mnt.Dir, PrivateName, "jdoe", "one", "old")
 	p2 := path.Join(mnt.Dir, PrivateName, "jdoe", "two", "new")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p1, []byte(input), 0644); err != nil {
+	if err := ioutil.WriteFile(p1, []byte(input), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p1)
@@ -997,7 +1002,7 @@ func TestRenameCrossFolder(t *testing.T) {
 	p1 := path.Join(mnt.Dir, PrivateName, "jdoe", "old")
 	p2 := path.Join(mnt.Dir, PrivateName, "wsmith,jdoe", "new")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p1, []byte(input), 0644); err != nil {
+	if err := ioutil.WriteFile(p1, []byte(input), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p1)
@@ -1053,7 +1058,7 @@ func TestWriteThenRename(t *testing.T) {
 	p1 := path.Join(mnt.Dir, PrivateName, "jdoe", "old")
 	p2 := path.Join(mnt.Dir, PrivateName, "jdoe", "new")
 
-	f, err := os.Create(p1)
+	f, err := os.Create(p1) //nolint:gosec // G304: Test file path from test setup
 	if err != nil {
 		t.Fatalf("cannot create file: %v", err)
 	}
@@ -1105,16 +1110,16 @@ func TestWriteThenRenameCrossDir(t *testing.T) {
 	defer mnt.Close()
 	defer cancelFn()
 
-	if err := ioutil.Mkdir(path.Join(mnt.Dir, PrivateName, "jdoe", "one"), 0755); err != nil {
+	if err := ioutil.Mkdir(path.Join(mnt.Dir, PrivateName, "jdoe", "one"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.Mkdir(path.Join(mnt.Dir, PrivateName, "jdoe", "two"), 0755); err != nil {
+	if err := ioutil.Mkdir(path.Join(mnt.Dir, PrivateName, "jdoe", "two"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	p1 := path.Join(mnt.Dir, PrivateName, "jdoe", "one", "old")
 	p2 := path.Join(mnt.Dir, PrivateName, "jdoe", "two", "new")
 
-	f, err := os.Create(p1)
+	f, err := os.Create(p1) //nolint:gosec // G304: Test file path from test setup
 	if err != nil {
 		t.Fatalf("cannot create file: %v", err)
 	}
@@ -1168,7 +1173,7 @@ func TestRemoveFile(t *testing.T) {
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p, []byte(input), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -1194,7 +1199,7 @@ func TestRemoveTLF(t *testing.T) {
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe,pikachu")
-	f1, err := os.Create(path.Join(p, "f"))
+	f1, err := os.Create(path.Join(p, "f")) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1248,7 +1253,7 @@ func TestRemoveDir(t *testing.T) {
 	defer cancelFn()
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "mydir")
-	if err := ioutil.Mkdir(p, 0755); err != nil {
+	if err := ioutil.Mkdir(p, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1273,11 +1278,11 @@ func TestRemoveDirNotEmpty(t *testing.T) {
 	defer cancelFn()
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "mydir")
-	if err := ioutil.Mkdir(p, 0755); err != nil {
+	if err := ioutil.Mkdir(p, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	pFile := path.Join(p, "myfile")
-	if err := ioutil.WriteFile(pFile, []byte("i'm important"), 0644); err != nil {
+	if err := ioutil.WriteFile(pFile, []byte("i'm important"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, pFile)
@@ -1302,7 +1307,7 @@ func TestRemoveFileWhileOpenSetEx(t *testing.T) {
 	defer cancelFn()
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
-	f, err := os.Create(p)
+	f, err := os.Create(p) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatalf("cannot create file: %v", err)
 	}
@@ -1314,7 +1319,7 @@ func TestRemoveFileWhileOpenSetEx(t *testing.T) {
 	}
 
 	// this must not resurrect a deleted file
-	if err := f.Chmod(0755); err != nil {
+	if err := f.Chmod(0o755); err != nil {
 		t.Fatalf("cannot setex: %v", err)
 	}
 
@@ -1347,7 +1352,7 @@ func TestRemoveFileWhileOpenWritingInTLFRoot(t *testing.T) {
 	defer cancelFn()
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
-	f, err := os.Create(p)
+	f, err := os.Create(p) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatalf("cannot create file: %v", err)
 	}
@@ -1383,12 +1388,12 @@ func TestRemoveFileWhileOpenWritingInSubDir(t *testing.T) {
 	defer cancelFn()
 
 	dirPath := path.Join(mnt.Dir, PrivateName, "jdoe", "dir")
-	if err := os.Mkdir(dirPath, 0700); err != nil {
+	if err := os.Mkdir(dirPath, 0o700); err != nil {
 		t.Fatal(err)
 	}
 
 	p := path.Join(dirPath, "myfile")
-	f, err := os.Create(p)
+	f, err := os.Create(p) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatalf("cannot create file: %v", err)
 	}
@@ -1424,12 +1429,12 @@ func TestRenameOverFileWhileOpenWritingInDifferentDir(t *testing.T) {
 	defer cancelFn()
 
 	dirPath := path.Join(mnt.Dir, PrivateName, "jdoe", "dir")
-	if err := os.Mkdir(dirPath, 0700); err != nil {
+	if err := os.Mkdir(dirPath, 0o700); err != nil {
 		t.Fatal(err)
 	}
 
 	p1 := path.Join(dirPath, "myfile")
-	f1, err := os.Create(p1)
+	f1, err := os.Create(p1) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatalf("cannot create file: %v", err)
 	}
@@ -1437,7 +1442,7 @@ func TestRenameOverFileWhileOpenWritingInDifferentDir(t *testing.T) {
 	defer func() { syncAndClose(t, f1) }()
 
 	p2 := path.Join(mnt.Dir, PrivateName, "jdoe", "mynewfile")
-	f2, err := os.Create(p2)
+	f2, err := os.Create(p2) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatalf("cannot create file: %v", err)
 	}
@@ -1476,12 +1481,12 @@ func TestRenameOverFileWhileOpenWritingInSameSubDir(t *testing.T) {
 	defer cancelFn()
 
 	dirPath := path.Join(mnt.Dir, PrivateName, "jdoe", "dir")
-	if err := os.Mkdir(dirPath, 0700); err != nil {
+	if err := os.Mkdir(dirPath, 0o700); err != nil {
 		t.Fatal(err)
 	}
 
 	p1 := path.Join(dirPath, "myfile")
-	f1, err := os.Create(p1)
+	f1, err := os.Create(p1) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatalf("cannot create file: %v", err)
 	}
@@ -1489,7 +1494,7 @@ func TestRenameOverFileWhileOpenWritingInSameSubDir(t *testing.T) {
 	defer func() { syncAndClose(t, f1) }()
 
 	p2 := path.Join(dirPath, "mynewfile")
-	f2, err := os.Create(p2)
+	f2, err := os.Create(p2) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatalf("cannot create file: %v", err)
 	}
@@ -1529,12 +1534,12 @@ func TestRemoveFileWhileOpenReading(t *testing.T) {
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p, []byte(input), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
 
-	f, err := os.Open(p)
+	f, err := os.Open(p) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatalf("cannot open file: %v", err)
 	}
@@ -1585,12 +1590,12 @@ func TestRemoveFileWhileOpenReadingAcrossMounts(t *testing.T) {
 
 	p1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "myfile")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p1, []byte(input), 0644); err != nil {
+	if err := ioutil.WriteFile(p1, []byte(input), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p1)
 
-	f, err := os.Open(p1)
+	f, err := os.Open(p1) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatalf("cannot open file: %v", err)
 	}
@@ -1648,19 +1653,19 @@ func TestRenameOverFileWhileOpenReadingAcrossMounts(t *testing.T) {
 
 	p1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "myfile")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p1, []byte(input), 0644); err != nil {
+	if err := ioutil.WriteFile(p1, []byte(input), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p1)
 
 	p1Other := path.Join(mnt1.Dir, PrivateName, "user1,user2", "other")
 	const inputOther = "hello, other\n"
-	if err := ioutil.WriteFile(p1Other, []byte(inputOther), 0644); err != nil {
+	if err := ioutil.WriteFile(p1Other, []byte(inputOther), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p1Other)
 
-	f, err := os.Open(p1)
+	f, err := os.Open(p1) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatalf("cannot open file: %v", err)
 	}
@@ -1718,7 +1723,7 @@ func TestTruncateGrow(t *testing.T) {
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p, []byte(input), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -1757,7 +1762,7 @@ func TestTruncateShrink(t *testing.T) {
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p, []byte(input), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -1796,12 +1801,12 @@ func TestChmodExec(t *testing.T) {
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p, []byte(input), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
 
-	if err := os.Chmod(p, 0744); err != nil {
+	if err := os.Chmod(p, 0o744); err != nil { //nolint:gosec // G302: Test file permissions
 		t.Fatal(err)
 	}
 
@@ -1825,12 +1830,12 @@ func TestChmodNonExec(t *testing.T) {
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p, []byte(input), 0755); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
 
-	if err := os.Chmod(p, 0655); err != nil {
+	if err := os.Chmod(p, 0o655); err != nil { //nolint:gosec // G302: Test file permissions
 		t.Fatal(err)
 	}
 
@@ -1854,7 +1859,7 @@ func TestChownFileIgnored(t *testing.T) {
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p, []byte(input), 0755); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -1890,11 +1895,11 @@ func TestChmodDirIgnored(t *testing.T) {
 	defer cancelFn()
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "mydir")
-	if err := ioutil.Mkdir(p, 0755); err != nil {
+	if err := ioutil.Mkdir(p, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := os.Chmod(p, 0655); err != nil {
+	if err := os.Chmod(p, 0o655); err != nil { //nolint:gosec // G302: Test file permissions
 		t.Fatalf("Expecting the dir chmod to get swallowed silently, "+
 			"but got: %v", err)
 	}
@@ -1910,7 +1915,7 @@ func TestChownDirIgnored(t *testing.T) {
 	defer cancelFn()
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "mydir")
-	if err := ioutil.Mkdir(p, 0755); err != nil {
+	if err := ioutil.Mkdir(p, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1946,7 +1951,7 @@ func TestSetattrFileMtime(t *testing.T) {
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p, []byte(input), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -1979,7 +1984,7 @@ func TestSetattrFileMtimeAfterWrite(t *testing.T) {
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p, []byte(input), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -2031,7 +2036,7 @@ func TestSetattrFileMtimeNow(t *testing.T) {
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
 	const input = "hello, world\n"
-	if err := ioutil.WriteFile(p, []byte(input), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -2072,7 +2077,7 @@ func TestSetattrDirMtime(t *testing.T) {
 	defer cancelFn()
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "mydir")
-	if err := ioutil.Mkdir(p, 0755); err != nil {
+	if err := ioutil.Mkdir(p, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -2103,7 +2108,7 @@ func TestSetattrDirMtimeNow(t *testing.T) {
 	defer cancelFn()
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "mydir")
-	if err := ioutil.Mkdir(p, 0755); err != nil {
+	if err := ioutil.Mkdir(p, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -2143,7 +2148,7 @@ func TestFsync(t *testing.T) {
 	defer cancelFn()
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
-	f, err := os.Create(p)
+	f, err := os.Create(p) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2178,7 +2183,7 @@ func TestReaddirMyPublic(t *testing.T) {
 	for filename := range files {
 		p := path.Join(mnt.Dir, PublicName, "jdoe", filename)
 		if err := ioutil.WriteFile(
-			p, []byte("data for "+filename), 0644); err != nil {
+			p, []byte("data for "+filename), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		syncFilename(t, p)
@@ -2200,7 +2205,7 @@ func TestReaddirOtherFolderAsReader(t *testing.T) {
 		// cause the folder to exist
 		p := path.Join(mnt.Dir, PrivateName, "jdoe#wsmith", "myfile")
 		if err := ioutil.WriteFile(
-			p, []byte("data for myfile"), 0644); err != nil {
+			p, []byte("data for myfile"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		syncFilename(t, p)
@@ -2263,7 +2268,7 @@ func TestStatOtherFolder(t *testing.T) {
 		// cause the folder to exist
 		p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
 		if err := ioutil.WriteFile(
-			p, []byte("data for myfile"), 0644); err != nil {
+			p, []byte("data for myfile"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		syncFilename(t, p)
@@ -2321,7 +2326,7 @@ func TestStatOtherFolderPublic(t *testing.T) {
 		// cause the folder to exist
 		p := path.Join(mnt.Dir, PublicName, "jdoe", "myfile")
 		if err := ioutil.WriteFile(
-			p, []byte("data for myfile"), 0644); err != nil {
+			p, []byte("data for myfile"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		syncFilename(t, p)
@@ -2357,7 +2362,7 @@ func TestReadPublicFile(t *testing.T) {
 
 		// cause the folder to exist
 		p := path.Join(mnt.Dir, PublicName, "jdoe", "myfile")
-		if err := ioutil.WriteFile(p, []byte(input), 0644); err != nil {
+		if err := ioutil.WriteFile(p, []byte(input), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		syncFilename(t, p)
@@ -2391,7 +2396,7 @@ func TestReaddirOtherFolderPublicAsAnyone(t *testing.T) {
 		// cause the folder to exist
 		p := path.Join(mnt.Dir, PublicName, "jdoe", "myfile")
 		if err := ioutil.WriteFile(
-			p, []byte("data for myfile"), 0644); err != nil {
+			p, []byte("data for myfile"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		syncFilename(t, p)
@@ -2437,7 +2442,7 @@ func TestReaddirOtherFolderAsAnyone(t *testing.T) {
 		// cause the folder to exist
 		p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
 		if err := ioutil.WriteFile(
-			p, []byte("data for myfile"), 0644); err != nil {
+			p, []byte("data for myfile"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		syncFilename(t, p)
@@ -2499,7 +2504,7 @@ func TestInvalidateDataOnWrite(t *testing.T) {
 
 	const input1 = "input round one"
 	p := path.Join(mnt1.Dir, PrivateName, "jdoe", "myfile")
-	if err := ioutil.WriteFile(p, []byte(input1), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input1), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -2524,7 +2529,7 @@ func TestInvalidateDataOnWrite(t *testing.T) {
 	}
 
 	const input2 = "second round of content"
-	if err := ioutil.WriteFile(p, []byte(input2), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input2), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -2563,7 +2568,7 @@ func TestInvalidatePublicDataOnWrite(t *testing.T) {
 
 	const input1 = "input round one"
 	p := path.Join(mnt1.Dir, PublicName, "jdoe", "myfile")
-	if err := ioutil.WriteFile(p, []byte(input1), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input1), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -2588,7 +2593,7 @@ func TestInvalidatePublicDataOnWrite(t *testing.T) {
 	}
 
 	const input2 = "second round of content"
-	if err := ioutil.WriteFile(p, []byte(input2), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input2), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -2627,7 +2632,7 @@ func TestInvalidateDataOnTruncate(t *testing.T) {
 
 	const input1 = "input round one"
 	p := path.Join(mnt1.Dir, PrivateName, "jdoe", "myfile")
-	if err := ioutil.WriteFile(p, []byte(input1), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input1), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -2686,7 +2691,7 @@ func TestInvalidateDataOnLocalWrite(t *testing.T) {
 
 	const input1 = "input round one"
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
-	if err := ioutil.WriteFile(p, []byte(input1), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input1), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -2758,7 +2763,7 @@ func TestInvalidateEntryOnDelete(t *testing.T) {
 
 	const input1 = "input round one"
 	p := path.Join(mnt1.Dir, PrivateName, "jdoe", "myfile")
-	if err := ioutil.WriteFile(p, []byte(input1), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(input1), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -2785,7 +2790,8 @@ func TestInvalidateEntryOnDelete(t *testing.T) {
 }
 
 func testForErrorText(t *testing.T, path string, expectedErr error,
-	fileType string) {
+	fileType string,
+) {
 	buf, err := ioutil.ReadFile(path)
 	if err != nil {
 		t.Fatalf("Bad error reading %s error file: %v", path, err)
@@ -2844,12 +2850,12 @@ func TestErrorFile(t *testing.T) {
 	// Create public and private jdoe TLFs.
 	const b = "hello world"
 	p := path.Join(mnt.Dir, PublicName, "jdoe", "myfile")
-	if err := ioutil.WriteFile(p, []byte(b), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(b), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
 	p = path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
-	if err := ioutil.WriteFile(p, []byte(b), 0644); err != nil {
+	if err := ioutil.WriteFile(p, []byte(b), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -2885,16 +2891,16 @@ func TestInvalidateAcrossMounts(t *testing.T) {
 	// user 1 writes one file to root and one to a sub directory
 	const input1 = "input round one"
 	myfile1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "myfile")
-	if err := ioutil.WriteFile(myfile1, []byte(input1), 0644); err != nil {
+	if err := ioutil.WriteFile(myfile1, []byte(input1), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, myfile1)
 	mydir1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "mydir")
-	if err := ioutil.Mkdir(mydir1, 0755); err != nil {
+	if err := ioutil.Mkdir(mydir1, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	mydira1 := path.Join(mydir1, "a")
-	if err := ioutil.WriteFile(mydira1, []byte(input1), 0644); err != nil {
+	if err := ioutil.WriteFile(mydira1, []byte(input1), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, mydira1)
@@ -2979,7 +2985,7 @@ func TestInvalidateAppendAcrossMounts(t *testing.T) {
 	// user 1 writes one file to root and one to a sub directory
 	const input1 = "input round one"
 	myfile1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "myfile")
-	if err := ioutil.WriteFile(myfile1, []byte(input1), 0644); err != nil {
+	if err := ioutil.WriteFile(myfile1, []byte(input1), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, myfile1)
@@ -3051,19 +3057,19 @@ func TestInvalidateRenameToUncachedDir(t *testing.T) {
 	// user 1 writes one file to root and one to a sub directory
 	const input1 = "input round one"
 	myfile1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "myfile")
-	if err := ioutil.WriteFile(myfile1, []byte(input1), 0644); err != nil {
+	if err := ioutil.WriteFile(myfile1, []byte(input1), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, myfile1)
 	mydir1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "mydir")
-	if err := ioutil.Mkdir(mydir1, 0755); err != nil {
+	if err := ioutil.Mkdir(mydir1, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	mydirfile1 := path.Join(mydir1, "myfile")
 
 	syncFolderToServer(t, "user1,user2", fs2)
 	myfile2 := path.Join(mnt2.Dir, PrivateName, "user1,user2", "myfile")
-	f, err := os.OpenFile(myfile2, os.O_RDWR, 0644)
+	f, err := os.OpenFile(myfile2, os.O_RDWR, 0o644) //nolint:gosec // G302: Test file permissions
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3125,7 +3131,7 @@ func TestStatusFile(t *testing.T) {
 
 	jdoe := libkbfs.GetRootNodeOrBust(ctx, t, config, "jdoe", tlf.Public)
 	mydir := path.Join(mnt.Dir, PublicName, "jdoe", "mydir")
-	err := ioutil.Mkdir(mydir, 0755)
+	err := ioutil.Mkdir(mydir, 0o755)
 	require.NoError(t, err)
 
 	ops := config.KBFSOps()
@@ -3199,17 +3205,17 @@ func TestUnstageFile(t *testing.T) {
 	// user1 writes a file and makes a few directories
 	const input1 = "input round one"
 	myfile1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "myfile")
-	if err := ioutil.WriteFile(myfile1, []byte(input1), 0644); err != nil {
+	if err := ioutil.WriteFile(myfile1, []byte(input1), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, myfile1)
 	mydir1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "mydir")
-	if err := ioutil.Mkdir(mydir1, 0755); err != nil {
+	if err := ioutil.Mkdir(mydir1, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	mysubdir1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "mydir",
 		"mysubdir")
-	if err := ioutil.Mkdir(mysubdir1, 0755); err != nil {
+	if err := ioutil.Mkdir(mysubdir1, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	syncAll(t, "user1,user2", tlf.Private, fs1)
@@ -3217,17 +3223,17 @@ func TestUnstageFile(t *testing.T) {
 	// user2 does similar
 	const input2 = "input round two"
 	myfile2 := path.Join(mnt2.Dir, PrivateName, "user1,user2", "myfile")
-	if err := ioutil.WriteFile(myfile2, []byte(input2), 0644); err != nil {
+	if err := ioutil.WriteFile(myfile2, []byte(input2), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, myfile2)
 	mydir2 := path.Join(mnt2.Dir, PrivateName, "user1,user2", "mydir")
-	if err := ioutil.Mkdir(mydir2, 0755); err != nil {
+	if err := ioutil.Mkdir(mydir2, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	myothersubdir2 := path.Join(mnt2.Dir, PrivateName, "user1,user2", "mydir",
 		"myothersubdir")
-	if err := ioutil.Mkdir(myothersubdir2, 0755); err != nil {
+	if err := ioutil.Mkdir(myothersubdir2, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	syncAll(t, "user1,user2", tlf.Private, fs2)
@@ -3243,7 +3249,7 @@ func TestUnstageFile(t *testing.T) {
 	// now unstage user 2 and they should see the same stuff
 	unstageFile2 := path.Join(mnt2.Dir, PrivateName, "user1,user2",
 		libfs.UnstageFileName)
-	if err := ioutil.WriteFile(unstageFile2, []byte{1}, 0222); err != nil {
+	if err := ioutil.WriteFile(unstageFile2, []byte{1}, 0o222); err != nil {
 		t.Fatal(err)
 	}
 
@@ -3298,12 +3304,12 @@ func TestSimpleCRNoConflict(t *testing.T) {
 	// Please create TLF here first
 	d1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "D")
 	d2 := path.Join(mnt2.Dir, PrivateName, "user1,user2", "E")
-	if err := ioutil.Mkdir(d1, 0755); err != nil {
+	if err := ioutil.Mkdir(d1, 0o755); err != nil {
 		t.Fatal("Mkdir failed")
 	}
 	syncAll(t, "user1,user2", tlf.Private, fs1)
 	syncFolderToServer(t, "user1,user2", fs2)
-	if err := ioutil.Mkdir(d2, 0755); err != nil {
+	if err := ioutil.Mkdir(d2, 0o755); err != nil {
 		t.Fatal("Mkdir failed")
 	}
 	syncAll(t, "user1,user2", tlf.Private, fs2)
@@ -3313,23 +3319,23 @@ func TestSimpleCRNoConflict(t *testing.T) {
 	disableUpdatesFile := path.Join(mnt2.Dir, PrivateName, "user1,user2",
 		libfs.DisableUpdatesFileName)
 	if err := ioutil.WriteFile(disableUpdatesFile,
-		[]byte("off"), 0644); err != nil {
+		[]byte("off"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	// user1 writes a file and makes a few directories
 	const input1 = "input round one"
 	file1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "file1")
-	if err := ioutil.WriteFile(file1, []byte(input1), 0644); err != nil {
+	if err := ioutil.WriteFile(file1, []byte(input1), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, file1)
 	dir1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "dir")
-	if err := ioutil.Mkdir(dir1, 0755); err != nil {
+	if err := ioutil.Mkdir(dir1, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	subdir1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "dir", "subdir1")
-	if err := ioutil.Mkdir(subdir1, 0755); err != nil {
+	if err := ioutil.Mkdir(subdir1, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	syncAll(t, "user1,user2", tlf.Private, fs1)
@@ -3337,16 +3343,16 @@ func TestSimpleCRNoConflict(t *testing.T) {
 	// user2 does similar
 	const input2 = "input round two two two"
 	file2 := path.Join(mnt2.Dir, PrivateName, "user1,user2", "file2")
-	if err := ioutil.WriteFile(file2, []byte(input2), 0644); err != nil {
+	if err := ioutil.WriteFile(file2, []byte(input2), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, file2)
 	dir2 := path.Join(mnt2.Dir, PrivateName, "user1,user2", "dir")
-	if err := ioutil.Mkdir(dir2, 0755); err != nil {
+	if err := ioutil.Mkdir(dir2, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	subdir2 := path.Join(mnt2.Dir, PrivateName, "user1,user2", "dir", "subdir2")
-	if err := ioutil.Mkdir(subdir2, 0755); err != nil {
+	if err := ioutil.Mkdir(subdir2, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	syncAll(t, "user1,user2", tlf.Private, fs2)
@@ -3379,7 +3385,7 @@ func TestSimpleCRNoConflict(t *testing.T) {
 	enableUpdatesFile := path.Join(mnt2.Dir, PrivateName, "user1,user2",
 		libfs.EnableUpdatesFileName)
 	if err := ioutil.WriteFile(enableUpdatesFile,
-		[]byte("on"), 0644); err != nil {
+		[]byte("on"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -3482,11 +3488,11 @@ func TestSimpleCRConflictOnOpenFiles(t *testing.T) {
 	// both users should mutate the dir first
 	d1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "D")
 	d2 := path.Join(mnt2.Dir, PrivateName, "user1,user2", "E")
-	if err := ioutil.Mkdir(d1, 0755); err != nil {
+	if err := ioutil.Mkdir(d1, 0o755); err != nil {
 		t.Fatal("Mkdir failed")
 	}
 	syncFolderToServer(t, "user1,user2", fs2)
-	if err := ioutil.Mkdir(d2, 0755); err != nil {
+	if err := ioutil.Mkdir(d2, 0o755); err != nil {
 		t.Fatal("Mkdir failed")
 	}
 	syncFolderToServer(t, "user1,user2", fs1)
@@ -3495,13 +3501,13 @@ func TestSimpleCRConflictOnOpenFiles(t *testing.T) {
 	disableUpdatesFile := path.Join(mnt2.Dir, PrivateName, "user1,user2",
 		libfs.DisableUpdatesFileName)
 	if err := ioutil.WriteFile(disableUpdatesFile,
-		[]byte("off"), 0644); err != nil {
+		[]byte("off"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	// user1 creates and writes a file
 	file1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "f")
-	f1, err := os.Create(file1)
+	f1, err := os.Create(file1) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3520,7 +3526,7 @@ func TestSimpleCRConflictOnOpenFiles(t *testing.T) {
 
 	// user2 creates and writes a file
 	file2 := path.Join(mnt2.Dir, PrivateName, "user1,user2", "f")
-	f2, err := os.Create(file2)
+	f2, err := os.Create(file2) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3541,7 +3547,7 @@ func TestSimpleCRConflictOnOpenFiles(t *testing.T) {
 	enableUpdatesFile := path.Join(mnt2.Dir, PrivateName, "user1,user2",
 		libfs.EnableUpdatesFileName)
 	if err := ioutil.WriteFile(enableUpdatesFile,
-		[]byte("on"), 0644); err != nil {
+		[]byte("on"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -3682,11 +3688,11 @@ func TestSimpleCRConflictOnOpenMergedFile(t *testing.T) {
 	// both users should mutate the dir first
 	d1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "D")
 	d2 := path.Join(mnt2.Dir, PrivateName, "user1,user2", "E")
-	if err := ioutil.Mkdir(d1, 0755); err != nil {
+	if err := ioutil.Mkdir(d1, 0o755); err != nil {
 		t.Fatal("Mkdir failed")
 	}
 	syncFolderToServer(t, "user1,user2", fs2)
-	if err := ioutil.Mkdir(d2, 0755); err != nil {
+	if err := ioutil.Mkdir(d2, 0o755); err != nil {
 		t.Fatal("Mkdir failed")
 	}
 	syncFolderToServer(t, "user1,user2", fs1)
@@ -3695,13 +3701,13 @@ func TestSimpleCRConflictOnOpenMergedFile(t *testing.T) {
 	disableUpdatesFile := path.Join(mnt2.Dir, PrivateName, "user1,user2",
 		libfs.DisableUpdatesFileName)
 	if err := ioutil.WriteFile(disableUpdatesFile,
-		[]byte("off"), 0644); err != nil {
+		[]byte("off"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	// user1 creates and writes a file
 	file1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "f")
-	f1, err := os.Create(file1)
+	f1, err := os.Create(file1) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3720,11 +3726,11 @@ func TestSimpleCRConflictOnOpenMergedFile(t *testing.T) {
 
 	// user2 creates a directory and writes a file to it
 	dir2 := path.Join(mnt2.Dir, PrivateName, "user1,user2", "f")
-	if err := ioutil.Mkdir(dir2, 0755); err != nil {
+	if err := ioutil.Mkdir(dir2, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	file2 := path.Join(mnt2.Dir, PrivateName, "user1,user2", "f", "foo")
-	f2, err := os.Create(file2)
+	f2, err := os.Create(file2) //nolint:gosec // G304: Test file path
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3745,7 +3751,7 @@ func TestSimpleCRConflictOnOpenMergedFile(t *testing.T) {
 	enableUpdatesFile := path.Join(mnt2.Dir, PrivateName, "user1,user2",
 		libfs.EnableUpdatesFileName)
 	if err := ioutil.WriteFile(enableUpdatesFile,
-		[]byte("on"), 0644); err != nil {
+		[]byte("on"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -3878,11 +3884,11 @@ func TestKbfsFileInfo(t *testing.T) {
 	}
 
 	mydir1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "mydir")
-	if err := ioutil.Mkdir(mydir1, 0755); err != nil {
+	if err := ioutil.Mkdir(mydir1, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	myfile1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "mydir", "myfile")
-	if err := ioutil.WriteFile(myfile1, []byte("foo"), 0644); err != nil {
+	if err := ioutil.WriteFile(myfile1, []byte("foo"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, myfile1)
@@ -3918,20 +3924,20 @@ func TestDirSyncAll(t *testing.T) {
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config2)
 
 	mydir1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "mydir")
-	if err := ioutil.Mkdir(mydir1, 0755); err != nil {
+	if err := ioutil.Mkdir(mydir1, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	myfile1 := path.Join(mnt1.Dir, PrivateName, "user1,user2", "mydir", "myfile")
 	data := []byte("foo")
-	if err := ioutil.WriteFile(myfile1, data, 0644); err != nil {
+	if err := ioutil.WriteFile(myfile1, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	d, err := os.Open(mydir1)
+	d, err := os.Open(mydir1) //nolint:gosec // G304: Test directory path
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer d.Close()
+	defer func() { _ = d.Close() }()
 	err = d.Sync()
 	if err != nil {
 		t.Fatal(err)
@@ -3959,7 +3965,7 @@ func TestInodes(t *testing.T) {
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
 	p := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
-	if err := ioutil.WriteFile(p, []byte("fake binary"), 0755); err != nil {
+	if err := ioutil.WriteFile(p, []byte("fake binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -3991,7 +3997,7 @@ func TestInodes(t *testing.T) {
 
 	t.Log("A new file with the previous name should get a new inode")
 
-	if err := ioutil.WriteFile(p, []byte("more fake data"), 0755); err != nil {
+	if err := ioutil.WriteFile(p, []byte("more fake data"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	syncFilename(t, p)
@@ -4011,8 +4017,8 @@ func TestHardLinkNotSupported(t *testing.T) {
 	defer cancelFn()
 	defer libkbfs.CheckConfigAndShutdown(ctx, t, config)
 
-	checkLinkErr := func(old, new string, checkPermErr bool) {
-		err := os.Link(old, new)
+	checkLinkErr := func(old, newPath string, checkPermErr bool) {
+		err := os.Link(old, newPath)
 		linkErr, ok := errors.Cause(err).(*os.LinkError)
 		require.True(t, ok)
 		if checkPermErr && runtime.GOOS == "darwin" {
@@ -4028,18 +4034,18 @@ func TestHardLinkNotSupported(t *testing.T) {
 
 	t.Log("Test hardlink in root of TLF")
 	old := path.Join(mnt.Dir, PrivateName, "jdoe", "myfile")
-	err := ioutil.WriteFile(old, []byte("hello"), 0755)
+	err := ioutil.WriteFile(old, []byte("hello"), 0o755)
 	require.NoError(t, err)
 	syncFilename(t, old)
-	new := path.Join(mnt.Dir, PrivateName, "jdoe", "hardlink")
-	checkLinkErr(old, new, false)
+	newPath := path.Join(mnt.Dir, PrivateName, "jdoe", "hardlink")
+	checkLinkErr(old, newPath, false)
 
 	t.Log("Test hardlink in subdir of TLF")
 	mydir := path.Join(mnt.Dir, PrivateName, "jdoe", "mydir")
-	err = ioutil.Mkdir(mydir, 0755)
+	err = ioutil.Mkdir(mydir, 0o755)
 	require.NoError(t, err)
 	old2 := path.Join(mydir, "myfile")
-	err = ioutil.WriteFile(old2, []byte("hello"), 0755)
+	err = ioutil.WriteFile(old2, []byte("hello"), 0o755)
 	require.NoError(t, err)
 	syncFilename(t, old2)
 	new2 := path.Join(mydir, "hardlink")
@@ -4067,9 +4073,9 @@ func TestOpenFileCount(t *testing.T) {
 
 	p := path.Join(mnt.Dir, libfs.OpenFileCountFileName)
 	checkCount := func(expected int64) {
-		f, err := os.Open(p)
+		f, err := os.Open(p) //nolint:gosec // G304: Test file path
 		require.NoError(t, err)
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 
 		b, err := ioutil.ReadAll(f)
 		require.NoError(t, err)
@@ -4114,16 +4120,16 @@ func TestUpdateHistoryFile(t *testing.T) {
 	p := path.Join(mnt.Dir, PrivateName, "jdoe")
 	for i := 0; i < 10; i++ {
 		file := path.Join(p, fmt.Sprintf("foo-%d", i))
-		f, err := os.Create(file)
+		f, err := os.Create(file) //nolint:gosec // G304: Test file path
 		require.NoError(t, err)
 		syncAndClose(t, f)
 	}
 
 	t.Log("Read a revision range")
 	histPrefix := path.Join(p, libfs.UpdateHistoryFileName)
-	fRange, err := os.Open(histPrefix + ".3-5")
+	fRange, err := os.Open(histPrefix + ".3-5") //nolint:gosec // G304: Test file path
 	require.NoError(t, err)
-	defer fRange.Close()
+	defer func() { _ = fRange.Close() }()
 	b, err := ioutil.ReadAll(fRange)
 	require.NoError(t, err)
 	var histRange libkbfs.TLFUpdateHistory
@@ -4132,9 +4138,9 @@ func TestUpdateHistoryFile(t *testing.T) {
 	require.Len(t, histRange.Updates, 3)
 
 	t.Log("Read a single revision")
-	fSingle, err := os.Open(histPrefix + ".7")
+	fSingle, err := os.Open(histPrefix + ".7") //nolint:gosec // G304: Test file path
 	require.NoError(t, err)
-	defer fSingle.Close()
+	defer func() { _ = fSingle.Close() }()
 	b, err = ioutil.ReadAll(fSingle)
 	require.NoError(t, err)
 	var histSingle libkbfs.TLFUpdateHistory
@@ -4143,9 +4149,9 @@ func TestUpdateHistoryFile(t *testing.T) {
 	require.Len(t, histSingle.Updates, 1)
 
 	t.Log("Read the entire history")
-	fAll, err := os.Open(histPrefix)
+	fAll, err := os.Open(histPrefix) //nolint:gosec // G304: Test file path
 	require.NoError(t, err)
-	defer fAll.Close()
+	defer func() { _ = fAll.Close() }()
 	b, err = ioutil.ReadAll(fAll)
 	require.NoError(t, err)
 	var histAll libkbfs.TLFUpdateHistory

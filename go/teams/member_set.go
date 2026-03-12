@@ -1,11 +1,11 @@
 package teams
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/keybase/client/go/libkb"
 	"github.com/keybase/client/go/protocol/keybase1"
-	"golang.org/x/net/context"
 )
 
 type storeMemberKind int
@@ -164,8 +164,8 @@ func (m *memberSet) loadMembers(ctx context.Context, g *libkb.GlobalContext, req
 }
 
 func (m *memberSet) loadGroup(ctx context.Context, g *libkb.GlobalContext,
-	group []keybase1.UserVersion, storeMemberKind storeMemberKind, forcePoll bool) ([]member, error) {
-
+	group []keybase1.UserVersion, storeMemberKind storeMemberKind, forcePoll bool,
+) ([]member, error) {
 	var members []member
 	for _, uv := range group {
 		mem, err := m.addMember(ctx, g, uv, storeMemberKind, forcePoll)
@@ -295,7 +295,6 @@ func (m *memberSet) removeExistingMembers(ctx context.Context, checker MemberChe
 // AddRemainingRecipients adds everyone in existing to m.recipients or
 // m.restrictedBotRecipients that isn't in m.None.
 func (m *memberSet) AddRemainingRecipients(ctx context.Context, g *libkb.GlobalContext, existing keybase1.TeamMembers) (err error) {
-
 	defer g.CTrace(ctx, "memberSet#AddRemainingRecipients", &err)()
 
 	// make a map of the None members
@@ -310,10 +309,7 @@ func (m *memberSet) AddRemainingRecipients(ctx context.Context, g *libkb.GlobalC
 	}
 
 	auv := existing.AllUserVersions()
-	forceUserPoll := true
-	if len(auv) > 50 {
-		forceUserPoll = false
-	}
+	forceUserPoll := len(auv) <= 50
 
 	type request struct {
 		uv              keybase1.UserVersion

@@ -8,18 +8,19 @@
 package test
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"bazil.org/fuse/fs/fstestutil"
+
 	"github.com/keybase/client/go/kbfs/libcontext"
 	"github.com/keybase/client/go/kbfs/libfs"
 	"github.com/keybase/client/go/kbfs/libfuse"
 	"github.com/keybase/client/go/kbfs/libkbfs"
 	"github.com/keybase/client/go/logger"
-	"golang.org/x/net/context"
 )
 
 type fuseEngine struct {
@@ -40,7 +41,8 @@ func createEngine(tb testing.TB) Engine {
 }
 
 func createUserFuse(tb testing.TB, ith int, config *libkbfs.ConfigLocal,
-	opTimeout time.Duration) *fsUser {
+	opTimeout time.Duration,
+) *fsUser {
 	libfs.AddRootWrapper(config)
 	filesys := libfuse.NewFS(config, nil, false, libfuse.PlatformParams{})
 	fn := func(mnt *fstestutil.Mount) fs.FS {

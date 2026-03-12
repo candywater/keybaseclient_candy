@@ -16,7 +16,8 @@ import (
 // SpawnDetachedProcess spawns a background process and detech from the calling
 // process.
 func SpawnDetachedProcess(
-	cmd string, args []string, _ logger.Logger) (pid int, err error) {
+	cmd string, args []string, _ logger.Logger,
+) (pid int, err error) {
 	var files []uintptr
 	var devnull *os.File
 
@@ -38,6 +39,6 @@ func SpawnDetachedProcess(
 		Files: files,
 	}
 
-	pid, err = syscall.ForkExec(cmd, args, &attr)
+	pid, err = syscall.ForkExec(cmd, args, &attr) //nolint:gosec // G204: Forking keybase binary itself for service mode, cmd/args validated by caller
 	return pid, err
 }

@@ -5,8 +5,8 @@
 package simplefs
 
 import (
+	"context"
 	"fmt"
-
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,7 +17,6 @@ import (
 	"github.com/keybase/client/go/kbfs/libkbfs"
 	"github.com/keybase/client/go/protocol/keybase1"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func TestDownloadManager(t *testing.T) {
@@ -34,10 +33,10 @@ func TestDownloadManager(t *testing.T) {
 
 	cacheDir, err := os.MkdirTemp(TempDirBase, "simplefs-downloadtest-cache")
 	require.NoError(t, err)
-	defer os.RemoveAll(cacheDir)
+	defer func() { _ = os.RemoveAll(cacheDir) }()
 	downloadDir, err := os.MkdirTemp(TempDirBase, "simplefs-downloadtest-download")
 	require.NoError(t, err)
-	defer os.RemoveAll(downloadDir)
+	defer func() { _ = os.RemoveAll(downloadDir) }()
 
 	err = sfs.SimpleFSConfigureDownload(ctx, keybase1.SimpleFSConfigureDownloadArg{
 		CacheDirOverride:    cacheDir,

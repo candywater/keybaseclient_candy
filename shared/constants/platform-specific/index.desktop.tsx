@@ -1,4 +1,6 @@
-import * as C from '..'
+import * as Chat from '../chat2'
+import {ignorePromise} from '../utils'
+import {storeRegistry} from '../store-registry'
 import * as ConfigConstants from '../config'
 import * as EngineGen from '@/actions/engine-gen-gen'
 import * as T from '../types'
@@ -11,9 +13,13 @@ import {isLinux, isWindows} from '../platform.desktop'
 import {kbfsNotification} from './kbfs-notifications'
 import {skipAppFocusActions} from '@/local-debug.desktop'
 import NotifyPopup from '@/util/notify-popup'
+import {noKBFSFailReason} from '@/constants/config/util'
+import {wrapErrors} from '@/util/debug'
 
 const {showMainWindow, activeChanged, requestWindowsStartService, dumpNodeLogger} = KB2.functions
 const {quitApp, exitApp, setOpenAtLogin, ctlQuit, copyToClipboard} = KB2.functions
+
+export const fsCacheDir = ''
 
 export const requestPermissionsToWrite = async () => {
   return Promise.resolve(true)
@@ -30,7 +36,7 @@ export const requestLocationPermission = async () => Promise.resolve()
 export const watchPositionForMap = async () => Promise.resolve(() => {})
 
 const maybePauseVideos = () => {
-  const {appFocused} = C.useConfigState.getState()
+  const {appFocused} = storeRegistry.getState('config')
   const videos = document.querySelectorAll('video')
   const allVideos = Array.from(videos)
 
@@ -63,19 +69,19 @@ export const dumpLogs = async (reason?: string) => {
 }
 
 export const initPlatformListener = () => {
-  C.useConfigState.setState(s => {
+  storeRegistry.getStore('config').setState(s => {
     s.dispatch.dynamic.dumpLogsNative = dumpLogs
-    s.dispatch.dynamic.showMainNative = C.wrapErrors(() => showMainWindow?.())
-    s.dispatch.dynamic.copyToClipboard = C.wrapErrors((s: string) => copyToClipboard?.(s))
-    s.dispatch.dynamic.onEngineConnectedDesktop = C.wrapErrors(() => {
+    s.dispatch.dynamic.showMainNative = wrapErrors(() => showMainWindow?.())
+    s.dispatch.dynamic.copyToClipboard = wrapErrors((s: string) => copyToClipboard?.(s))
+    s.dispatch.dynamic.onEngineConnectedDesktop = wrapErrors(() => {
       // Introduce ourselves to the service
       const f = async () => {
         await T.RPCGen.configHelloIAmRpcPromise({details: KB2.constants.helloDetails})
       }
-      C.ignorePromise(f())
+      ignorePromise(f())
     })
 
-    s.dispatch.dynamic.onEngineIncomingDesktop = C.wrapErrors((action: EngineGen.Actions) => {
+    s.dispatch.dynamic.onEngineIncomingDesktop = wrapErrors((action: EngineGen.Actions) => {
       switch (action.type) {
         case EngineGen.keybase1LogsendPrepareLogsend: {
           const f = async () => {
@@ -86,7 +92,7 @@ export const initPlatformListener = () => {
               response.result()
             }
           }
-          C.ignorePromise(f())
+          ignorePromise(f())
           break
         }
         case EngineGen.keybase1NotifyAppExit:
@@ -104,7 +110,7 @@ export const initPlatformListener = () => {
               console.warn('Error in sending pgpPgpStorageDismissRpc:', err)
             }
           }
-          C.ignorePromise(f())
+          ignorePromise(f())
           break
         }
         case EngineGen.keybase1NotifyServiceShutdown: {
@@ -132,8 +138,8 @@ export const initPlatformListener = () => {
           const body = upgradeMsg || `Please update to ${upgradeTo} by going to ${upgradeURI}`
           NotifyPopup('Client out of date!', {body}, 60 * 60)
           // This is from the API server. Consider notifications from server always critical.
-          C.useConfigState
-            .getState()
+          storeRegistry
+            .getState('config')
             .dispatch.setOutOfDate({critical: true, message: upgradeMsg, outOfDate: true, updating: false})
           break
         }
@@ -142,25 +148,25 @@ export const initPlatformListener = () => {
     })
   })
 
-  C.useConfigState.subscribe((s, old) => {
+  storeRegistry.getStore('config').subscribe((s, old) => {
     if (s.loggedIn === old.loggedIn) return
-    C.useConfigState.getState().dispatch.osNetworkStatusChanged(navigator.onLine, 'notavailable', true)
+    storeRegistry.getState('config').dispatch.osNetworkStatusChanged(navigator.onLine, 'notavailable', true)
   })
 
-  C.useConfigState.subscribe((s, prev) => {
+  storeRegistry.getStore('config').subscribe((s, prev) => {
     if (s.appFocused !== prev.appFocused) {
       maybePauseVideos()
     }
   })
 
-  C.useDaemonState.subscribe((s, old) => {
+  storeRegistry.getStore('daemon').subscribe((s, old) => {
     if (s.handshakeVersion === old.handshakeVersion) return
     if (!isWindows) return
 
     const f = async () => {
       const waitKey = 'pipeCheckFail'
       const version = s.handshakeVersion
-      const {wait} = C.useDaemonState.getState().dispatch
+      const {wait} = storeRegistry.getState('daemon').dispatch
       wait(waitKey, version, true)
       try {
         logger.info('Checking RPC ownership')
@@ -175,7 +181,7 @@ export const initPlatformListener = () => {
         wait(waitKey, version, false, error.message || 'windows pipe owner fail', true)
       }
     }
-    C.ignorePromise(f())
+    ignorePromise(f())
   })
 
   const handleWindowFocusEvents = () => {
@@ -183,7 +189,7 @@ export const initPlatformListener = () => {
       if (skipAppFocusActions) {
         console.log('Skipping app focus actions!')
       } else {
-        C.useConfigState.getState().dispatch.changedFocus(appFocused)
+        storeRegistry.getState('config').dispatch.changedFocus(appFocused)
       }
     }
     window.addEventListener('focus', () => handle(true))
@@ -193,15 +199,15 @@ export const initPlatformListener = () => {
 
   const setupReachabilityWatcher = () => {
     window.addEventListener('online', () =>
-      C.useConfigState.getState().dispatch.osNetworkStatusChanged(true, 'notavailable')
+      storeRegistry.getState('config').dispatch.osNetworkStatusChanged(true, 'notavailable')
     )
     window.addEventListener('offline', () =>
-      C.useConfigState.getState().dispatch.osNetworkStatusChanged(false, 'notavailable')
+      storeRegistry.getState('config').dispatch.osNetworkStatusChanged(false, 'notavailable')
     )
   }
   setupReachabilityWatcher()
 
-  C.useConfigState.subscribe((s, old) => {
+  storeRegistry.getStore('config').subscribe((s, old) => {
     if (s.openAtLogin === old.openAtLogin) return
     const {openAtLogin} = s
     const f = async () => {
@@ -230,26 +236,31 @@ export const initPlatformListener = () => {
         await setOpenAtLogin?.(openAtLogin)
       }
     }
-    C.ignorePromise(f())
+    ignorePromise(f())
   })
 
-  C.useDaemonState.subscribe((s, old) => {
+  storeRegistry.getStore('daemon').subscribe((s, old) => {
     if (s.handshakeState === old.handshakeState || s.handshakeState !== 'done') return
-    C.useConfigState.getState().dispatch.setStartupDetailsLoaded()
+    storeRegistry.getState('config').dispatch.setStartupDetails({
+      conversation: Chat.noConversationIDKey,
+      followUser: '',
+      link: '',
+      tab: undefined,
+    })
   })
 
   if (isLinux) {
-    C.useConfigState.getState().dispatch.initUseNativeFrame()
+    storeRegistry.getState('config').dispatch.initUseNativeFrame()
   }
-  C.useConfigState.getState().dispatch.initNotifySound()
-  C.useConfigState.getState().dispatch.initForceSmallNav()
-  C.useConfigState.getState().dispatch.initOpenAtLogin()
-  C.useConfigState.getState().dispatch.initAppUpdateLoop()
+  storeRegistry.getState('config').dispatch.initNotifySound()
+  storeRegistry.getState('config').dispatch.initForceSmallNav()
+  storeRegistry.getState('config').dispatch.initOpenAtLogin()
+  storeRegistry.getState('config').dispatch.initAppUpdateLoop()
 
-  C.useProfileState.setState(s => {
+  storeRegistry.getStore('profile').setState(s => {
     s.dispatch.editAvatar = () => {
-      C.useRouterState
-        .getState()
+      storeRegistry
+        .getState('router')
         .dispatch.navigateAppend({props: {image: undefined}, selected: 'profileEditAvatar'})
     }
   })
@@ -260,7 +271,7 @@ export const initPlatformListener = () => {
       if (skipAppFocusActions) {
         console.log('Skipping app focus actions!')
       } else {
-        C.useActiveState.getState().dispatch.setActive(userActive)
+        storeRegistry.getState('active').dispatch.setActive(userActive)
         // let node thread save file
         activeChanged?.(Date.now(), userActive)
       }
@@ -268,12 +279,14 @@ export const initPlatformListener = () => {
   }
   initializeInputMonitor()
 
-  C.useDaemonState.setState(s => {
+  storeRegistry.getStore('daemon').setState(s => {
     s.dispatch.onRestartHandshakeNative = () => {
-      const {handshakeFailedReason} = C.useDaemonState.getState()
-      if (isWindows && handshakeFailedReason === ConfigConstants.noKBFSFailReason) {
+      const {handshakeFailedReason} = storeRegistry.getState('daemon')
+      if (isWindows && handshakeFailedReason === noKBFSFailReason) {
         requestWindowsStartService?.()
       }
     }
   })
+
+  ignorePromise(storeRegistry.getState('fs').dispatch.setupSubscriptions())
 }

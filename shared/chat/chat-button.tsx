@@ -1,5 +1,7 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Styles from '@/styles'
+import {useConfigState} from '@/constants/config'
 import WaitingButton from '@/common-adapters/waiting-button'
 import Icon from '@/common-adapters/icon'
 
@@ -17,8 +19,8 @@ type Props = {
 }
 
 const ChatButton = ({small, style, username, afterClick}: Props) => {
-  const showMain = C.useConfigState(s => s.dispatch.showMain)
-  const previewConversation = C.useChatState(s => s.dispatch.previewConversation)
+  const showMain = useConfigState(s => s.dispatch.showMain)
+  const previewConversation = Chat.useChatState(s => s.dispatch.previewConversation)
   const chat = () => {
     afterClick?.()
     showMain()
@@ -28,7 +30,7 @@ const ChatButton = ({small, style, username, afterClick}: Props) => {
     <Kb.WaitingButton
       key="Chat"
       label="Chat"
-      waitingKey={C.Chat.waitingKeyCreating}
+      waitingKey={C.waitingKeyChatCreating}
       onClick={chat}
       small={small}
       style={style}

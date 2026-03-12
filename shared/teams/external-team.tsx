@@ -1,11 +1,14 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
+import {useProfileState} from '@/constants/profile'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
-import * as Container from '@/util/container'
 import * as T from '@/constants/types'
+import * as Teams from '@/constants/teams'
 import {useTeamLinkPopup} from './common'
 import {pluralize} from '@/util/string'
 import capitalize from 'lodash/capitalize'
+import {useSafeNavigation} from '@/util/safe-navigation'
 
 type Props = {teamname: string}
 
@@ -75,19 +78,20 @@ const orderMembers = (members?: ReadonlyArray<T.RPCGen.TeamMemberRole>) =>
       : memberB.role - memberA.role
   )
 
+type Item = {type: 'header'} | {type: 'empty'} | {type: 'member'; member: T.RPCChat.Keybase1.TeamMemberRole}
+type Section = Kb.SectionType<Item>
+
 const ExternalTeamInfo = ({info}: ExternalTeamProps) => {
   const members = orderMembers(info.publicMembers ?? undefined)
-  const sections = [
+  const sections: Array<Section> = [
     {
-      data: ['header'],
-      key: 'headerSection',
+      data: [{type: 'header'}],
       renderItem: () => <Header info={info} />,
     },
     {
-      data: members.length ? members : ['empty'],
-      key: 'membersSection',
-      renderItem: ({item, index}: {item: T.RPCChat.Keybase1.TeamMemberRole | 'empty'; index: number}) => {
-        return item === 'empty' ? (
+      data: members.length ? members.map(m => ({member: m, type: 'member'})) : [{type: 'empty'}],
+      renderItem: ({item, index}: {item: Item; index: number}) => {
+        return item.type === 'empty' ? (
           <Kb.Box2
             direction="vertical"
             fullWidth={true}
@@ -98,14 +102,14 @@ const ExternalTeamInfo = ({info}: ExternalTeamProps) => {
           >
             <Kb.Text type="BodySmall">This team has no public members.</Kb.Text>
           </Kb.Box2>
-        ) : (
-          <Member member={item} firstItem={index === 0} />
-        )
+        ) : item.type === 'member' ? (
+          <Member member={item.member} firstItem={index === 0} />
+        ) : null
       },
     },
   ] as const
   const renderSectionHeader = ({section}: {section: (typeof sections)[number]}) => {
-    if (section.key === 'membersSection') {
+    if (section.data[0]?.type !== 'header') {
       return (
         <Kb.Tabs
           tabs={[{title: 'Public members'}]}
@@ -117,6 +121,7 @@ const ExternalTeamInfo = ({info}: ExternalTeamProps) => {
     }
     return null
   }
+
   return (
     <Kb.SectionList
       sections={sections}
@@ -127,7 +132,7 @@ const ExternalTeamInfo = ({info}: ExternalTeamProps) => {
 }
 
 const Header = ({info}: ExternalTeamProps) => {
-  const nav = Container.useSafeNavigation()
+  const nav = useSafeNavigation()
   const teamname = info.name.parts?.join('.')
   const onJoin = () =>
     nav.safeNavigateAppend({props: {initialTeamname: teamname}, selected: 'teamJoinTeamDialog'})
@@ -169,10 +174,10 @@ const Header = ({info}: ExternalTeamProps) => {
 }
 
 const Member = ({member, firstItem}: {member: T.RPCGen.TeamMemberRole; firstItem: boolean}) => {
-  const previewConversation = C.useChatState(s => s.dispatch.previewConversation)
+  const previewConversation = Chat.useChatState(s => s.dispatch.previewConversation)
   const onChat = () => previewConversation({participants: [member.username], reason: 'teamMember'})
-  const roleString = C.Teams.teamRoleByEnum[member.role]
-  const showUserProfile = C.useProfileState(s => s.dispatch.showUserProfile)
+  const roleString = Teams.teamRoleByEnum[member.role]
+  const showUserProfile = useProfileState(s => s.dispatch.showUserProfile)
   return (
     <Kb.ListItem2
       firstItem={firstItem}

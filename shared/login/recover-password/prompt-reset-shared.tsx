@@ -1,27 +1,34 @@
 import * as C from '@/constants'
+import * as AutoReset from '@/constants/autoreset'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
-import * as Container from '@/util/container'
+import {useSafeNavigation} from '@/util/safe-navigation'
 import * as T from '@/constants/types'
 import {SignupScreen} from '@/signup/common'
 import type {ButtonType} from '@/common-adapters/button'
+import {useState as useRecoverState} from '@/constants/recover-password'
 
 export type Props = {
   resetPassword?: boolean
 }
 
 const PromptReset = (props: Props) => {
-  const nav = Container.useSafeNavigation()
-  const skipPassword = C.useAutoResetState(s => s.skipPassword)
-  const error = C.useAutoResetState(s => s.error)
-  const resetAccount = C.useAutoResetState(s => s.dispatch.resetAccount)
+  const nav = useSafeNavigation()
+  const skipPassword = AutoReset.useAutoResetState(s => s.skipPassword)
+  const error = AutoReset.useAutoResetState(s => s.error)
+  const resetAccount = AutoReset.useAutoResetState(s => s.dispatch.resetAccount)
   const {resetPassword} = props
 
-  const submitResetPassword = C.useRecoverState(s => s.dispatch.dynamic.submitResetPassword)
-  const startRecoverPassword = C.useRecoverState(s => s.dispatch.startRecoverPassword)
-  const username = C.useRecoverState(s => s.username)
+  const submitResetPassword = useRecoverState(s => s.dispatch.dynamic.submitResetPassword)
+  const startRecoverPassword = useRecoverState(s => s.dispatch.startRecoverPassword)
+  const username = useRecoverState(s => s.username)
 
   const onContinue = React.useCallback(() => {
+    // dont do this in preflight
+    if (C.androidIsTestDevice) {
+      nav.safeNavigateUp()
+      return
+    }
     if (resetPassword) {
       submitResetPassword?.(T.RPCGen.ResetPromptResponse.confirmReset)
     }
@@ -47,7 +54,7 @@ const PromptReset = (props: Props) => {
           label: props.resetPassword ? 'Send a link' : 'Start account reset',
           onClick: onContinue,
           type: 'Default' as ButtonType,
-          waitingKey: C.AutoReset.enterPipelineWaitingKey,
+          waitingKey: C.waitingKeyAutoresetEnterPipeline,
         },
       ]}
       banners={

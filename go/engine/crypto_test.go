@@ -5,12 +5,12 @@ package engine
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"runtime/debug"
 	"testing"
 
 	"golang.org/x/crypto/nacl/box"
-	"golang.org/x/net/context"
 
 	"github.com/keybase/client/go/kbcrypto"
 	"github.com/keybase/client/go/libkb"
@@ -147,7 +147,6 @@ func TestCryptoUnboxBytes32(t *testing.T) {
 		Nonce:            nonce,
 		PeersPublicKey:   peersPublicKey,
 	})
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,9 +359,6 @@ func TestCryptoUnboxBytes32AnyPaper(t *testing.T) {
 
 	// clear the paper key cache to test getting a paper key via UI
 	clearCaches(tc.G)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	f = func() libkb.SecretUI {
 		// set the passphrase in the secretUI to the paper key

@@ -3,6 +3,7 @@ package ephemeral
 import (
 	"fmt"
 	"log"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,8 +26,10 @@ type deviceEKCacheItem struct {
 	Err      error
 }
 
-type deviceEKCache map[keybase1.EkGeneration]deviceEKCacheItem
-type DeviceEKMap map[keybase1.EkGeneration]keybase1.DeviceEk
+type (
+	deviceEKCache map[keybase1.EkGeneration]deviceEKCacheItem
+	DeviceEKMap   map[keybase1.EkGeneration]keybase1.DeviceEk
+)
 
 type DeviceEKStorage struct {
 	sync.Mutex
@@ -163,6 +166,9 @@ func (s *DeviceEKStorage) keyToEldestSeqno(mctx libkb.MetaContext, key string) k
 	if err != nil {
 		return -1
 	}
+	if e > math.MaxInt64 {
+		return -1
+	}
 	return keybase1.Seqno(e)
 }
 
@@ -189,6 +195,9 @@ func (s *DeviceEKStorage) keyToGeneration(mctx libkb.MetaContext, key string) ke
 	g, err := strconv.ParseUint(parts[1], 10, 64)
 	if err != nil {
 		mctx.Debug("keyToGeneration: unable to parseUint: %v", err)
+		return -1
+	}
+	if g > math.MaxInt64 {
 		return -1
 	}
 	return keybase1.EkGeneration(g)
@@ -283,14 +292,16 @@ func (s *DeviceEKStorage) get(mctx libkb.MetaContext, generation keybase1.EkGene
 }
 
 func (s *DeviceEKStorage) Delete(mctx libkb.MetaContext, generation keybase1.EkGeneration,
-	reason string, args ...interface{}) (err error) {
+	reason string, args ...interface{},
+) (err error) {
 	s.Lock()
 	defer s.Unlock()
 	return s.delete(mctx, generation, reason, args...)
 }
 
 func (s *DeviceEKStorage) delete(mctx libkb.MetaContext, generation keybase1.EkGeneration,
-	reason string, args ...interface{}) (err error) {
+	reason string, args ...interface{},
+) (err error) {
 	defer s.ekLogCTrace(mctx, fmt.Sprintf("DeviceEKStorage#delete: generation:%v reason: %s", generation, fmt.Sprintf(reason, args...)), &err)()
 
 	// clear the cache

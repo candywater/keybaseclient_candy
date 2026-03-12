@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -24,7 +25,6 @@ import (
 	"github.com/keybase/client/go/service"
 	"github.com/keybase/client/go/uidmap"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
-	"golang.org/x/net/context"
 )
 
 var cmd libcmdline.Command
@@ -381,7 +381,6 @@ func configureProcesses(g *libkb.GlobalContext, cl *libcmdline.CommandLine, cmd 
 }
 
 func configureLogging(g *libkb.GlobalContext, cl *libcmdline.CommandLine) error {
-
 	g.Log.Debug("+ configureLogging")
 	defer func() {
 		g.Log.Debug("- configureLogging")

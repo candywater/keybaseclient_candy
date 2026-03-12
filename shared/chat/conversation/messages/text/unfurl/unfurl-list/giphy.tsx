@@ -1,16 +1,17 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Kb from '@/common-adapters/index'
 import * as React from 'react'
 import UnfurlImage from './image'
 import * as T from '@/constants/types'
-import {OrdinalContext} from '@/chat/conversation/messages/ids-context'
+import {useOrdinal} from '@/chat/conversation/messages/ids-context'
 import {getUnfurlInfo, useActions} from './use-state'
 
 const UnfurlGiphy = React.memo(function UnfurlGiphy(p: {idx: number}) {
   const {idx} = p
-  const ordinal = React.useContext(OrdinalContext)
+  const ordinal = useOrdinal()
 
-  const data = C.useChatContext(
+  const data = Chat.useChatContext(
     C.useShallow(s => {
       const {unfurl, isCollapsed, unfurlMessageID, youAreAuthor} = getUnfurlInfo(s, ordinal, idx)
       if (unfurl?.unfurlType !== T.RPCChat.UnfurlType.giphy) {

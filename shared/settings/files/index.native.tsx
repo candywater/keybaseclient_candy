@@ -1,72 +1,85 @@
 import * as C from '@/constants'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
-import * as Constants from '@/constants/fs'
 import * as T from '@/constants/types'
-import type {Props} from '.'
+import useFiles from './hooks'
+import * as FS from '@/constants/fs'
+import {useFSState} from '@/constants/fs'
+type Props = ReturnType<typeof useFiles>
 
 export const allowedNotificationThresholds = [100 * 1024 ** 2, 1024 ** 3, 3 * 1024 ** 3, 10 * 1024 ** 3]
 export const defaultNotificationThreshold = 100 * 1024 ** 2
 
-class ThresholdDropdown extends React.PureComponent<
-  Props,
-  {notificationThreshold: number; visible: boolean}
-> {
-  state = {
-    notificationThreshold: this.props.spaceAvailableNotificationThreshold,
-    visible: false,
+const ThresholdDropdown = (p: Pick<Props, 'spaceAvailableNotificationThreshold'>) => {
+  const allowedThresholds = allowedNotificationThresholds.map(
+    i => ({label: FS.humanizeBytes(i, 0), value: i}) as const
+  )
+  const setSpaceAvailableNotificationThreshold = useFSState(
+    s => s.dispatch.setSpaceAvailableNotificationThreshold
+  )
+  const {spaceAvailableNotificationThreshold} = p
+  const [notificationThreshold, setNotificationThreshold] = React.useState(
+    spaceAvailableNotificationThreshold
+  )
+  const [visible, setVisible] = React.useState(false)
+
+  const humanizedNotificationThreshold = FS.humanizeBytes(
+    spaceAvailableNotificationThreshold || defaultNotificationThreshold,
+    0
+  )
+
+  const hide = () => setVisible(false)
+  const done = () => {
+    setSpaceAvailableNotificationThreshold(notificationThreshold)
+    setVisible(false)
   }
-  _hide = () => this.setState({visible: false})
-  _done = () => {
-    this.props.onSetSyncNotificationThreshold(this.state.notificationThreshold)
-    this.setState({visible: false})
-  }
-  _select = (selectedVal?: number) => selectedVal && this.setState({notificationThreshold: selectedVal})
-  _show = () => this.setState({visible: true})
-  _toggleShowingMenu = () => this.setState(s => ({visible: !s.visible}))
-  render() {
-    return (
-      <>
-        <Kb.DropdownButton
-          disabled={!this.props.spaceAvailableNotificationThreshold}
-          selected={
-            <Kb.Text type="Body" style={styles.selectedText}>
-              {this.props.humanizedNotificationThreshold}
-            </Kb.Text>
-          }
-          toggleOpen={this._toggleShowingMenu}
-        />
-        <Kb.FloatingPicker
-          items={this.props.allowedThresholds}
-          visible={this.state.visible}
-          selectedValue={this.state.notificationThreshold}
-          promptString="Pick a threshold"
-          prompt={
-            <Kb.Box2 direction="horizontal" fullWidth={true} gap="xtiny" centerChildren={true}>
-              <Kb.Text type="BodySmallSemibold">Pick a threshold</Kb.Text>
-            </Kb.Box2>
-          }
-          onCancel={this._hide}
-          onHidden={this._hide}
-          onDone={this._done}
-          onSelect={this._select}
-        />
-      </>
-    )
-  }
+  const select = (selectedVal?: number) => selectedVal && setNotificationThreshold(selectedVal)
+  const toggleShowingMenu = () => setVisible(v => !v)
+
+  return (
+    <>
+      <Kb.DropdownButton
+        disabled={!spaceAvailableNotificationThreshold}
+        selected={
+          <Kb.Text type="Body" style={styles.selectedText}>
+            {humanizedNotificationThreshold}
+          </Kb.Text>
+        }
+        toggleOpen={toggleShowingMenu}
+      />
+      <Kb.FloatingPicker
+        items={allowedThresholds}
+        visible={visible}
+        selectedValue={notificationThreshold}
+        promptString="Pick a threshold"
+        prompt={
+          <Kb.Box2 direction="horizontal" fullWidth={true} gap="xtiny" centerChildren={true}>
+            <Kb.Text type="BodySmallSemibold">Pick a threshold</Kb.Text>
+          </Kb.Box2>
+        }
+        onCancel={hide}
+        onHidden={hide}
+        onDone={done}
+        onSelect={select}
+      />
+    </>
+  )
 }
 
-const Files = (props: Props) => {
-  const syncOnCellular = C.useFSState(s => s.settings.syncOnCellular)
+const Files = () => {
+  const props = useFiles()
+  const {spaceAvailableNotificationThreshold, onEnableSyncNotifications, onDisableSyncNotifications} = props
+  const {areSettingsLoading} = props
+  const syncOnCellular = useFSState(s => s.settings.syncOnCellular)
   const toggleSyncOnCellular = () => {
     T.RPCGen.SimpleFSSimpleFSSetSyncOnCellularRpcPromise(
       {syncOnCellular: !syncOnCellular},
-      Constants.setSyncOnCellularWaitingKey
+      C.waitingKeyFSSetSyncOnCellular
     )
       .then(() => {})
       .catch(() => {})
   }
-  const waitingToggleSyncOnCellular = C.Waiting.useAnyWaiting(Constants.setSyncOnCellularWaitingKey)
+  const waitingToggleSyncOnCellular = C.Waiting.useAnyWaiting(C.waitingKeyFSSetSyncOnCellular)
   return (
     <Kb.Box2
       direction="vertical"
@@ -78,20 +91,20 @@ const Files = (props: Props) => {
         <Kb.Text type="Header">Sync</Kb.Text>
         <Kb.Switch
           onClick={
-            props.spaceAvailableNotificationThreshold === 0
-              ? props.onEnableSyncNotifications
-              : props.onDisableSyncNotifications
+            spaceAvailableNotificationThreshold === 0 ? onEnableSyncNotifications : onDisableSyncNotifications
           }
           label="Warn when low on storage space"
-          on={props.spaceAvailableNotificationThreshold !== 0}
-          disabled={props.areSettingsLoading}
+          on={spaceAvailableNotificationThreshold !== 0}
+          disabled={areSettingsLoading}
           gapSize={Kb.Styles.globalMargins.small}
           style={styles.switch}
         />
-        {!!props.spaceAvailableNotificationThreshold && (
-          <Kb.Text type="BodySmallSemibold">Threshold:</Kb.Text>
+        {!!spaceAvailableNotificationThreshold && <Kb.Text type="BodySmallSemibold">Threshold:</Kb.Text>}
+        {!!spaceAvailableNotificationThreshold && (
+          <ThresholdDropdown
+            spaceAvailableNotificationThreshold={props.spaceAvailableNotificationThreshold}
+          />
         )}
-        {!!props.spaceAvailableNotificationThreshold && <ThresholdDropdown {...props} />}
         <Kb.Switch
           on={syncOnCellular}
           onClick={toggleSyncOnCellular}

@@ -1,9 +1,8 @@
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
-import * as Styles from '@/styles'
+import * as C from '@/constants'
 import AudioVideo from './audio-video'
 import {formatAudioRecordDuration} from '@/util/timestamp'
-import {isMobile} from '@/constants/platform'
 
 type VisProps = {
   amps: undefined | ReadonlyArray<number>
@@ -33,15 +32,15 @@ const AudioVis = (props: VisProps) => {
         direction="vertical"
         key={index}
         style={{
-          backgroundColor: index < threshold ? Styles.globalColors.blue : Styles.globalColors.black,
+          backgroundColor: index < threshold ? Kb.Styles.globalColors.blue : Kb.Styles.globalColors.black,
           height,
-          marginRight: isMobile ? 4 * Styles.hairlineWidth : 2,
-          width: isMobile ? 3 * Styles.hairlineWidth : 1,
+          marginRight: C.isMobile ? 4 * Kb.Styles.hairlineWidth : 2,
+          width: C.isMobile ? 3 * Kb.Styles.hairlineWidth : 1,
         }}
       />
     )
   })
-  return Styles.isMobile ? (
+  return C.isMobile ? (
     <Kb.ScrollView
       horizontal={true}
       style={{height: maxHeight, maxWidth: maxWidth}}
@@ -52,7 +51,7 @@ const AudioVis = (props: VisProps) => {
   ) : (
     <Kb.Box2
       direction="horizontal"
-      style={{height: maxHeight, marginTop: Styles.globalMargins.xtiny, maxWidth: maxWidth}}
+      style={{height: maxHeight, marginTop: Kb.Styles.globalMargins.xtiny, maxWidth: maxWidth}}
     >
       {content}
     </Kb.Box2>
@@ -69,7 +68,6 @@ type Props = {
 
 const AudioPlayer = (props: Props) => {
   const {duration, big, maxWidth, url, visAmps} = props
-  const seekRef = React.useRef<null | ((n: number) => void)>(null)
   const [playedRatio, setPlayedRatio] = React.useState(0)
   const [paused, setPaused] = React.useState(true)
   const onClick = () => {
@@ -96,14 +94,14 @@ const AudioPlayer = (props: Props) => {
   return (
     <Kb.Box2
       direction="horizontal"
-      style={Styles.collapseStyles([styles.container, {height: big ? 56 : 40}])}
+      style={Kb.Styles.collapseStyles([styles.container, {height: big ? 56 : 40}])}
       gap="tiny"
     >
       <Kb.ClickableBox onClick={url ? onClick : undefined} style={{justifyContent: 'center'}}>
         <Kb.Icon
           type={!paused ? 'iconfont-pause' : 'iconfont-play'}
           fontSize={32}
-          color={url ? Styles.globalColors.blue : Styles.globalColors.grey}
+          color={url ? Kb.Styles.globalColors.blue : Kb.Styles.globalColors.grey}
         />
       </Kb.ClickableBox>
       <Kb.Box2 direction="vertical" style={styles.visContainer} gap="xxtiny" fullHeight={true}>
@@ -111,19 +109,13 @@ const AudioPlayer = (props: Props) => {
         <Kb.Text type="BodyTiny">{formatAudioRecordDuration(timeLeft)}</Kb.Text>
       </Kb.Box2>
       {url.length > 0 && (
-        <AudioVideo
-          seekRef={seekRef}
-          url={url}
-          paused={paused}
-          onPositionUpdated={onPositionUpdated}
-          onEnded={onEnded}
-        />
+        <AudioVideo url={url} paused={paused} onPositionUpdated={onPositionUpdated} onEnded={onEnded} />
       )}
     </Kb.Box2>
   )
 }
 
-const styles = Styles.styleSheetCreate(() => ({
+const styles = Kb.Styles.styleSheetCreate(() => ({
   button: {
     borderRadius: 15,
     height: 30,
@@ -131,10 +123,10 @@ const styles = Styles.styleSheetCreate(() => ({
     width: 30,
   },
   container: {
-    ...Styles.padding(Styles.globalMargins.xxtiny, Styles.globalMargins.tiny),
-    backgroundColor: Styles.globalColors.white,
-    borderColor: Styles.globalColors.grey,
-    borderRadius: Styles.borderRadius,
+    ...Kb.Styles.padding(Kb.Styles.globalMargins.xxtiny, Kb.Styles.globalMargins.tiny),
+    backgroundColor: Kb.Styles.globalColors.white,
+    borderColor: Kb.Styles.globalColors.grey,
+    borderRadius: Kb.Styles.borderRadius,
     borderStyle: 'solid',
     borderWidth: 1,
   },

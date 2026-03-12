@@ -5,6 +5,7 @@ package service
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -16,8 +17,6 @@ import (
 	"runtime/trace"
 	"sync"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/keybase/cli"
 	"github.com/keybase/client/go/avatars"
@@ -245,7 +244,6 @@ func (d *Service) Handle(c net.Conn) {
 func (d *Service) Run() (err error) {
 	mctx := libkb.NewMetaContextBackground(d.G()).WithLogTag("SVC")
 	defer func() {
-
 		d.stopProfile()
 
 		if d.startCh != nil {
@@ -255,7 +253,7 @@ func (d *Service) Run() (err error) {
 		if err != nil {
 			mctx.Info("Service#Run() exiting with error %s (code %d)", err.Error(), d.G().ExitCode)
 		} else {
-			mctx.Debug("Service#Run() clean exit with code %d", d.G().ExitCode)
+			mctx.Info("Service#Run() exiting (code %d)", d.G().ExitCode)
 		}
 	}()
 
@@ -543,6 +541,9 @@ func (d *Service) SetupChatModules(ri func() chat1.RemoteInterface) {
 	g.LiveLocationTracker = maps.NewLiveLocationTracker(g)
 	g.BotCommandManager = bots.NewCachingBotCommandManager(g, ri, chat.CreateNameInfoSource)
 	g.UIInboxLoader = chat.NewUIInboxLoader(g)
+	if loader, ok := g.UIInboxLoader.(*chat.UIInboxLoader); ok {
+		g.AddLogoutHook(loader, "chat/UIInboxLoader")
+	}
 	g.UIThreadLoader = chat.NewUIThreadLoader(g, ri)
 	g.ParticipantsSource = chat.NewCachingParticipantSource(g, ri)
 	g.EmojiSource = chat.NewDevConvEmojiSource(g, ri)
@@ -657,7 +658,6 @@ func (d *Service) addGlobalHooks() {
 }
 
 func (d *Service) StartLoopbackServer(loginMode libkb.LoginAttempt) error {
-
 	ctx := context.Background()
 
 	var l net.Listener
@@ -1419,6 +1419,7 @@ func (d *Service) startProfile() {
 		if err != nil {
 			d.G().Log.Warning("error creating cpu profile: %s", err)
 		} else {
+			defer f.Close()
 			d.G().Log.Debug("+ starting service cpu profile in %s", cpu)
 			err := pprof.StartCPUProfile(f)
 			if err != nil {

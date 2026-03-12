@@ -6,7 +6,8 @@ import type {Props} from '.'
 import {ModalTitle} from '@/teams/common'
 import KB2 from '@/util/electron.desktop'
 import './edit-avatar.css'
-const {isDirectory} = KB2.functions
+import useHooks from './hooks'
+const {isDirectory, getPathForFile} = KB2.functions
 
 const AVATAR_CONTAINER_SIZE = 300
 
@@ -17,19 +18,22 @@ const validDrag = (e: React.DragEvent) => {
 }
 
 const getFile = async (fileList: FileList | undefined): Promise<string> => {
-  const paths = fileList?.length ? Array.from(fileList).map(f => f.path) : undefined
-  if (!paths?.length) {
+  const paths = fileList?.length ? Array.from(fileList) : undefined
+  const file = paths?.[0]
+  if (!file) {
     return ''
   }
-  for (const path of paths) {
-    try {
-      const isDir = await (isDirectory?.(path) ?? Promise.resolve(false))
-      if (isDir) {
-        return ''
-      }
-    } catch {}
+  const path = getPathForFile?.(file) ?? ''
+  if (!path) {
+    return ''
   }
-  return paths.pop() ?? ''
+  try {
+    const isDir = await (isDirectory?.(path) ?? Promise.resolve(false))
+    if (isDir) {
+      return ''
+    }
+  } catch {}
+  return path
 }
 
 type Crop = {
@@ -54,7 +58,8 @@ const getCropCoordinates = (c: Crop) => {
 }
 
 type Loading = undefined | 'loading' | 'loaded'
-const EditAvatar = (p: Props) => {
+const EditAvatar = (_p: Props) => {
+  const p = useHooks(_p)
   const {onClose, wizard, showBack, onBack, onSkip, type, error, teamID, createdTeam, teamname} = p
   const [serror, setSerror] = React.useState(false)
   const [dropping, setDropping] = React.useState(false)
@@ -133,6 +138,7 @@ const EditAvatar = (p: Props) => {
             label={wizard ? 'Continue' : 'Save'}
             onClick={onSave}
             disabled={loading !== 'loaded'}
+            waitingKey={p.waitingKey}
           />
         ),
       }}

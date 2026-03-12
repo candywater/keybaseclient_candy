@@ -8,11 +8,13 @@
 package libfuse
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
 
 	"bazil.org/fuse"
+
 	"github.com/keybase/client/go/kbfs/libfs"
 	"github.com/keybase/client/go/kbfs/libgit"
 	"github.com/keybase/client/go/kbfs/libkbfs"
@@ -22,7 +24,6 @@ import (
 	"github.com/keybase/client/go/protocol/keybase1"
 	"github.com/keybase/client/go/systemd"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
-	"golang.org/x/net/context"
 )
 
 // StartOptions are options for starting up
@@ -39,10 +40,11 @@ type StartOptions struct {
 
 func startMounting(ctx context.Context,
 	kbCtx libkbfs.Context, config libkbfs.Config, options StartOptions,
-	log logger.Logger, mi *libfs.MountInterrupter) error {
+	log logger.Logger, mi *libfs.MountInterrupter,
+) error {
 	log.CDebugf(ctx, "Mounting: %q", options.MountPoint)
 
-	var mounter = &mounter{
+	mounter := &mounter{
 		options: options,
 		log:     log,
 		runMode: kbCtx.GetRunMode(),
@@ -94,7 +96,8 @@ func Start(options StartOptions, kbCtx libkbfs.Context) *libfs.Error {
 	// Hook simplefs implementation in.
 	shutdownSimpleFS := func(_ context.Context) error { return nil }
 	createSimpleFS := func(
-		libkbfsCtx libkbfs.Context, config libkbfs.Config) (rpc.Protocol, error) {
+		libkbfsCtx libkbfs.Context, config libkbfs.Config,
+	) (rpc.Protocol, error) {
 		var sfs *simplefs.SimpleFS
 		sfs, shutdownSimpleFS = simplefs.NewSimpleFS(
 			libkbfsCtx, config)
@@ -104,7 +107,8 @@ func Start(options StartOptions, kbCtx libkbfs.Context) *libfs.Error {
 	// Hook git implementation in.
 	shutdownGit := func() {}
 	createGitHandler := func(
-		libkbfsCtx libkbfs.Context, config libkbfs.Config) (rpc.Protocol, error) {
+		libkbfsCtx libkbfs.Context, config libkbfs.Config,
+	) (rpc.Protocol, error) {
 		var handler keybase1.KBFSGitInterface
 		handler, shutdownGit = libgit.NewRPCHandlerWithCtx(
 			libkbfsCtx, config, &options.KbfsParams)

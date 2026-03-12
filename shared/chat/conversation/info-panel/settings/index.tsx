@@ -1,25 +1,27 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Kb from '@/common-adapters'
+import * as Teams from '@/constants/teams'
 import * as T from '@/constants/types'
 import * as React from 'react'
-import type {Section} from '@/common-adapters/section-list'
 import MinWriterRole from './min-writer-role'
 import Notifications from './notifications'
-import RetentionPicker from '@/teams/team/settings-tab/retention/container'
+import RetentionPicker from '@/teams/team/settings-tab/retention'
+import {useCurrentUserState} from '@/constants/current-user'
 
 type EntityType = 'adhoc' | 'small team' | 'channel'
 type SettingsPanelProps = {isPreview: boolean}
 
 const SettingsPanel = (props: SettingsPanelProps) => {
   const {isPreview} = props
-  const username = C.useCurrentUserState(s => s.username)
-  const meta = C.useChatContext(s => s.meta)
+  const username = useCurrentUserState(s => s.username)
+  const meta = Chat.useChatContext(s => s.meta)
   const {status, teamname, teamType, channelname, teamID} = meta
-  const yourOperations = C.useTeamsState(s => (teamname ? C.Teams.getCanPerformByID(s, teamID) : undefined))
+  const yourOperations = Teams.useTeamsState(s => (teamname ? Teams.getCanPerformByID(s, teamID) : undefined))
   const ignored = status === T.RPCChat.ConversationStatus.ignored
   const smallTeam = teamType !== 'big'
 
-  const spinnerForLeave = C.Waiting.useAnyWaiting(C.Chat.waitingKeyLeaveConversation)
+  const spinnerForLeave = C.Waiting.useAnyWaiting(C.waitingKeyChatLeaveConversation)
 
   const canDeleteHistory =
     teamname && yourOperations ? yourOperations.deleteChatHistory && !meta.cannotWrite : true
@@ -31,49 +33,50 @@ const SettingsPanel = (props: SettingsPanelProps) => {
     entityType = 'adhoc'
   }
 
-  const teamMembers = C.useTeamsState(s => s.teamIDToMembers.get(teamID))
-  const participantInfo = C.useChatContext(s => s.participants)
+  const teamMembers = Teams.useTeamsState(s => s.teamIDToMembers.get(teamID))
+  const participantInfo = Chat.useChatContext(s => s.participants)
   const membersForBlock = (teamMembers?.size ? [...teamMembers.keys()] : participantInfo.name).filter(
-    u => u !== username && !C.Chat.isAssertion(u)
+    u => u !== username && !Chat.isAssertion(u)
   )
 
-  const navigateAppend = C.Chat.useChatNavigateAppend()
-  const onShowClearConversationDialog = () => {
+  const navigateAppend = Chat.useChatNavigateAppend()
+  const onShowClearConversationDialog = React.useCallback(() => {
     navigateAppend(conversationIDKey => ({props: {conversationIDKey}, selected: 'chatDeleteHistoryWarning'}))
-  }
+  }, [navigateAppend])
 
-  const hideConversation = C.useChatContext(s => s.dispatch.hideConversation)
-  const onHideConv = () => hideConversation(true)
-  const onUnhideConv = () => hideConversation(false)
-  const onShowBlockConversationDialog = membersForBlock.length
-    ? () => {
-        navigateAppend(conversationIDKey => ({
-          props: {
-            blockUserByDefault: true,
-            conversationIDKey,
-            others: membersForBlock,
-            team: teamname,
-          },
-          selected: 'chatBlockingModal',
-        }))
-      }
-    : onHideConv
+  const hideConversation = Chat.useChatContext(s => s.dispatch.hideConversation)
+  const onHideConv = React.useCallback(() => hideConversation(true), [hideConversation])
+  const onUnhideConv = React.useCallback(() => hideConversation(false), [hideConversation])
+  const onShowBlockConversationDialog = React.useCallback(() => {
+    if (membersForBlock.length) {
+      navigateAppend(conversationIDKey => ({
+        props: {
+          blockUserByDefault: true,
+          conversationIDKey,
+          others: membersForBlock,
+          team: teamname,
+        },
+        selected: 'chatBlockingModal',
+      }))
+    } else {
+      onHideConv()
+    }
+  }, [membersForBlock, onHideConv, teamname, navigateAppend])
 
-  const leaveConversation = C.useChatContext(s => s.dispatch.leaveConversation)
-  const onLeaveConversation = () => {
+  const leaveConversation = Chat.useChatContext(s => s.dispatch.leaveConversation)
+  const onLeaveConversation = React.useCallback(() => {
     leaveConversation()
-  }
+  }, [leaveConversation])
 
   const onArchive = () => {
-    C.featureFlags.archive &&
-      navigateAppend(conversationIDKey => ({
-        props: {conversationIDKey, type: 'chatID'} as const,
-        selected: 'archiveModal',
-      }))
+    navigateAppend(conversationIDKey => ({
+      props: {conversationIDKey, type: 'chatID' as const},
+      selected: 'archiveModal',
+    }))
   }
 
   const showDangerZone = canDeleteHistory || entityType === 'adhoc' || entityType !== 'channel'
-  const conversationIDKey = C.useChatContext(s => s.id)
+  const conversationIDKey = Chat.useChatContext(s => s.id)
   return (
     <Kb.ScrollView>
       <Kb.Box2
@@ -104,21 +107,43 @@ const SettingsPanel = (props: SettingsPanelProps) => {
           />
         )}
         <Kb.Text type="Header">Conversation</Kb.Text>
-        {C.featureFlags.archive ? (
-          <Kb.Box2 direction="vertical" fullWidth={true} gap="tiny">
-            <Kb.Button
-              type="Default"
-              mode="Secondary"
-              label="Archive channel"
-              onClick={onArchive}
-              icon="iconfont-folder-downloads"
-              iconColor={Kb.Styles.globalColors.black}
-            />
-          </Kb.Box2>
-        ) : null}
+        <Kb.Box2 direction="vertical" fullWidth={true} gap="tiny">
+          <Kb.Button
+            type="Default"
+            mode="Secondary"
+            label="Backup channel"
+            onClick={onArchive}
+            icon="iconfont-folder-downloads"
+            iconColor={Kb.Styles.globalColors.black}
+          />
+        </Kb.Box2>
+        {entityType !== 'channel' &&
+          (ignored ? (
+            <Kb.Box2 direction="vertical" fullWidth={true} gap="tiny">
+              <Kb.Button
+                type="Default"
+                mode="Secondary"
+                label="Unhide this conversation"
+                onClick={onUnhideConv}
+                icon="iconfont-unhide"
+                iconColor={Kb.Styles.globalColors.red}
+              />
+            </Kb.Box2>
+          ) : (
+            <Kb.Box2 direction="vertical" fullWidth={true} gap="tiny">
+              <Kb.Button
+                type="Default"
+                mode="Secondary"
+                label="Hide this conversation"
+                onClick={onHideConv}
+                icon="iconfont-unhide"
+                iconColor={Kb.Styles.globalColors.red}
+              />
+            </Kb.Box2>
+          ))}
         <RetentionPicker
           conversationIDKey={
-            ['adhoc', 'channel'].includes(entityType) ? conversationIDKey : C.Chat.noConversationIDKey
+            ['adhoc', 'channel'].includes(entityType) ? conversationIDKey : Chat.noConversationIDKey
           }
           dropdownStyle={styles.retentionDropdownStyle}
           entityType={entityType}
@@ -147,26 +172,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 iconColor={Kb.Styles.globalColors.red}
               />
             )}
-            {entityType !== 'channel' &&
-              (ignored ? (
-                <Kb.Button
-                  type="Danger"
-                  mode="Secondary"
-                  label="Unhide this conversation"
-                  onClick={onUnhideConv}
-                  icon="iconfont-unhide"
-                  iconColor={Kb.Styles.globalColors.red}
-                />
-              ) : (
-                <Kb.Button
-                  type="Danger"
-                  mode="Secondary"
-                  label="Hide this conversation"
-                  onClick={onHideConv}
-                  icon="iconfont-unhide"
-                  iconColor={Kb.Styles.globalColors.red}
-                />
-              ))}
           </Kb.Box2>
         ) : null}
       </Kb.Box2>
@@ -196,25 +201,25 @@ const styles = Kb.Styles.styleSheetCreate(
     }) as const
 )
 
+type Item = {type: 'settings-panel'} | {type: 'tabs'} | {type: 'header-item'}
+type Section = Kb.SectionType<Item>
+
 type Props = {
   isPreview: boolean
-  renderTabs: () => React.ReactElement | null
-  commonSections: Array<Section<unknown, {type: 'header-section'}>>
+  commonSections: ReadonlyArray<Section>
 }
 
 const SettingsTab = (p: Props) => {
-  const section: Section<unknown, {type: 'settings-panel'}> = {
-    data: [{key: 'tab'}],
-    key: 'settings-panel',
-    renderItem: () => <SettingsPanel isPreview={p.isPreview} key="settings" />,
-    type: 'settings-panel',
-  } as const
-  const sections = [...p.commonSections, section]
+  const section = {
+    data: [{type: 'settings-panel'}] as const,
+    renderItem: () => <SettingsPanel isPreview={p.isPreview} />,
+  } satisfies Section
+  const sections: Array<Section> = [...p.commonSections, section]
   return (
     <Kb.SectionList
       stickySectionHeadersEnabled={true}
       keyboardShouldPersistTaps="handled"
-      renderSectionHeader={({section}) => (section.type === 'settings-panel' ? p.renderTabs() : null)}
+      renderSectionHeader={({section}) => section.renderSectionHeader?.({section}) ?? null}
       sections={sections}
     />
   )

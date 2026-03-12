@@ -1,14 +1,24 @@
 // Message related constants
 import * as T from '../types'
-import * as C from '..'
+import * as TeamsUtil from '../teams/util'
 import type * as ConvoConstants from './convostate'
 import HiddenString from '@/util/hidden-string'
 import logger from '@/logger'
 import type * as MessageTypes from '../types/chat2/message'
 import type {ServiceId} from 'util/platforms'
 import {noConversationIDKey} from '../types/chat2/common'
+import invert from 'lodash/invert'
+import {isIOS, isMobile} from '../platform'
 
 const noString = new HiddenString('')
+
+const statusSimplifiedToString = invert(T.RPCStellar.PaymentStatus) as {
+  [K in T.RPCStellar.PaymentStatus]: keyof typeof T.RPCStellar.PaymentStatus
+}
+
+const balanceDeltaToString = invert(T.RPCStellar.BalanceDelta) as {
+  [K in T.RPCStellar.BalanceDelta]: keyof typeof T.RPCStellar.BalanceDelta
+}
 
 export const isPathHEIC = (path: string) => path.toLowerCase().endsWith('.heic')
 // real image or heic
@@ -18,7 +28,7 @@ export const isImageViewable = (message: T.Chat.Message) => {
       // regular image
       return true
     }
-    if (message.attachmentType === 'file' && C.isIOS && isPathHEIC(message.fileName)) {
+    if (message.attachmentType === 'file' && isIOS && isPathHEIC(message.fileName)) {
       return true
     }
   }
@@ -80,17 +90,6 @@ export const getPaymentMessageInfo = (
   throw new Error(
     `Found impossible type ${maybePaymentInfo.type} in info meant for sendPayment message. convID: ${message.conversationIDKey} msgID: ${message.id}`
   )
-}
-
-export const isPendingPaymentMessage = (
-  accountsInfoMap: ConvoConstants.ConvoState['accountsInfoMap'],
-  message?: T.Chat.Message
-) => {
-  if (message?.type !== 'sendPayment') {
-    return false
-  }
-  const paymentInfo = getPaymentMessageInfo(accountsInfoMap, message)
-  return !!(paymentInfo && paymentInfo.status === 'pending')
 }
 
 // Map service message types to our message types.
@@ -280,6 +279,21 @@ export const makeMessageRequestPayment = (
   ...m,
 })
 
+const makeAssetDescription = (a?: Partial<T.Wallets.AssetDescription>): T.Wallets.AssetDescription => ({
+  code: '',
+  depositButtonText: '',
+  infoUrl: '',
+  infoUrlText: '',
+  issuerAccountID: T.Wallets.noAccountID,
+  issuerName: '',
+  issuerVerifiedDomain: '',
+  showDepositButton: false,
+  showWithdrawButton: false,
+  withdrawButtonText: '',
+  ...a,
+})
+const emptyAssetDescription = makeAssetDescription()
+
 export const makeChatPaymentInfo = (
   m?: Partial<MessageTypes.ChatPaymentInfo>
 ): MessageTypes.ChatPaymentInfo => ({
@@ -292,7 +306,7 @@ export const makeChatPaymentInfo = (
   paymentID: T.Wallets.noPaymentID,
   showCancel: false,
   sourceAmount: '',
-  sourceAsset: C.Wallets.emptyAssetDescription,
+  sourceAsset: emptyAssetDescription,
   status: 'none',
   statusDescription: '',
   statusDetail: '',
@@ -496,12 +510,6 @@ const makeMessageSystemNewChannel = (
   ...m,
 })
 
-export const makeReaction = (m?: Partial<MessageTypes.Reaction>): MessageTypes.Reaction => ({
-  timestamp: 0,
-  username: '',
-  ...m,
-})
-
 export const uiRequestInfoToChatRequestInfo = (
   r?: T.RPCChat.UIRequestInfo
 ): MessageTypes.ChatRequestInfo | undefined => {
@@ -515,7 +523,7 @@ export const uiRequestInfoToChatRequestInfo = (
     return
   } else if (r.asset && r.asset.type !== 'native') {
     const assetResult = r.asset
-    asset = C.Wallets.makeAssetDescription({
+    asset = makeAssetDescription({
       code: assetResult.code,
       issuerAccountID: assetResult.issuer,
       issuerName: assetResult.issuerName,
@@ -539,22 +547,23 @@ export const uiRequestInfoToChatRequestInfo = (
 export const uiPaymentInfoToChatPaymentInfo = (
   ps?: ReadonlyArray<T.RPCChat.UIPaymentInfo>
 ): MessageTypes.ChatPaymentInfo | undefined => {
-  if (!ps || ps.length !== 1) {
+  if (ps?.length !== 1) {
     return undefined
   }
-  const p = ps[0]!
-  const serviceStatus = C.Wallets.statusSimplifiedToString[p.status]
+  const p = ps[0]
+  if (!p) return undefined
+  const serviceStatus = statusSimplifiedToString[p.status]
   return makeChatPaymentInfo({
     accountID: p.accountID ?? T.Wallets.noAccountID,
     amountDescription: p.amountDescription,
-    delta: C.Wallets.balanceDeltaToString[p.delta],
+    delta: balanceDeltaToString[p.delta],
     fromUsername: p.fromUsername,
     issuerDescription: p.issuerDescription,
     note: new HiddenString(p.note),
     paymentID: p.paymentID,
     showCancel: p.showCancel,
     sourceAmount: p.sourceAmount,
-    sourceAsset: C.Wallets.makeAssetDescription({
+    sourceAsset: makeAssetDescription({
       code: p.sourceAsset.code,
       issuerAccountID: p.sourceAsset.issuer,
       issuerName: p.sourceAsset.issuerName,
@@ -574,18 +583,15 @@ export const reactionMapToReactions = (r: T.RPCChat.UIReactionMap): undefined | 
     ? new Map(
         Object.keys(r.reactions).reduce((arr: Array<[string, MessageTypes.ReactionDesc]>, emoji) => {
           if (r.reactions?.[emoji]) {
+            const users = Object.keys(r.reactions[emoji].users ?? {}).map(username => ({
+              timestamp: r.reactions?.[emoji]?.users?.[username]?.ctime ?? 0,
+              username,
+            }))
             arr.push([
               emoji,
               {
-                decorated: r.reactions[emoji]!.decorated,
-                users: new Set(
-                  Object.keys(r.reactions[emoji]?.users ?? {}).map(username =>
-                    makeReaction({
-                      timestamp: r.reactions?.[emoji]!.users?.[username]?.ctime,
-                      username,
-                    })
-                  )
-                ),
+                decorated: r.reactions[emoji].decorated,
+                users,
               },
             ])
           }
@@ -604,7 +610,7 @@ const uiMessageToSystemMessage = (
     case T.RPCChat.MessageSystemType.addedtoteam: {
       const {adder = '', addee = '', team = ''} = body.addedtoteam
       const roleEnum = body.addedtoteam.role
-      const role = roleEnum ? C.Teams.teamRoleByEnum[roleEnum] : 'none'
+      const role = roleEnum ? TeamsUtil.teamRoleByEnum[roleEnum] : 'none'
       const bulkAdds = body.addedtoteam.bulkAdds || []
       return makeMessageSystemAddedToTeam({
         ...minimum,
@@ -619,7 +625,7 @@ const uiMessageToSystemMessage = (
     case T.RPCChat.MessageSystemType.inviteaddedtoteam: {
       const inviteaddedtoteam = body.inviteaddedtoteam
       const invitee = inviteaddedtoteam.invitee || 'someone'
-      const role = C.Teams.teamRoleByEnum[inviteaddedtoteam.role]
+      const role = TeamsUtil.teamRoleByEnum[inviteaddedtoteam.role]
       const adder = inviteaddedtoteam.adder || 'someone'
       const inviter = inviteaddedtoteam.inviter || 'someone'
       const team = inviteaddedtoteam.team || '???'
@@ -749,10 +755,8 @@ const uiMessageToSystemMessage = (
   }
 }
 
-export const isVideoAttachment = (message: T.Chat.MessageAttachment) => message.fileType.startsWith('video')
-
 export const maxAmpsLength = 60
-export const previewSpecs = (preview?: T.RPCChat.AssetMetadata, full?: T.RPCChat.AssetMetadata) => {
+const previewSpecs = (preview?: T.RPCChat.AssetMetadata, full?: T.RPCChat.AssetMetadata) => {
   const res: T.Chat.PreviewSpec = {
     attachmentType: 'file' as T.Chat.AttachmentType,
     audioAmps: [],
@@ -767,13 +771,13 @@ export const previewSpecs = (preview?: T.RPCChat.AssetMetadata, full?: T.RPCChat
   if (preview.assetType === T.RPCChat.AssetMetadataType.image) {
     res.height = preview.image.height
     res.width = preview.image.width
-    if (full && full.assetType === T.RPCChat.AssetMetadataType.video && full.video.isAudio) {
+    if (full?.assetType === T.RPCChat.AssetMetadataType.video && full.video.isAudio) {
       res.attachmentType = 'audio'
       res.audioDuration = full.video.durationMs
     } else {
       res.attachmentType = 'image'
       // full is a video but preview is an image?
-      if (full && full.assetType === T.RPCChat.AssetMetadataType.video) {
+      if (full?.assetType === T.RPCChat.AssetMetadataType.video) {
         res.showPlayButton = true
       }
     }
@@ -1063,9 +1067,7 @@ const outboxUIMessagetoMessage = (
       let pre: T.Chat.PreviewSpec
       if (o.preview) {
         previewURL =
-          o.preview.location && o.preview.location.ltyp === T.RPCChat.PreviewLocationTyp.url
-            ? o.preview.location.url
-            : ''
+          o.preview.location?.ltyp === T.RPCChat.PreviewLocationTyp.url ? o.preview.location.url : ''
         const md = o.preview.metadata ?? undefined
         const baseMd = o.preview.baseMetadata ?? undefined
         pre = previewSpecs(md, baseMd)
@@ -1094,7 +1096,7 @@ const outboxUIMessagetoMessage = (
         conversationIDKey,
         decoratedText: o.decoratedTextBody ? new HiddenString(o.decoratedTextBody) : undefined,
         deviceName: currentDeviceName,
-        deviceType: C.isMobile ? 'mobile' : 'desktop',
+        deviceType: isMobile ? 'mobile' : 'desktop',
         errorReason,
         errorTyp,
         exploding: o.isEphemeral,
@@ -1200,47 +1202,19 @@ export const uiMessageToMessage = (
     case T.RPCChat.MessageUnboxedState.journeycard:
       return journeycardUIMessageToMessage(conversationIDKey, uiMessage.journeycard)
     default: // A type error here means there is an unhandled message state
-      C.assertNever(uiMessage)
+      assertNever(uiMessage)
       return
   }
 }
 
-export function nextFractionalOrdinal(ord: T.Chat.Ordinal) {
+const assertNever = (_: never) => undefined
+
+function nextFractionalOrdinal(ord: T.Chat.Ordinal) {
   // Mimic what the service does with outbox items
   return T.Chat.numberToOrdinal(T.Chat.ordinalToNumber(ord) + 0.001)
 }
 
-export const makePendingTextMessage = (
-  conversationIDKey: T.Chat.ConversationIDKey,
-  currentUsername: string,
-  getLastOrdinal: () => T.Chat.Ordinal,
-  text: HiddenString,
-  outboxID: T.Chat.OutboxID,
-  explodeTime?: number
-) => {
-  // we could read the exploding mode for the convo from state here, but that
-  // would cause the timer to count down while the message is still pending
-  // and probably reset when we get the real message back.
-
-  const ordinal = nextFractionalOrdinal(getLastOrdinal())
-  const explodeInfo = explodeTime ? {exploding: true, explodingTime: Date.now() + explodeTime * 1000} : {}
-
-  return makeMessageText({
-    ...explodeInfo,
-    author: currentUsername,
-    conversationIDKey,
-    deviceName: '',
-    deviceType: C.isMobile ? 'mobile' : 'desktop',
-    id: T.Chat.numberToMessageID(0),
-    ordinal,
-    outboxID,
-    submitState: 'pending',
-    text,
-    timestamp: Date.now(),
-  })
-}
-
-export const makePendingAttachmentMessage = (
+const makePendingAttachmentMessage = (
   conversationIDKey: T.Chat.ConversationIDKey,
   currentUsername: string,
   getLastOrdinal: () => T.Chat.Ordinal,
@@ -1263,7 +1237,7 @@ export const makePendingAttachmentMessage = (
     author: currentUsername,
     conversationIDKey,
     deviceName: '',
-    deviceType: C.isMobile ? 'mobile' : 'desktop',
+    deviceType: isMobile ? 'mobile' : 'desktop',
     errorReason,
     errorTyp,
     exploding,
@@ -1283,20 +1257,7 @@ export const makePendingAttachmentMessage = (
   })
 }
 
-const imageFileNameRegex = /[^/]+\.(jpg|png|gif|jpeg|bmp)$/i
-const videoFileNameRegex = /[^/]+\.(mp4|mov|avi|mkv)$/i
-export const pathToAttachmentType = (path: string) => {
-  if (imageFileNameRegex.test(path)) {
-    return 'image'
-  }
-  if (videoFileNameRegex.test(path)) {
-    return 'video'
-  }
-  return 'file'
-}
 export const isSpecialMention = (s: string) => ['here', 'channel', 'everyone'].includes(s)
-
-export const specialMentions = ['here', 'channel', 'everyone']
 
 export const upgradeMessage = (
   old: T.Immutable<T.Chat.Message>,
@@ -1394,17 +1355,6 @@ export const shouldShowPopup = (
   }
 }
 
-export const messageExplodeDescriptions: T.Chat.MessageExplodeDescription[] = [
-  {seconds: 30, text: '30 seconds'},
-  {seconds: 300, text: '5 minutes'},
-  {seconds: 3600, text: '60 minutes'},
-  {seconds: 3600 * 6, text: '6 hours'},
-  {seconds: 86400, text: '24 hours'},
-  {seconds: 86400 * 3, text: '3 days'},
-  {seconds: 86400 * 7, text: '7 days'},
-  {seconds: 0, text: 'Never explode (turn off)'},
-].reverse()
-
 export const messageAttachmentTransferStateToProgressLabel = (
   transferState: T.Chat.MessageAttachmentTransferState
 ): string => {
@@ -1420,12 +1370,4 @@ export const messageAttachmentTransferStateToProgressLabel = (
     default:
       return ''
   }
-}
-
-export const messageAttachmentHasProgress = (message: T.Chat.MessageAttachment) => {
-  return (
-    !!message.transferState &&
-    message.transferState !== 'remoteUploading' &&
-    message.transferState !== 'mobileSaving'
-  )
 }

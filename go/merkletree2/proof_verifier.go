@@ -99,7 +99,7 @@ func (m *MerkleProofVerifier) verifyInclusionOrExclusionProof(ctx logger.Context
 	if err != nil {
 		return NewProofVerificationFailedError(err)
 	}
-	leafPosition := m.cfg.getParentAtLevel(keyAsPos, uint(len(sibH)/(m.cfg.ChildrenPerNode-1)))
+	leafPosition := m.cfg.getParentAtLevel(keyAsPos, uint(len(sibH)/(m.cfg.ChildrenPerNode-1))) //nolint:gosec // G115: Sibling hash list length bounded by tree depth, safe to convert
 
 	// recompute the hash of the root node by recreating all the internal nodes
 	// on the path from the leaf to the root.
@@ -306,10 +306,9 @@ func (m *MerkleProofVerifier) VerifyExtensionProof(ctx logger.ContextInterface, 
 	}
 
 	skipsHash, isPartOfIncExtProof, err := m.computeFinalSkipPointersHashFromPath(ctx, proof, initialSeqno, initialRootHash, finalSeqno)
-	// For exmaple, if finalSeqno = 30, then skipsHash will be the expected
+	// For example, if finalSeqno = 30, then skipsHash will be the expected
 	// SkipPointersHash of the root at seqno 30 (i.e. SHA512([H16, H24, H28,
 	// H29]) where Hi is the hash of the RootMetadata at seqno i)
-
 	if err != nil {
 		return err
 	}
@@ -318,7 +317,7 @@ func (m *MerkleProofVerifier) VerifyExtensionProof(ctx logger.ContextInterface, 
 	}
 
 	return m.verifyExtensionProofFinal(ctx, proof.PreviousRootsNoSkips[len(proof.PreviousRootsNoSkips)-1], skipsHash, expRootHash)
-	// For exmaple, if finalSeqno = 30, this function uses the skipsHash above,
+	// For example, if finalSeqno = 30, this function uses the skipsHash above,
 	// puts it inside RootMetadata at seqno 30, hashes it and checks the hash
 	// matches expRootHash.
 }
@@ -342,7 +341,7 @@ func (m *MerkleProofVerifier) VerifyInclusionExtensionProof(ctx logger.ContextIn
 	}
 
 	// If initialSeqno == finalSeqno, no extension proof is necessary so if it is not there we skip checking it.
-	if initialSeqno != finalSeqno || len(proof.MerkleExtensionProof.PreviousRootsNoSkips) > 0 || len(proof.MerkleExtensionProof.PreviousRootsNoSkips) > 0 {
+	if initialSeqno != finalSeqno || len(proof.MerkleExtensionProof.PreviousRootsNoSkips) > 0 {
 		skipsHashForNewRoot, isPartOfIncExtProof, err := m.computeFinalSkipPointersHashFromPath(ctx, &proof.MerkleExtensionProof, initialSeqno, initialRootHash, incProof.RootMetadataNoHash.Seqno)
 		if err != nil {
 			return err

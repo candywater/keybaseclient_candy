@@ -4,6 +4,7 @@
 package engine
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	gregor1 "github.com/keybase/client/go/protocol/gregor1"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
 	"github.com/keybase/clockwork"
-	context "golang.org/x/net/context"
 )
 
 func doWithSigChainVersions(f func(libkb.SigVersion)) {
@@ -450,7 +450,8 @@ func (d *FakeGregorState) State(ctx context.Context) (gregor.State, error) {
 }
 
 func (d *FakeGregorState) UpdateCategory(ctx context.Context, cat string, body []byte,
-	dtime gregor1.TimeOrOffset) (res gregor1.MsgID, err error) {
+	dtime gregor1.TimeOrOffset,
+) (res gregor1.MsgID, err error) {
 	return gregor1.MsgID{}, nil
 }
 

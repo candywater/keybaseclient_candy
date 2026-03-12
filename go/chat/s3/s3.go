@@ -13,7 +13,8 @@ package s3
 
 import (
 	"bytes"
-	"crypto/md5"
+	"context"
+	"crypto/md5" //nolint:gosec // G501: MD5 required for S3 ETag computation (AWS API requirement, not cryptographic use)
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
@@ -28,8 +29,6 @@ import (
 	"time"
 
 	"github.com/keybase/client/go/libkb"
-
-	"golang.org/x/net/context"
 )
 
 const debug = false
@@ -136,7 +135,6 @@ var DefaultAttemptStrategy = AttemptStrategy{
 
 // New creates a new S3.  Optional client argument allows for custom http.clients to be used.
 func New(g *libkb.GlobalContext, signer Signer, region Region, client ...*http.Client) *S3 {
-
 	var httpclient *http.Client
 
 	if len(client) > 0 {
@@ -162,7 +160,7 @@ func (s3 *S3) SetSessionToken(token string) {
 
 // Bucket returns a Bucket with the given name.
 func (s3 *S3) Bucket(name string) BucketInt {
-	if s3.Region.S3BucketEndpoint != "" || s3.Region.S3LowercaseBucket {
+	if s3.S3BucketEndpoint != "" || s3.S3LowercaseBucket {
 		name = strings.ToLower(name)
 	}
 	return &Bucket{s3, name}
@@ -178,8 +176,8 @@ var createBucketConfiguration = `<CreateBucketConfiguration xmlns="http://s3.ama
 // See http://goo.gl/bh9Kq for details.
 func (s3 *S3) locationConstraint() io.Reader {
 	constraint := ""
-	if s3.Region.S3LocationConstraint {
-		constraint = fmt.Sprintf(createBucketConfiguration, s3.Region.Name)
+	if s3.S3LocationConstraint {
+		constraint = fmt.Sprintf(createBucketConfiguration, s3.Name)
 	}
 	return strings.NewReader(constraint)
 }
@@ -217,7 +215,7 @@ func (b *Bucket) PutBucket(ctx context.Context, perm ACL) error {
 		headers: headers,
 		payload: b.locationConstraint(),
 	}
-	return b.S3.query(ctx, req, nil)
+	return b.query(ctx, req, nil)
 }
 
 // DelBucket removes an existing S3 bucket. All objects in the bucket must
@@ -234,8 +232,8 @@ func (b *Bucket) DelBucket() (err error) {
 		path:    "/",
 		headers: headers,
 	}
-	for attempt := b.S3.AttemptStrategy.Start(); attempt.Next(); {
-		err = b.S3.query(context.Background(), req, nil)
+	for attempt := b.Start(); attempt.Next(); {
+		err = b.query(context.Background(), req, nil)
 		if !shouldRetry(err) {
 			break
 		}
@@ -306,12 +304,12 @@ func (b *Bucket) GetResponseWithHeaders(ctx context.Context, path string, header
 		path:    path,
 		headers: headers,
 	}
-	err = b.S3.prepare(req)
+	err = b.prepare(req)
 	if err != nil {
 		return nil, err
 	}
-	for attempt := b.S3.AttemptStrategy.Start(); attempt.Next(); {
-		resp, err := b.S3.run(ctx, req, nil)
+	for attempt := b.Start(); attempt.Next(); {
+		resp, err := b.run(ctx, req, nil) //nolint:bodyclose // caller's responsibility
 		if shouldRetry(err) && attempt.HasNext() {
 			continue
 		}
@@ -334,12 +332,12 @@ func (b *Bucket) Exists(path string) (exists bool, err error) {
 		path:    path,
 		headers: headers,
 	}
-	err = b.S3.prepare(req)
+	err = b.prepare(req)
 	if err != nil {
 		return
 	}
-	for attempt := b.S3.AttemptStrategy.Start(); attempt.Next(); {
-		resp, err := b.S3.run(context.Background(), req, nil)
+	for attempt := b.Start(); attempt.Next(); {
+		resp, err := b.run(context.Background(), req, nil)
 
 		if shouldRetry(err) && attempt.HasNext() {
 			continue
@@ -353,6 +351,7 @@ func (b *Bucket) Exists(path string) (exists bool, err error) {
 			return false, err
 		}
 
+		defer func() { _ = libkb.DiscardAndCloseBody(resp) }()
 		if resp.StatusCode/100 == 2 {
 			exists = true
 		}
@@ -371,13 +370,13 @@ func (b *Bucket) Head(path string, headers map[string][]string) (*http.Response,
 		path:    path,
 		headers: headers,
 	}
-	err := b.S3.prepare(req)
+	err := b.prepare(req)
 	if err != nil {
 		return nil, err
 	}
 
-	for attempt := b.S3.AttemptStrategy.Start(); attempt.Next(); {
-		resp, err := b.S3.run(context.Background(), req, nil)
+	for attempt := b.Start(); attempt.Next(); {
+		resp, err := b.run(context.Background(), req, nil)
 		if shouldRetry(err) && attempt.HasNext() {
 			continue
 		}
@@ -412,8 +411,8 @@ func (b *Bucket) PutCopy(path string, perm ACL, options CopyOptions, source stri
 		headers: headers,
 	}
 	result = &CopyObjectResult{}
-	for attempt := b.S3.AttemptStrategy.Start(); attempt.Next(); {
-		err = b.S3.query(context.Background(), req, result)
+	for attempt := b.Start(); attempt.Next(); {
+		err = b.query(context.Background(), req, result)
 		if !shouldRetry(err) {
 			break
 		}
@@ -451,7 +450,7 @@ func (b *Bucket) PutReader(ctx context.Context, path string, r io.Reader, length
 		headers: headers,
 		payload: r,
 	}
-	return b.S3.query(ctx, req, nil)
+	return b.query(ctx, req, nil)
 }
 
 /*
@@ -479,7 +478,7 @@ func (b *Bucket) PutReaderHeader(ctx context.Context, path string, r io.Reader, 
 		headers: headers,
 		payload: r,
 	}
-	return b.S3.query(ctx, req, nil)
+	return b.query(ctx, req, nil)
 }
 
 // addHeaders adds o's specified fields to headers
@@ -536,7 +535,6 @@ type WebsiteConfiguration struct {
 }
 
 func (b *Bucket) PutBucketWebsite(configuration WebsiteConfiguration) error {
-
 	doc, err := xml.Marshal(configuration)
 	if err != nil {
 		return err
@@ -561,7 +559,7 @@ func (b *Bucket) PutBucketSubresource(subresource string, r io.Reader, length in
 		params:  url.Values{subresource: {""}},
 	}
 
-	return b.S3.query(context.Background(), req, nil)
+	return b.query(context.Background(), req, nil)
 }
 
 // Del removes an object from the S3 bucket.
@@ -572,11 +570,12 @@ func (b *Bucket) Del(ctx context.Context, path string) error {
 	b.addTokenHeader(headers)
 
 	req := &request{
-		method: "DELETE",
-		bucket: b.Name,
-		path:   path,
+		method:  "DELETE",
+		bucket:  b.Name,
+		path:    path,
+		headers: headers,
 	}
-	return b.S3.query(ctx, req, nil)
+	return b.query(ctx, req, nil)
 }
 
 type Delete struct {
@@ -599,7 +598,7 @@ func (b *Bucket) DelMulti(objects Delete) error {
 	}
 
 	buf := makeXMLBuffer(doc)
-	digest := md5.New()
+	digest := md5.New() //nolint:gosec // G401: MD5 required for S3 ETag (AWS API requirement)
 	size, err := digest.Write(buf.Bytes())
 	if err != nil {
 		return err
@@ -621,7 +620,7 @@ func (b *Bucket) DelMulti(objects Delete) error {
 		payload: buf,
 	}
 
-	return b.S3.query(context.Background(), req, nil)
+	return b.query(context.Background(), req, nil)
 }
 
 // The ListResp type holds the results of a List bucket operation.
@@ -728,8 +727,8 @@ func (b *Bucket) List(prefix, delim, marker string, maxK int) (result *ListResp,
 		headers: headers,
 	}
 	result = &ListResp{}
-	for attempt := b.S3.AttemptStrategy.Start(); attempt.Next(); {
-		err = b.S3.query(context.Background(), req, result)
+	for attempt := b.Start(); attempt.Next(); {
+		err = b.query(context.Background(), req, result)
 		if !shouldRetry(err) {
 			break
 		}
@@ -789,8 +788,8 @@ func (b *Bucket) Versions(prefix, delim, keyMarker string, versionIDMarker strin
 		params: params,
 	}
 	result = &VersionsResp{}
-	for attempt := b.S3.AttemptStrategy.Start(); attempt.Next(); {
-		err = b.S3.query(context.Background(), req, result)
+	for attempt := b.Start(); attempt.Next(); {
+		err = b.query(context.Background(), req, result)
 		if !shouldRetry(err) {
 			break
 		}
@@ -833,7 +832,7 @@ func (b *Bucket) URL(path string) string {
 		bucket: b.Name,
 		path:   path,
 	}
-	err := b.S3.prepare(req)
+	err := b.prepare(req)
 	if err != nil {
 		panic(err)
 	}
@@ -853,7 +852,7 @@ func (b *Bucket) SignedURL(path string, expires time.Time) string {
 		path:   path,
 		params: url.Values{"Expires": {strconv.FormatInt(expires.Unix(), 10)}},
 	}
-	err := b.S3.prepare(req)
+	err := b.prepare(req)
 	if err != nil {
 		panic(err)
 	}
@@ -902,7 +901,7 @@ func (s3 *S3) query(ctx context.Context, req *request, resp interface{}) error {
 
 // prepare sets up req to be delivered to S3.
 func (s3 *S3) prepare(req *request) error {
-	var signpath = req.path
+	signpath := req.path
 
 	if !req.prepared {
 		req.prepared = true
@@ -925,10 +924,10 @@ func (s3 *S3) prepare(req *request) error {
 		}
 		signpath = req.path
 		if req.bucket != "" {
-			req.baseurl = s3.Region.S3BucketEndpoint
+			req.baseurl = s3.S3BucketEndpoint
 			if req.baseurl == "" {
 				// Use the path method to address the bucket.
-				req.baseurl = s3.Region.S3Endpoint
+				req.baseurl = s3.S3Endpoint
 				req.path = "/" + req.bucket + req.path
 			} else {
 				// Just in case, prevent injection.
@@ -1148,7 +1147,7 @@ func (c *ioTimeoutConn) deadline(timeout time.Duration) time.Time {
 
 func (c *ioTimeoutConn) Read(b []byte) (int, error) {
 	if c.readTimeout > 0 {
-		err := c.TCPConn.SetReadDeadline(c.deadline(c.readTimeout))
+		err := c.SetReadDeadline(c.deadline(c.readTimeout))
 		if err != nil {
 			return 0, err
 		}
@@ -1158,7 +1157,7 @@ func (c *ioTimeoutConn) Read(b []byte) (int, error) {
 
 func (c *ioTimeoutConn) Write(b []byte) (int, error) {
 	if c.writeTimeout > 0 {
-		err := c.TCPConn.SetWriteDeadline(c.deadline(c.writeTimeout))
+		err := c.SetWriteDeadline(c.deadline(c.writeTimeout))
 		if err != nil {
 			return 0, err
 		}

@@ -591,7 +591,7 @@ func TestChangeDisplayCurrency(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	// Try non-existant account id.
+	// Try non-existent account id.
 	invalidAccID, _ := randomStellarKeypair()
 	_, err = tcs[0].Srv.ChangeDisplayCurrencyLocal(context.Background(), stellar1.ChangeDisplayCurrencyLocalArg{
 		AccountID: invalidAccID,
@@ -2856,7 +2856,6 @@ func TestMakeRequestLocalNotifications(t *testing.T) {
 		t.Fatalf("received request notification on second load: %+v", info)
 	case <-time.After(100 * time.Millisecond):
 	}
-
 }
 
 func TestSetMobileOnly(t *testing.T) {

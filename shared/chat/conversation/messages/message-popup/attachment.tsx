@@ -1,12 +1,14 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as React from 'react'
 import type * as T from '@/constants/types'
 import {type Position, fileUIName, type StylesCrossPlatform} from '@/styles'
 import {useItems, useHeader} from './hooks'
 import * as Kb from '@/common-adapters'
+import {useFSState} from '@/constants/fs'
 
 type OwnProps = {
-  attachTo?: React.RefObject<Kb.MeasureRef>
+  attachTo?: React.RefObject<Kb.MeasureRef | null>
   ordinal: T.Chat.Ordinal
   onHidden: () => void
   position: Position
@@ -14,52 +16,74 @@ type OwnProps = {
   visible: boolean
 }
 
-const emptyMessage = C.Chat.makeMessageAttachment({})
+const emptyMessage = Chat.makeMessageAttachment({})
 
 const PopAttach = (ownProps: OwnProps) => {
   const {ordinal, attachTo, onHidden, position, style, visible} = ownProps
-  const m = C.useChatContext(s => s.messageMap.get(ordinal))
-  const message = m?.type === 'attachment' ? m : emptyMessage
-  const {downloadPath, attachmentType} = message
+  const message = Chat.useChatContext(s => {
+    const m = s.messageMap.get(ordinal)
+    const message = m?.type === 'attachment' ? m : emptyMessage
+    return message
+  })
+  const {downloadPath, attachmentType, id} = message
   const pending = !!message.transferState
   const clearModals = C.useRouterState(s => s.dispatch.clearModals)
-  const showInfoPanel = C.useChatContext(s => s.dispatch.showInfoPanel)
 
-  const loadMessagesCentered = C.useChatContext(s => s.dispatch.loadMessagesCentered)
+  const {
+    attachmentDownload,
+    loadMessagesCentered,
+    messageAttachmentNativeSave,
+    messageAttachmentNativeShare,
+    showInfoPanel,
+  } = Chat.useChatContext(
+    C.useShallow(s => {
+      const {
+        attachmentDownload,
+        loadMessagesCentered,
+        messageAttachmentNativeSave,
+        messageAttachmentNativeShare,
+        showInfoPanel,
+      } = s.dispatch
+      return {
+        attachmentDownload,
+        loadMessagesCentered,
+        messageAttachmentNativeSave,
+        messageAttachmentNativeShare,
+        showInfoPanel,
+      }
+    })
+  )
 
   const onJump = React.useCallback(() => {
-    m && loadMessagesCentered(m.id, 'always')
+    loadMessagesCentered(id, 'always')
     showInfoPanel(false, 'attachments')
     clearModals()
-  }, [m, loadMessagesCentered, showInfoPanel, clearModals])
+  }, [id, loadMessagesCentered, showInfoPanel, clearModals])
 
   const onAllMedia = () => {
     clearModals()
     showInfoPanel(true, 'attachments')
   }
-  const attachmentDownload = C.useChatContext(s => s.dispatch.attachmentDownload)
   const _onDownload = React.useCallback(() => {
     attachmentDownload(ordinal)
   }, [attachmentDownload, ordinal])
   const onDownload = !C.isMobile && !message.downloadPath ? _onDownload : undefined
 
-  const messageAttachmentNativeSave = C.useChatContext(s => s.dispatch.messageAttachmentNativeSave)
-  const messageAttachmentNativeShare = C.useChatContext(s => s.dispatch.messageAttachmentNativeShare)
   const _onSaveAttachment = React.useCallback(() => {
     messageAttachmentNativeSave(ordinal)
   }, [messageAttachmentNativeSave, ordinal])
 
   const onSaveAttachment =
-    C.isMobile && (attachmentType === 'image' || C.Chat.isImageViewable(message))
+    C.isMobile && (attachmentType === 'image' || Chat.isImageViewable(message))
       ? _onSaveAttachment
       : undefined
 
   const _onShareAttachment = React.useCallback(() => {
     messageAttachmentNativeShare(ordinal)
   }, [messageAttachmentNativeShare, ordinal])
-  const onShareAttachment = C.isIOS ? _onShareAttachment : undefined
+  const onShareAttachment = C.isMobile ? _onShareAttachment : undefined
 
-  const openLocalPathInSystemFileManagerDesktop = C.useFSState(
+  const openLocalPathInSystemFileManagerDesktop = useFSState(
     s => s.dispatch.dynamic.openLocalPathInSystemFileManagerDesktop
   )
   const _onShowInFinder = React.useCallback(() => {
@@ -115,7 +139,7 @@ const PopAttach = (ownProps: OwnProps) => {
     ...itemPin,
   ]
 
-  const header = useHeader(ordinal)
+  const header = useHeader(ordinal, onHidden)
   const snapPoints = React.useMemo(() => [8 * 40 + 25], [])
 
   return (

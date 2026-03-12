@@ -4,6 +4,7 @@
 package systests
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -16,7 +17,6 @@ import (
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
 	"github.com/stretchr/testify/require"
-	context "golang.org/x/net/context"
 )
 
 type delegateID3UI struct {
@@ -116,7 +116,6 @@ func newDelegateID3UI(g *libkb.GlobalContext, t *testing.T) *delegateID3UI {
 // if we just checked all 3 bools, but there's a race because of Notify() use,
 // since we don't get a guarantee of when the Notify()s go out.
 func (d *delegateID3UI) checkSuccess() {
-
 	check := func() bool {
 		d.Lock()
 		defer d.Unlock()

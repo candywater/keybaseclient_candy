@@ -1,34 +1,35 @@
-import * as C from '@/constants'
-import * as Container from '@/util/container'
+import * as Teams from '@/constants/teams'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
 import * as T from '@/constants/types'
 import {ModalTitle} from '@/teams/common'
 import {pluralize} from '@/util/string'
 import {useTeamDetailsSubscribe} from '@/teams/subscriber'
+import {useSafeNavigation} from '@/util/safe-navigation'
+import {useCurrentUserState} from '@/constants/current-user'
 
 const AddSubteamMembers = () => {
-  const nav = Container.useSafeNavigation()
+  const nav = useSafeNavigation()
   const [selectedMembers, setSelectedMembers] = React.useState(new Set<string>())
   const [filter, setFilter] = React.useState('')
   const filterL = filter.toLowerCase()
   const onBack = () => nav.safeNavigateUp()
-  const setTeamWizardSubteamMembers = C.useTeamsState(s => s.dispatch.setTeamWizardSubteamMembers)
-  const startAddMembersWizard = C.useTeamsState(s => s.dispatch.startAddMembersWizard)
+  const setTeamWizardSubteamMembers = Teams.useTeamsState(s => s.dispatch.setTeamWizardSubteamMembers)
+  const startAddMembersWizard = Teams.useTeamsState(s => s.dispatch.startAddMembersWizard)
   const onContinue = () =>
     selectedMembers.size
       ? setTeamWizardSubteamMembers([...selectedMembers])
       : startAddMembersWizard(T.Teams.newTeamWizardTeamID)
 
-  const yourUsername = C.useCurrentUserState(s => s.username)
-  const parentTeamID = C.useTeamsState(s => s.newTeamWizard.parentTeamID ?? T.Teams.noTeamID)
+  const yourUsername = useCurrentUserState(s => s.username)
+  const parentTeamID = Teams.useTeamsState(s => s.newTeamWizard.parentTeamID ?? T.Teams.noTeamID)
   useTeamDetailsSubscribe(parentTeamID)
-  const parentTeamName = C.useTeamsState(s => C.Teams.getTeamMeta(s, parentTeamID).teamname)
-  const parentMembersMap = C.useTeamsState(
-    s => (s.teamDetails.get(parentTeamID) ?? C.Teams.emptyTeamDetails).members
+  const parentTeamName = Teams.useTeamsState(s => Teams.getTeamMeta(s, parentTeamID).teamname)
+  const parentMembersMap = Teams.useTeamsState(
+    s => (s.teamDetails.get(parentTeamID) ?? Teams.emptyTeamDetails).members
   )
   const parentMembers = [...parentMembersMap.values()].filter(
-    m => !C.Teams.isBot(m.type) && m.username !== yourUsername
+    m => !Teams.isBot(m.type) && m.username !== yourUsername
   )
   const filteredMembers = filter
     ? parentMembers.filter(

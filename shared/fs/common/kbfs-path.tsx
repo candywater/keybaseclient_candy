@@ -1,7 +1,7 @@
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import type * as T from '@/constants/types'
-import * as C from '@/constants'
+import * as FS from '@/constants/fs'
 import PathInfo from './path-info'
 import PathItemInfo from './path-item-info'
 
@@ -12,13 +12,13 @@ type Props = {
 }
 
 type PopupProps = Props & {
-  attachRef: React.RefObject<Kb.MeasureRef>
+  attachRef: React.RefObject<Kb.MeasureRef | null>
   onHidden: () => void
   visible: boolean
 }
 
 const useOpenInFilesTab = (path: T.FS.Path) => {
-  return React.useCallback(() => C.FS.makeActionForOpenPathInFilesTab(path), [path])
+  return React.useCallback(() => FS.makeActionForOpenPathInFilesTab(path), [path])
 }
 
 const KbfsPathPopup = (props: PopupProps) => {
@@ -65,7 +65,7 @@ const KbfsPathPopup = (props: PopupProps) => {
 
 const KbfsPath = (props: Props) => {
   const [showing, setShowing] = React.useState(false)
-  const textRef = React.useRef<Kb.MeasureRef>(null)
+  const textRef = React.useRef<Kb.MeasureRef | null>(null)
   const openInFilesTab = useOpenInFilesTab(props.standardPath)
   const text = (
     <Kb.Text

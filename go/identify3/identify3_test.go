@@ -1,6 +1,7 @@
 package identify3
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"sync"
@@ -13,7 +14,6 @@ import (
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
 	insecureTriplesec "github.com/keybase/go-triplesec-insecure"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func SetupTest(tb libkb.TestingTB, name string) libkb.TestContext {
@@ -63,30 +63,35 @@ type fakeUI3 struct {
 func (f *fakeUI3) Identify3ShowTracker(context.Context, keybase1.Identify3ShowTrackerArg) error {
 	return nil
 }
+
 func (f *fakeUI3) Identify3UpdateRow(_ context.Context, row keybase1.Identify3Row) error {
 	f.Lock()
 	defer f.Unlock()
 	f.id3results.pushRow(row)
 	return nil
 }
+
 func (f *fakeUI3) Identify3UserReset(context.Context, keybase1.Identify3GUIID) error {
 	f.Lock()
 	defer f.Unlock()
 	f.id3results.hitUserReset()
 	return nil
 }
+
 func (f *fakeUI3) Identify3UpdateUserCard(_ context.Context, card keybase1.Identify3UpdateUserCardArg) error {
 	f.Lock()
 	defer f.Unlock()
 	f.id3results.pushUserCard(card.Card)
 	return nil
 }
+
 func (f *fakeUI3) Identify3TrackerTimedOut(context.Context, keybase1.Identify3GUIID) error {
 	f.Lock()
 	defer f.Unlock()
 	f.id3results.hitTimeout()
 	return nil
 }
+
 func (f *fakeUI3) Identify3Result(_ context.Context, res keybase1.Identify3ResultArg) error {
 	f.Lock()
 	f.id3results.resultType = res.Result
@@ -94,6 +99,7 @@ func (f *fakeUI3) Identify3Result(_ context.Context, res keybase1.Identify3Resul
 	f.resultCh <- res.Result
 	return nil
 }
+
 func (f *fakeUI3) Identify3Summary(_ context.Context, arg keybase1.Identify3Summary) error {
 	f.Lock()
 	f.id3results.numProofsToCheck = arg.NumProofsToCheck
@@ -298,7 +304,6 @@ func runID3(t *testing.T, mctx libkb.MetaContext, user string, follow bool) id3r
 }
 
 func TestFollowResetFollow(t *testing.T) {
-
 	tc := SetupTest(t, "id3")
 	defer tc.Cleanup()
 	alice, err := kbtest.CreateAndSignupFakeUser("id3a", tc.G)
@@ -339,6 +344,7 @@ func checkIcon(t testing.TB, service string, icon []keybase1.SizedImage) {
 		} else {
 			resp, err := http.Get(icon.Path)
 			require.NoError(t, err, "%v", service)
+			defer resp.Body.Close()
 			require.Equal(t, 200, resp.StatusCode, "icon file should be reachable")
 			require.NoError(t, err)
 			body, err := io.ReadAll(resp.Body)

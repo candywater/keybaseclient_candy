@@ -1,12 +1,13 @@
 import * as C from '@/constants'
+import * as Crypto from '@/constants/crypto'
 import * as Kb from '@/common-adapters'
 
 const placeholder = 'Search people'
 
 const Recipients = () => {
-  const recipients = C.useCryptoState(s => s.encrypt.recipients)
-  const inProgress = C.useCryptoState(s => s.encrypt.inProgress)
-  const clearRecipients = C.useCryptoState(s => s.dispatch.clearRecipients)
+  const recipients = Crypto.useCryptoState(s => s.encrypt.recipients)
+  const inProgress = Crypto.useCryptoState(s => s.encrypt.inProgress)
+  const clearRecipients = Crypto.useCryptoState(s => s.dispatch.clearRecipients)
   const appendEncryptRecipientsBuilder = C.useRouterState(s => s.appendEncryptRecipientsBuilder)
 
   const onAddRecipients = () => {

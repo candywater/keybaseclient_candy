@@ -1,70 +1,40 @@
-import * as Kb from '@/common-adapters'
-import * as React from 'react'
-import * as Shared from './shim.shared'
-import {SafeAreaProvider, initialWindowMetrics} from 'react-native-safe-area-context'
-import {View} from 'react-native'
-import type {RouteMap, GetOptions, GetOptionsParams} from '@/constants/types/router2'
-import {isTablet} from '@/constants/platform'
+import type * as React from 'react'
+import type {RouteMap, RouteDef, GetOptionsParams} from '@/constants/types/router2'
+import type {RootParamList as KBRootParamList} from '@/router-v2/route-params'
+import type {NavScreensResult} from './shim'
+import {makeLayout} from './screen-layout.native'
 
-export const shim = (routes: RouteMap, isModal: boolean, isLoggedOut: boolean) =>
-  Shared._shim(routes, platformShim, isModal, isLoggedOut)
-
-export const getOptions = Shared._getOptions
-
-const platformShim = (
-  Original: React.JSXElementConstructor<GetOptionsParams>,
+const makeNavScreen = (
+  name: keyof KBRootParamList,
+  rd: RouteDef,
+  Screen: React.ComponentType<any>,
   isModal: boolean,
-  isLoggedOut: boolean,
-  getOptions?: GetOptions
+  isLoggedOut: boolean
 ) => {
-  // Wrap everything in a keyboard avoiding view (maybe this is opt in/out?)
-  return React.memo(function ShimmedNew(props: GetOptionsParams) {
-    const navigationOptions =
-      typeof getOptions === 'function'
-        ? getOptions({navigation: props.navigation, route: props.route})
-        : getOptions
-
-    let wrap = <Original {...props} />
-
-    if (isModal || isLoggedOut) {
-      wrap = (
-        <Kb.KeyboardAvoidingView2 extraOffset={40} compensateNotBeingOnBottom={isModal && isTablet}>
-          <SafeAreaProvider initialMetrics={initialWindowMetrics} pointerEvents="box-none">
-            <Kb.SafeAreaView
-              style={Kb.Styles.collapseStyles([styles.keyboard, navigationOptions?.safeAreaStyle])}
-            >
-              {wrap}
-            </Kb.SafeAreaView>
-          </SafeAreaProvider>
-        </Kb.KeyboardAvoidingView2>
-      )
-    }
-
-    if (isModal) {
-      wrap = <ModalWrapper>{wrap}</ModalWrapper>
-    }
-    return wrap
-  })
+  return (
+    <Screen
+      key={String(name)}
+      name={name}
+      component={rd.screen}
+      layout={makeLayout(isModal, isLoggedOut, rd.getOptions)}
+      options={({route, navigation}: GetOptionsParams) => {
+        const no = rd.getOptions
+        const opt = typeof no === 'function' ? no({navigation, route}) : no
+        return {
+          ...opt,
+          ...(isModal ? {animationEnabled: true} : {}),
+        }
+      }}
+    />
+  )
 }
 
-const ModalWrapper = (p: {children: React.ReactNode}) => {
-  const {children} = p
-  return <View style={styles.modal}>{children}</View>
-}
-
-const styles = Kb.Styles.styleSheetCreate(
-  () =>
-    ({
-      keyboard: {
-        flexGrow: 1,
-        maxHeight: '100%',
-        position: 'relative',
-      },
-      modal: {
-        backgroundColor: Kb.Styles.globalColors.white,
-        flexGrow: 1,
-        maxHeight: '100%',
-        position: 'relative',
-      },
-    }) as const
-)
+export const makeNavScreens = <T extends {Screen: React.ComponentType<any>}>(
+  rs: RouteMap,
+  Screen: T['Screen'],
+  isModal: boolean,
+  isLoggedOut: boolean
+): NavScreensResult =>
+  (Object.keys(rs) as Array<keyof KBRootParamList>).map(k =>
+    makeNavScreen(k, rs[k]!, Screen, isModal, isLoggedOut)
+  )

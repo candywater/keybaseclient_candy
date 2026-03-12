@@ -1,8 +1,9 @@
-import * as C from '..'
-import * as Constants from '@/constants/fs'
 import * as T from '../types'
+import {ignorePromise, wrapErrors} from '../utils'
+import * as FS from '@/constants/fs'
 import logger from '@/logger'
 import nativeInit from './common.native'
+import {useFSState} from '.'
 import {androidAddCompleteDownload, fsCacheDir, fsDownloadDir} from 'react-native-kb'
 
 const finishedRegularDownloadIDs = new Set<string>()
@@ -10,8 +11,8 @@ const finishedRegularDownloadIDs = new Set<string>()
 export default function initPlatformSpecific() {
   nativeInit()
 
-  C.useFSState.setState(s => {
-    s.dispatch.dynamic.afterKbfsDaemonRpcStatusChanged = C.wrapErrors(() => {
+  useFSState.setState(s => {
+    s.dispatch.dynamic.afterKbfsDaemonRpcStatusChanged = wrapErrors(() => {
       const f = async () => {
         await T.RPCGen.SimpleFSSimpleFSConfigureDownloadRpcPromise({
           // Android's cache dir is (when I tried) [app]/cache but Go side uses
@@ -20,10 +21,12 @@ export default function initPlatformSpecific() {
           downloadDirOverride: fsDownloadDir,
         })
       }
-      C.ignorePromise(f())
+      ignorePromise(f())
     })
+    // needs to be called, TODO could make this better
+    s.dispatch.dynamic.afterKbfsDaemonRpcStatusChanged()
 
-    s.dispatch.dynamic.finishedRegularDownloadMobile = C.wrapErrors(
+    s.dispatch.dynamic.finishedRegularDownloadMobile = wrapErrors(
       (downloadID: string, mimeType: string) => {
         const f = async () => {
           // This is fired from a hook and can happen more than once per downloadID.
@@ -34,14 +37,11 @@ export default function initPlatformSpecific() {
           }
           finishedRegularDownloadIDs.add(downloadID)
 
-          const {downloads} = C.useFSState.getState()
+          const {downloads} = useFSState.getState()
 
-          const downloadState = downloads.state.get(downloadID) || Constants.emptyDownloadState
-          const downloadInfo = downloads.info.get(downloadID) || Constants.emptyDownloadInfo
-          if (
-            downloadState === Constants.emptyDownloadState ||
-            downloadInfo === Constants.emptyDownloadInfo
-          ) {
+          const downloadState = downloads.state.get(downloadID) || FS.emptyDownloadState
+          const downloadInfo = downloads.info.get(downloadID) || FS.emptyDownloadInfo
+          if (downloadState === FS.emptyDownloadState || downloadInfo === FS.emptyDownloadInfo) {
             logger.warn('missing download', downloadID)
             return
           }
@@ -61,7 +61,7 @@ export default function initPlatformSpecific() {
           }
           // No need to dismiss here as the download wrapper does it for Android.
         }
-        C.ignorePromise(f())
+        ignorePromise(f())
       }
     )
   })

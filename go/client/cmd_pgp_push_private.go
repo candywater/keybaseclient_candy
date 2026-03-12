@@ -4,13 +4,14 @@
 package client
 
 import (
+	"context"
 	"errors"
+
 	"github.com/keybase/cli"
 	"github.com/keybase/client/go/libcmdline"
 	"github.com/keybase/client/go/libkb"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
-	"golang.org/x/net/context"
 )
 
 type CmdPGPPushPrivate struct {
@@ -49,7 +50,6 @@ func parsePGPFingerprints(ctx *cli.Context) ([]keybase1.PGPFingerprint, error) {
 }
 
 func (v *CmdPGPPushPrivate) Run() (err error) {
-
 	if !v.force {
 		dui := v.G().UI.GetDumbOutputUI()
 		dui.Printf(

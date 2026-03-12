@@ -12,6 +12,11 @@ import Text, {
 import {backgroundModeIsNegative} from './text.shared'
 import isArray from 'lodash/isArray'
 import type {e164ToDisplay as e164ToDisplayType} from '@/util/phone-numbers'
+import {useTrackerState} from '@/constants/tracker2'
+import {useUsersState} from '@/constants/users'
+import {useProfileState} from '@/constants/profile'
+import {useFollowerState} from '@/constants/followers'
+import {useCurrentUserState} from '@/constants/current-user'
 
 export type User = {
   username: string
@@ -54,8 +59,14 @@ const space = Styles.isMobile ? ` ` : <>&nbsp;</>
 
 // common-adapters/profile-card.tsx already imports this, so have it assign
 // this here instead of importing directly to avoid an import cycle.
-let WithProfileCardPopup: React.ComponentType<any> | null
-export const _setWithProfileCardPopup = (Comp: React.ComponentType<any>) => (WithProfileCardPopup = Comp)
+type WithProfileCardPopupProps = {
+  username: string
+  children: (onLongPress?: () => void) => React.ReactElement<typeof Text>
+  ellipsisStyle?: Styles.StylesCrossPlatform
+}
+let WithProfileCardPopup: React.ComponentType<WithProfileCardPopupProps> | null
+export const _setWithProfileCardPopup = (Comp: React.ComponentType<WithProfileCardPopupProps>) =>
+  (WithProfileCardPopup = Comp)
 
 type UsernameProps = {
   backgroundMode?: Background
@@ -85,10 +96,10 @@ const Username = React.memo(function Username(p: UsernameProps) {
   const {onUsernameClicked, joinerStyle, showComma, showSpace, virtualText, withProfileCardPopup} = p
   const you = p.you === username
 
-  const following = C.useFollowerState(s => colorFollowing && s.following.has(username))
-  const broken = C.useUsersState(s => (colorBroken && s.infoMap.get(username)?.broken) ?? false)
+  const following = useFollowerState(s => colorFollowing && s.following.has(username))
+  const broken = useUsersState(s => (colorBroken && s.infoMap.get(username)?.broken) ?? false)
 
-  const showUserProfile = C.useProfileState(s => s.dispatch.showUserProfile)
+  const showUserProfile = useProfileState(s => s.dispatch.showUserProfile)
   const onOpenProfile = React.useCallback(
     (evt?: React.BaseSyntheticEvent) => {
       evt?.stopPropagation()
@@ -96,7 +107,7 @@ const Username = React.memo(function Username(p: UsernameProps) {
     },
     [showUserProfile, username]
   )
-  const showUser = C.useTrackerState(s => s.dispatch.showUser)
+  const showUser = useTrackerState(s => s.dispatch.showUser)
   const onOpenTracker = React.useCallback(
     (evt?: React.BaseSyntheticEvent) => {
       evt?.stopPropagation()
@@ -259,12 +270,10 @@ const Usernames = React.memo(
     const colorBroken = p.colorBroken ?? true
     const underline = p.underline ?? true
     const withProfileCardPopup = p.withProfileCardPopup ?? true
-    const you = C.useCurrentUserState(s => s.username)
+    const you = useCurrentUserState(s => s.username)
 
     const canFixOverdraw = React.useContext(Styles.CanFixOverdrawContext)
-    const containerStyle2: Styles.StylesCrossPlatform = inline
-      ? (styles.inlineStyle as any)
-      : (styles.nonInlineStyle as any)
+    const containerStyle2: Styles.StylesCrossPlatform = inline ? styles.inlineStyle : styles.nonInlineStyle
     const bgMode = backgroundMode
     const isNegative = backgroundModeIsNegative(bgMode)
 
@@ -283,7 +292,7 @@ const Usernames = React.memo(
         className={className}
         type={type}
         negative={isNegative}
-        fixOverdraw={fixOverdraw === 'auto' ? canFixOverdraw : fixOverdraw ?? false}
+        fixOverdraw={fixOverdraw === 'auto' ? canFixOverdraw : (fixOverdraw ?? false)}
         style={Styles.collapseStyles([containerStyle2, containerStyle])}
         title={title}
         ellipsizeMode="tail"
@@ -363,8 +372,8 @@ const styles = Styles.styleSheetCreate(() => ({
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',
     },
-  } as const),
-  joinerStyle: Styles.platformStyles({isElectron: {textDecoration: 'none'}} as const),
+  }),
+  joinerStyle: Styles.platformStyles({isElectron: {textDecoration: 'none'}}),
   kerning: {letterSpacing: 0.2},
   noLineHeight: {lineHeight: undefined},
   nonInlineStyle: Styles.platformStyles({
@@ -373,7 +382,7 @@ const styles = Styles.styleSheetCreate(() => ({
       flexWrap: 'wrap',
     },
     isElectron: {textDecoration: 'inherit'},
-  } as const),
+  }),
 }))
 
 export default Usernames

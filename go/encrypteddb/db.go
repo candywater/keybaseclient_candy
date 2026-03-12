@@ -1,17 +1,19 @@
 package encrypteddb
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-errors/errors"
 
 	"github.com/keybase/client/go/libkb"
 	"golang.org/x/crypto/nacl/secretbox"
-	"golang.org/x/net/context"
 )
 
-type DbFn func(g *libkb.GlobalContext) *libkb.JSONLocalDb
-type KeyFn func(context.Context) ([32]byte, error)
+type (
+	DbFn  func(g *libkb.GlobalContext) *libkb.JSONLocalDb
+	KeyFn func(context.Context) ([32]byte, error)
+)
 
 type boxedData struct {
 	V int
@@ -46,7 +48,8 @@ func New(g *libkb.GlobalContext, getDB DbFn, getSecretBoxKey KeyFn) *EncryptedDB
 }
 
 func DecodeBox(ctx context.Context, b []byte, getSecretBoxKey KeyFn,
-	res interface{}) error {
+	res interface{},
+) error {
 	// Decode encrypted box
 	var boxed boxedData
 	if err := libkb.MPackDecode(b, &boxed); err != nil {

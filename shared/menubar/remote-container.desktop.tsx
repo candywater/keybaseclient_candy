@@ -1,8 +1,14 @@
 import * as React from 'react'
-import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import Menubar from './index.desktop'
+import {useConfigState} from '@/constants/config'
 import type {DeserializeProps} from './remote-serializer.desktop'
-import {useAvatarState} from '@/common-adapters/avatar-zus'
+import {useAvatarState} from '@/common-adapters/avatar/store'
+import {useUsersState} from '@/constants/users'
+import {useFollowerState} from '@/constants/followers'
+import {useCurrentUserState} from '@/constants/current-user'
+import {useDaemonState} from '@/constants/daemon'
+import {useDarkModeState} from '@/constants/darkmode'
 
 const RemoteContainer = (d: DeserializeProps) => {
   const {avatarRefreshCounter, badgeMap, daemonHandshakeState, darkMode, diskSpaceStatus, endEstimate} = d
@@ -10,55 +16,83 @@ const RemoteContainer = (d: DeserializeProps) => {
   const {kbfsDaemonStatus, kbfsEnabled, loggedIn, metaMap, navBadges, outOfDate, conversationsToSend} = d
   const {showingDiskSpaceBanner, totalSyncingBytes, unreadMap, username, windowShownCountNum} = d
   useAvatarState(s => s.dispatch.replace)(avatarRefreshCounter)
-  C.useDaemonState(s => s.dispatch.setState)(daemonHandshakeState)
-  C.useFollowerState(s => s.dispatch.replace)(followers, following)
-  C.useUsersState(s => s.dispatch.replace)(infoMap)
-  const replaceUsername = C.useCurrentUserState(s => s.dispatch.replaceUsername)
-  const setHTTPSrvInfo = C.useConfigState(s => s.dispatch.setHTTPSrvInfo)
-  const setOutOfDate = C.useConfigState(s => s.dispatch.setOutOfDate)
-  const setLoggedIn = C.useConfigState(s => s.dispatch.setLoggedIn)
+  useDaemonState(s => s.dispatch.setState)(daemonHandshakeState)
+  useFollowerState(s => s.dispatch.replace)(followers, following)
+  useUsersState(s => s.dispatch.replace)(infoMap)
+  const replaceUsername = useCurrentUserState(s => s.dispatch.replaceUsername)
+  const setHTTPSrvInfo = useConfigState(s => s.dispatch.setHTTPSrvInfo)
+  const setOutOfDate = useConfigState(s => s.dispatch.setOutOfDate)
+  const setLoggedIn = useConfigState(s => s.dispatch.setLoggedIn)
+  const setSystemDarkMode = useDarkModeState(s => s.dispatch.setSystemDarkMode)
 
   // defer this so we don't update while rendering
   React.useEffect(() => {
     const id = setTimeout(() => {
+      setSystemDarkMode(darkMode)
+    }, 1)
+    return () => {
+      clearTimeout(id)
+    }
+  }, [setSystemDarkMode, darkMode])
+
+  React.useEffect(() => {
+    const id = setTimeout(() => {
       replaceUsername(username)
+    }, 1)
+    return () => {
+      clearTimeout(id)
+    }
+  }, [replaceUsername, username])
+
+  React.useEffect(() => {
+    const id = setTimeout(() => {
       setHTTPSrvInfo(httpSrvAddress, httpSrvToken)
+    }, 1)
+    return () => {
+      clearTimeout(id)
+    }
+  }, [setHTTPSrvInfo, httpSrvAddress, httpSrvToken])
+
+  React.useEffect(() => {
+    const id = setTimeout(() => {
       setOutOfDate(outOfDate)
-      setLoggedIn(loggedIn, false)
+    }, 1)
+    return () => {
+      clearTimeout(id)
+    }
+  }, [setOutOfDate, outOfDate])
+
+  React.useEffect(() => {
+    const id = setTimeout(() => {
+      setLoggedIn(loggedIn, false, true)
+    }, 1)
+    return () => {
+      clearTimeout(id)
+    }
+  }, [setLoggedIn, loggedIn])
+
+  React.useEffect(() => {
+    const id = setTimeout(() => {
       for (const [id, unread] of unreadMap) {
-        C.getConvoState(id).dispatch.unreadUpdated(unread)
+        Chat.getConvoState(id).dispatch.unreadUpdated(unread)
       }
       for (const [id, badge] of badgeMap) {
-        C.getConvoState(id).dispatch.badgesUpdated(badge)
+        Chat.getConvoState(id).dispatch.badgesUpdated(badge)
       }
       for (const [id, next] of metaMap) {
-        C.getConvoState(id).dispatch.updateMeta(next)
+        Chat.getConvoState(id).dispatch.updateMeta(next)
       }
     }, 1)
     return () => {
       clearTimeout(id)
     }
-  }, [
-    unreadMap,
-    badgeMap,
-    metaMap,
-    username,
-    replaceUsername,
-    setLoggedIn,
-    loggedIn,
-    setHTTPSrvInfo,
-    httpSrvAddress,
-    httpSrvToken,
-    setOutOfDate,
-    outOfDate,
-  ])
+  }, [unreadMap, badgeMap, metaMap])
 
   return (
     <Menubar
       conversationsToSend={conversationsToSend}
       remoteTlfUpdates={remoteTlfUpdates}
       daemonHandshakeState={daemonHandshakeState}
-      darkMode={darkMode}
       diskSpaceStatus={diskSpaceStatus}
       endEstimate={endEstimate}
       fileName={fileName}

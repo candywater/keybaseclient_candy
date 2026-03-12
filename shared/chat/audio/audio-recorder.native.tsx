@@ -1,9 +1,8 @@
-import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as T from '@/constants/types'
 import * as Kb from '@/common-adapters'
 import {Portal} from '@/common-adapters/portal.native'
 import * as React from 'react'
-import * as Styles from '@/styles'
 // we need to use the raw colors to animate
 import {colors} from '@/styles/colors'
 import * as Reanimated from 'react-native-reanimated'
@@ -23,9 +22,9 @@ import * as Haptics from 'expo-haptics'
 import * as FileSystem from 'expo-file-system'
 import AudioSend from './audio-send.native'
 
-const {useSharedValue, withTiming, useAnimatedStyle, withDelay, withSequence, withSpring} = Reanimated
-const {useAnimatedReaction, runOnJS, Extrapolation, interpolate, interpolateColor} = Reanimated
-const Animated = Reanimated.default
+const {useSharedValue, Extrapolation, useAnimatedStyle} = Reanimated
+const {interpolate, withSequence, withSpring, runOnJS} = Reanimated
+const {useAnimatedReaction, withDelay, withTiming, interpolateColor, default: Animated} = Reanimated
 type SVN = Reanimated.SharedValue<number>
 
 type Props = {
@@ -40,36 +39,31 @@ enum Visible {
 }
 
 const useTooltip = () => {
+  'use no memo'
   const [showTooltip, setShowTooltip] = React.useState(false)
-  const [lastShowTooltip, setLastShowTooltip] = React.useState(showTooltip)
+  const lastShowTooltipRef = React.useRef(showTooltip)
   const opacitySV = useSharedValue(0)
-
-  const animatedStyles = useAnimatedStyle(() => ({opacity: opacitySV.value}))
-
-  if (showTooltip) {
-    opacitySV.value = withSequence(
-      withTiming(1, {duration: 200}),
-      withDelay(1000, withTiming(0, {duration: 200}))
-    )
-  }
-
-  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | undefined>()
-
-  if (showTooltip !== lastShowTooltip) {
-    setLastShowTooltip(showTooltip)
-    if (showTooltip) {
-      timeoutRef.current && clearTimeout(timeoutRef.current)
-      timeoutRef.current = setTimeout(() => {
-        setShowTooltip(false)
-      }, 1400)
-    }
-  }
+  const animatedStyles = useAnimatedStyle(() => {
+    return {opacity: opacitySV.value}
+  })
 
   React.useEffect(() => {
-    return () => {
-      timeoutRef.current && clearTimeout(timeoutRef.current)
+    if (showTooltip === lastShowTooltipRef.current) return
+    lastShowTooltipRef.current = showTooltip
+    if (showTooltip) {
+      opacitySV.set(
+        withSequence(withTiming(1, {duration: 200}), withDelay(1000, withTiming(0, {duration: 200})))
+      )
+
+      const id = setTimeout(() => {
+        setShowTooltip(false)
+      }, 1400)
+      return () => {
+        clearTimeout(id)
+      }
     }
-  }, [])
+    return undefined
+  }, [showTooltip, opacitySV])
 
   const tooltip = showTooltip ? (
     <Portal hostName="convOverlay" useFullScreenOverlay={false}>
@@ -84,116 +78,12 @@ const useTooltip = () => {
   ) : null
 
   const flashTip = React.useCallback(() => {
-    setShowTooltip(true)
+    'worklet'
+    runOnJS(setShowTooltip)(true)
   }, [setShowTooltip])
 
   return {flashTip, tooltip}
 }
-
-// these need to be out so they capture as little scope as possible
-const makePanOnFinalize = (p: {
-  startedSV: SVN
-  lockedSV: SVN
-  canceledSV: SVN
-  onCancelRecording: () => void
-  onFlashTip: () => void
-  sendRecording: () => void
-  fadeSV: SVN
-}) => {
-  const {onCancelRecording, onFlashTip} = p
-  const {sendRecording, fadeSV, startedSV, lockedSV, canceledSV} = p
-  const onPanFinalizeJS = (needTip: boolean, wasCancel: boolean, panLocked: boolean) => {
-    if (wasCancel) {
-      onCancelRecording()
-      return
-    }
-
-    if (needTip) {
-      onFlashTip()
-      return
-    }
-
-    if (!panLocked) {
-      sendRecording()
-      fadeSV.value = withTiming(0, {duration: 200})
-    }
-  }
-
-  const onPanFinalizeWorklet = (_e: unknown, success: boolean) => {
-    startedSV.value = 0
-    runOnJS(onPanFinalizeJS)(!success, canceledSV.value === 1, lockedSV.value === 1)
-  }
-
-  return onPanFinalizeWorklet
-}
-
-const makePanOnStart = (p: {startRecording: () => void; fadeSV: SVN; startedSV: SVN}) => {
-  const {startRecording, fadeSV, startedSV} = p
-  const onPanStartJS = () => {
-    startRecording()
-    fadeSV.value = withSpring(1)
-  }
-
-  const onPanStartWorklet = () => {
-    // we get this multiple times for some reason
-    if (startedSV.value) {
-      return
-    }
-
-    startedSV.value = 1
-    runOnJS(onPanStartJS)()
-  }
-
-  return onPanStartWorklet
-}
-
-const makePanOnUpdate = (p: {lockedSV: SVN; canceledSV: SVN; dragYSV: SVN; dragXSV: SVN}) => {
-  const {lockedSV, dragYSV, dragXSV, canceledSV} = p
-  const onOnUpdateWorklet = (e: GestureUpdateEvent<PanGestureHandlerEventPayload>) => {
-    if (lockedSV.value || canceledSV.value) {
-      return
-    }
-    const maxCancelDrift = -120
-    const maxLockDrift = -100
-    dragYSV.value = interpolate(e.translationY, [maxLockDrift, 0], [maxLockDrift, 0], Extrapolation.CLAMP)
-    dragXSV.value = interpolate(e.translationX, [maxCancelDrift, 0], [maxCancelDrift, 0], Extrapolation.CLAMP)
-
-    if (e.translationX < maxCancelDrift) {
-      canceledSV.value = 1
-    } else if (e.translationY < maxLockDrift) {
-      lockedSV.value = 1
-    }
-  }
-  return onOnUpdateWorklet
-}
-
-const GestureIcon = React.memo(
-  function GestureIcon(p: {
-    panOnFinalize: ReturnType<typeof makePanOnFinalize>
-    panOnUpdate: ReturnType<typeof makePanOnUpdate>
-    panOnStart: ReturnType<typeof makePanOnStart>
-  }) {
-    const {panOnStart, panOnUpdate, panOnFinalize} = p
-    return (
-      <View>
-        <GestureDetector
-          gesture={Gesture.Pan()
-            .minDistance(0)
-            .minPointers(1)
-            .maxPointers(1)
-            .activateAfterLongPress(200)
-            .onStart(panOnStart)
-            .onFinalize(panOnFinalize)
-            .onUpdate(panOnUpdate)}
-        >
-          <Kb.Icon type="iconfont-mic" style={styles.iconStyle} />
-        </GestureDetector>
-      </View>
-    )
-  },
-  // we never want to rerender the icon, all the helpers are fine at mount
-  () => true
-)
 
 const useIconAndOverlay = (p: {
   flashTip: () => void
@@ -203,6 +93,7 @@ const useIconAndOverlay = (p: {
   cancelRecording: () => void
   ampSV: SVN
 }) => {
+  'use no memo'
   const {stageRecording, startRecording, sendRecording, cancelRecording, flashTip, ampSV} = p
   const [visible, setVisible] = React.useState(Visible.HIDDEN)
 
@@ -220,22 +111,23 @@ const useIconAndOverlay = (p: {
     (f: number) => {
       if (f === 0) {
         if (fadeSyncedSV.value !== 0) {
-          fadeSyncedSV.value = 0
+          fadeSyncedSV.set(0)
           runOnJS(setVisible)(Visible.HIDDEN)
         }
       } else if (fadeSyncedSV.value !== 1) {
-        fadeSyncedSV.value = 1
+        fadeSyncedSV.set(1)
         runOnJS(setVisible)(Visible.SHOW)
       }
     }
   )
 
   const onReset = React.useCallback(() => {
-    fadeSV.value = withTiming(0, {duration: 200})
-    dragXSV.value = 0
-    dragYSV.value = 0
-    lockedSV.value = 0
-    canceledSV.value = 0
+    'worklet'
+    fadeSV.set(withTiming(0, {duration: 200}))
+    dragXSV.set(0)
+    dragYSV.set(0)
+    lockedSV.set(0)
+    canceledSV.set(0)
   }, [fadeSV, dragXSV, dragYSV, lockedSV, canceledSV])
 
   const onCancelRecording = React.useCallback(() => {
@@ -255,30 +147,123 @@ const useIconAndOverlay = (p: {
 
   const onFlashTip = React.useCallback(() => {
     flashTip()
-    cancelRecording()
-  }, [flashTip, cancelRecording])
+    onCancelRecording()
+  }, [flashTip, onCancelRecording])
 
-  const icon = (
-    <GestureIcon
-      {...{
-        panOnFinalize: makePanOnFinalize({
-          canceledSV,
-          fadeSV,
-          lockedSV,
-          onCancelRecording,
-          onFlashTip,
-          sendRecording,
-          startedSV,
-        }),
-        panOnStart: makePanOnStart({fadeSV, startRecording, startedSV}),
-        panOnUpdate: makePanOnUpdate({
-          canceledSV,
-          dragXSV,
-          dragYSV,
-          lockedSV,
-        }),
-      }}
-    />
+  const [iconVisible, setIconVisible] = React.useState(false)
+
+  // work around bug in gesture handler where it crashes on mount
+  React.useEffect(() => {
+    const id = setTimeout(() => {
+      setIconVisible(true)
+      return () => {
+        clearTimeout(id)
+      }
+    }, 1000)
+  }, [])
+  const panStartSV = useSharedValue(0)
+
+  const gesture = React.useMemo(() => {
+    let id: number
+    const showOverlay = () => {
+      // we get this multiple times for some reason
+      if (startedSV.value) {
+        return
+      }
+      startedSV.set(1)
+      fadeSV.set(withSpring(1, {duration: 200}))
+      startRecording()
+    }
+
+    const setupOverlayTimeout = () => {
+      id = setTimeout(() => {
+        showOverlay()
+      }, 200) as unknown as number
+    }
+    const cleanupOverlayTimeout = () => {
+      clearTimeout(id)
+      id = 0
+    }
+
+    const panGesture = Gesture.Pan()
+      .minDistance(0)
+      .minPointers(1)
+      .maxPointers(1)
+      .onTouchesDown(() => {
+        'worklet'
+        runOnJS(setupOverlayTimeout)()
+        if (!panStartSV.value) {
+          panStartSV.set(Date.now())
+        }
+      })
+      .onFinalize((_e: unknown, _success: boolean) => {
+        'worklet'
+        const diff = Date.now() - panStartSV.value
+        startedSV.set(0)
+        panStartSV.set(0)
+        runOnJS(cleanupOverlayTimeout)()
+        const needTip = diff < 200
+        const wasCancel = canceledSV.value === 1
+        const panLocked = lockedSV.value === 1
+        if (wasCancel) {
+          runOnJS(onCancelRecording)()
+          return
+        }
+
+        if (needTip) {
+          runOnJS(onFlashTip)()
+          return
+        }
+
+        if (!panLocked) {
+          runOnJS(sendRecording)()
+          onReset()
+          fadeSV.set(withTiming(0, {duration: 200}))
+        }
+      })
+      .onUpdate((e: GestureUpdateEvent<PanGestureHandlerEventPayload>) => {
+        'worklet'
+        if (lockedSV.value || canceledSV.value) {
+          return
+        }
+        const maxCancelDrift = -120
+        const maxLockDrift = -100
+        dragYSV.set(interpolate(e.translationY, [maxLockDrift, 0], [maxLockDrift, 0], Extrapolation.CLAMP))
+        dragXSV.set(
+          interpolate(e.translationX, [maxCancelDrift, 0], [maxCancelDrift, 0], Extrapolation.CLAMP)
+        )
+        if (e.translationX < maxCancelDrift) {
+          canceledSV.set(1)
+        } else if (e.translationY < maxLockDrift) {
+          lockedSV.set(1)
+        }
+      })
+    return panGesture
+  }, [
+    onReset,
+    panStartSV,
+    fadeSV,
+    onFlashTip,
+    lockedSV,
+    canceledSV,
+    dragXSV,
+    dragYSV,
+    startRecording,
+    sendRecording,
+    onCancelRecording,
+    startedSV,
+  ])
+
+  const icon = iconVisible ? (
+    <View>
+      <GestureDetector gesture={gesture}>
+        <Kb.Box2 direction="vertical" collapsable={false}>
+          <Kb.Icon type="iconfont-mic" style={styles.iconStyle} />
+        </Kb.Box2>
+      </GestureDetector>
+    </View>
+  ) : (
+    <Kb.Icon type="iconfont-mic" style={styles.iconStyle} />
   )
 
   const durationStyle = useAnimatedStyle(() => ({
@@ -358,7 +343,7 @@ const makeRecorder = async (onRecordingStatusUpdate: (s: Audio.RecordingStatus) 
 // Hook for interfacing with the native recorder
 const useRecorder = (p: {ampSV: SVN; setShowAudioSend: (s: boolean) => void; showAudioSend: boolean}) => {
   const {ampSV, setShowAudioSend, showAudioSend} = p
-  const recordingRef = React.useRef<Audio.Recording | undefined>()
+  const recordingRef = React.useRef<Audio.Recording | undefined>(undefined)
   const recordStartRef = React.useRef(0)
   const recordEndRef = React.useRef(0)
   const hasSetupRecording = React.useRef(false)
@@ -403,7 +388,7 @@ const useRecorder = (p: {ampSV: SVN; setShowAudioSend: (s: boolean) => void; sho
     setStaged(false)
     setShowAudioSend(false)
   }, [setStaged, ampTracker, stopRecording, setShowAudioSend])
-  const setCommandStatusInfo = C.useChatContext(s => s.dispatch.setCommandStatusInfo)
+  const setCommandStatusInfo = Chat.useChatContext(s => s.dispatch.setCommandStatusInfo)
 
   const startRecording = React.useCallback(() => {
     // calls of this never handle the promise so just handle it here
@@ -447,7 +432,7 @@ const useRecorder = (p: {ampSV: SVN; setShowAudioSend: (s: boolean) => void; sho
         ampTracker.addAmp(amp)
         const maxScale = 8
         const minScale = 3
-        ampSV.value = withTiming(minScale + amp * (maxScale - minScale), {duration: 100})
+        ampSV.set(withTiming(minScale + amp * (maxScale - minScale), {duration: 100}))
       }
 
       const recording = await makeRecorder(onRecordingStatusUpdate)
@@ -462,17 +447,20 @@ const useRecorder = (p: {ampSV: SVN; setShowAudioSend: (s: boolean) => void; sho
       recordStartRef.current = Date.now()
       recordEndRef.current = recordStartRef.current
     }
+
     impl()
       .then(() => {})
       .catch(() => {
         onReset()
+          // eslint-disable-next-line
           .then(() => {})
+          // eslint-disable-next-line
           .catch(() => {})
       })
     return
   }, [setCommandStatusInfo, ampTracker, onReset, ampSV])
 
-  const sendAudioRecording = C.useChatContext(s => s.dispatch.sendAudioRecording)
+  const sendAudioRecording = Chat.useChatContext(s => s.dispatch.sendAudioRecording)
 
   const sendRecording = React.useCallback(() => {
     const impl = async () => {
@@ -563,8 +551,11 @@ const AudioRecorder = React.memo(function AudioRecorder(props: Props) {
 })
 
 const BigBackground = (props: {fadeSV: SVN}) => {
+  'use no memo'
   const {fadeSV} = props
+  const backgroundColor = Kb.Styles.undynamicColor(Kb.Styles.globalColors.white)
   const animatedStyle = useAnimatedStyle(() => ({
+    backgroundColor,
     opacity: fadeSV.value * 0.9,
     transform: [{scale: fadeSV.value}],
   }))
@@ -572,6 +563,7 @@ const BigBackground = (props: {fadeSV: SVN}) => {
 }
 
 const AmpCircle = (props: {ampSV: SVN; dragXSV: SVN; dragYSV: SVN; fadeSV: SVN; lockedSV: SVN}) => {
+  'use no memo'
   const {ampSV, dragXSV, dragYSV, fadeSV, lockedSV} = props
   const animatedStyle = useAnimatedStyle(() => {
     const dragDistanceX = -50
@@ -597,6 +589,7 @@ const InnerCircle = (props: {
   lockedSV: SVN
   stageRecording: () => void
 }) => {
+  'use no memo'
   const {dragXSV, dragYSV, fadeSV, lockedSV, stageRecording} = props
   const circleStyle = useAnimatedStyle(() => {
     // worklet needs this locally for some reason
@@ -615,26 +608,25 @@ const InnerCircle = (props: {
   return (
     <Animated.View style={[styles.innerCircleStyle, circleStyle]}>
       <Animated.View style={[iconStyle]}>
-        <AnimatedIcon
-          type="iconfont-stop"
-          color={Styles.globalColors.whiteOrWhite}
-          onClick={stageRecording}
-        />
+        <Kb.Icon type="iconfont-stop" color={Kb.Styles.globalColors.whiteOrWhite} onClick={stageRecording} />
       </Animated.View>
     </Animated.View>
   )
 }
 
 const LockHint = (props: {fadeSV: SVN; lockedSV: SVN; dragXSV: SVN; dragYSV: SVN}) => {
+  'use no memo'
   const {lockedSV, fadeSV, dragXSV, dragYSV} = props
   const slideAmount = 150
   const spaceBetween = 20
   const deltaY = 50
+
   const arrowStyle = useAnimatedStyle(() => {
     // worklet needs this locally for some reason
     const dragDistanceX = -50
     const dragXOpacity =
       dragYSV.value < -10 ? 1 : interpolate(dragXSV.value, [dragDistanceX, 0], [0, 1], Extrapolation.CLAMP)
+
     return {
       opacity: lockedSV.value
         ? withTiming(0)
@@ -642,7 +634,7 @@ const LockHint = (props: {fadeSV: SVN; lockedSV: SVN; dragXSV: SVN; dragYSV: SVN
           interpolate(dragYSV.value, [dragDistanceX, 0], [0, 1], Extrapolation.CLAMP) *
           dragXOpacity,
       transform: [{translateX: 10}, {translateY: deltaY - fadeSV.value * slideAmount}],
-    }
+    } as const
   })
   const lockStyle = useAnimatedStyle(() => {
     // worklet needs this locally for some reason
@@ -666,16 +658,26 @@ const LockHint = (props: {fadeSV: SVN; lockedSV: SVN; dragXSV: SVN; dragYSV: SVN
   })
   return (
     <>
-      <AnimatedIcon type="iconfont-arrow-up" sizeType="Tiny" style={[styles.lockHintStyle, arrowStyle]} />
-      <AnimatedIcon type="iconfont-lock" style={[styles.lockHintStyle, lockStyle]} />
+      <Kb.Box2Animated
+        direction="vertical"
+        style={[styles.lockHintStyle, arrowStyle as Kb.Styles._StylesCrossPlatform]}
+      >
+        <Kb.Icon type="iconfont-arrow-up" sizeType="Tiny" />
+      </Kb.Box2Animated>
+      <Kb.Box2Animated
+        direction="vertical"
+        style={[styles.lockHintStyle, lockStyle as Kb.Styles._StylesCrossPlatform]}
+      >
+        <Kb.Icon type="iconfont-lock" />
+      </Kb.Box2Animated>
     </>
   )
 }
 
-const AnimatedIcon = Animated.createAnimatedComponent(Kb.Icon)
 const AnimatedText = Animated.createAnimatedComponent(Kb.Text)
 
 const CancelHint = (props: {fadeSV: SVN; dragXSV: SVN; lockedSV: SVN; onCancel: () => void}) => {
+  'use no memo'
   const {lockedSV, fadeSV, onCancel, dragXSV} = props
   const arrowStyle = useAnimatedStyle(() => {
     // copy paste so we don't share as many vars between jsc contexts
@@ -737,12 +739,12 @@ const CancelHint = (props: {fadeSV: SVN; dragXSV: SVN; lockedSV: SVN; onCancel: 
 
   return (
     <>
-      <AnimatedIcon
-        sizeType="Tiny"
-        type={'iconfont-arrow-left'}
-        style={[styles.cancelHintStyle, arrowStyle]}
-      />
-      <AnimatedIcon sizeType="Tiny" type={'iconfont-close'} style={[styles.cancelHintStyle, closeStyle]} />
+      <Kb.Box2Animated direction="vertical" style={[styles.cancelHintStyle, arrowStyle]}>
+        <Kb.Icon sizeType="Tiny" type={'iconfont-arrow-left'} />
+      </Kb.Box2Animated>
+      <Kb.Box2Animated direction="vertical" style={[styles.cancelHintStyle, closeStyle]}>
+        <Kb.Icon sizeType="Tiny" type={'iconfont-close'} />
+      </Kb.Box2Animated>
       <AnimatedText
         type="BodySmallPrimaryLink"
         onClick={onCancel}
@@ -758,8 +760,11 @@ const CancelHint = (props: {fadeSV: SVN; dragXSV: SVN; lockedSV: SVN; onCancel: 
 }
 
 const SendRecordingButton = (props: {fadeSV: SVN; lockedSV: SVN; sendRecording: () => void}) => {
+  'use no memo'
   const {fadeSV, lockedSV, sendRecording} = props
+  const backgroundColor = Kb.Styles.undynamicColor(Kb.Styles.globalColors.blue)
   const buttonStyle = useAnimatedStyle(() => ({
+    backgroundColor,
     opacity: lockedSV.value ? fadeSV.value : withTiming(0),
     transform: [{translateY: withTiming(lockedSV.value ? -100 : 50)}],
   }))
@@ -767,7 +772,7 @@ const SendRecordingButton = (props: {fadeSV: SVN; lockedSV: SVN; sendRecording: 
     <Animated.View style={[styles.sendRecordingButtonStyle, buttonStyle]}>
       <Kb.Icon
         padding="tiny"
-        color={Styles.globalColors.whiteOrWhite}
+        color={Kb.Styles.globalColors.whiteOrWhite}
         onClick={sendRecording}
         sizeType="Small"
         type="iconfont-arrow-full-up"
@@ -778,7 +783,7 @@ const SendRecordingButton = (props: {fadeSV: SVN; lockedSV: SVN; sendRecording: 
 
 const AudioCounter = () => {
   const [seconds, setSeconds] = React.useState(0)
-  const startTime = React.useRef(Date.now()).current
+  const [startTime] = React.useState(() => Date.now())
   React.useEffect(() => {
     const timer = setTimeout(() => {
       setSeconds((Date.now() - startTime) / 1000)
@@ -804,7 +809,7 @@ const circleAroundIcon = (size: number) => ({
   borderRadius: size / 2,
 })
 
-const styles = Styles.styleSheetCreate(() => ({
+const styles = Kb.Styles.styleSheetCreate(() => ({
   ampCircleStyle: {
     ...circleAroundIcon(34),
   },
@@ -814,15 +819,14 @@ const styles = Styles.styleSheetCreate(() => ({
     position: 'absolute',
   },
   bigBackgroundStyle: {
-    ...circleAroundIcon(Styles.isTablet ? 2000 : 750),
-    backgroundColor: Styles.globalColors.white,
+    ...circleAroundIcon(Kb.Styles.isTablet ? 2000 : 750),
   },
   cancelHintIcon: {
     left: 0,
     position: 'absolute',
   },
   cancelHintStyle: {
-    ...Styles.globalStyles.flexBoxRow,
+    ...Kb.Styles.globalStyles.flexBoxRow,
     alignItems: 'center',
     bottom: micCenterBottom - 10,
     paddingLeft: 20,
@@ -831,10 +835,10 @@ const styles = Styles.styleSheetCreate(() => ({
     width: 140,
   },
   container: {
-    ...Styles.globalStyles.fillAbsolute,
+    ...Kb.Styles.globalStyles.fillAbsolute,
     justifyContent: 'flex-start',
   },
-  iconStyle: {padding: Styles.globalMargins.tiny},
+  iconStyle: {padding: Kb.Styles.globalMargins.tiny},
   innerCircleStyle: {
     ...circleAroundIcon(84),
     alignItems: 'center',
@@ -846,14 +850,13 @@ const styles = Styles.styleSheetCreate(() => ({
   sendRecordingButtonStyle: {
     ...circleAroundIcon(32),
     alignItems: 'center',
-    backgroundColor: Styles.globalColors.blue,
     justifyContent: 'center',
   },
   tooltipContainer: {
-    backgroundColor: Styles.globalColors.black,
-    borderRadius: Styles.borderRadius,
+    backgroundColor: Kb.Styles.globalColors.black,
+    borderRadius: Kb.Styles.borderRadius,
     bottom: 45,
-    padding: Styles.globalMargins.tiny,
+    padding: Kb.Styles.globalMargins.tiny,
     position: 'absolute',
     right: 20,
   },

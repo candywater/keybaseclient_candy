@@ -1,8 +1,10 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import * as T from '@/constants/types'
 import {SnippetContext, SnippetDecorationContext} from './contexts'
+import {useCurrentUserState} from '@/constants/current-user'
 
 type Props = {
   layoutSnippet?: string
@@ -107,16 +109,16 @@ const Snippet = React.memo(function Snippet(p: {isSelected?: boolean; style: Kb.
 const BottomLine = React.memo(function BottomLine(p: Props) {
   const {allowBold, isSelected, backgroundColor, isInWidget, layoutSnippet} = p
 
-  const isTypingSnippet = C.useChatContext(s => {
+  const isTypingSnippet = Chat.useChatContext(s => {
     const typers = !isInWidget ? s.typing : undefined
     return !!typers?.size
   })
 
-  const you = C.useCurrentUserState(s => s.username)
-  const hasUnread = C.useChatContext(s => s.unread > 0)
-  const _draft = C.useChatContext(s => s.meta.draft)
+  const you = useCurrentUserState(s => s.username)
+  const hasUnread = Chat.useChatContext(s => s.unread > 0)
+  const _draft = Chat.useChatContext(s => s.meta.draft)
   const {hasResetUsers, isDecryptingSnippet, participantNeedToRekey, youAreReset, youNeedToRekey} =
-    C.useChatContext(
+    Chat.useChatContext(
       C.useShallow(s => {
         const {
           membershipType,
@@ -135,7 +137,7 @@ const BottomLine = React.memo(function BottomLine(p: Props) {
         const typers = !isInWidget ? s.typing : undefined
         const typingSnippet = (typers?.size ?? 0) > 0 ? 't' : undefined
         const maybeLayoutSnippet =
-          conversationIDKey === C.Chat.noConversationIDKey ? layoutSnippet : undefined
+          conversationIDKey === Chat.noConversationIDKey ? layoutSnippet : undefined
 
         const snippet = typingSnippet ?? snippetDecorated ?? maybeLayoutSnippet ?? ''
         const isDecryptingSnippet =

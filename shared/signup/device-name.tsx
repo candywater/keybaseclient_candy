@@ -1,15 +1,16 @@
 import * as C from '@/constants'
-import * as Constants from '@/constants/provision'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
 import {SignupScreen, errorBanner} from './common'
+import * as Provision from '@/constants/provision'
+import {useSignupState} from '@/constants/signup'
 
 const ConnectedEnterDevicename = () => {
-  const error = C.useSignupState(s => s.devicenameError)
-  const initialDevicename = C.useSignupState(s => s.devicename)
-  const waiting = C.Waiting.useAnyWaiting(C.Provision.waitingKey)
-  const goBackAndClearErrors = C.useSignupState(s => s.dispatch.goBackAndClearErrors)
-  const checkDeviceName = C.useSignupState(s => s.dispatch.checkDeviceName)
+  const error = useSignupState(s => s.devicenameError)
+  const initialDevicename = useSignupState(s => s.devicename)
+  const waiting = C.Waiting.useAnyWaiting(C.waitingKeyProvision)
+  const goBackAndClearErrors = useSignupState(s => s.dispatch.goBackAndClearErrors)
+  const checkDeviceName = useSignupState(s => s.dispatch.checkDeviceName)
   const onBack = goBackAndClearErrors
   const onContinue = checkDeviceName
   const props = {
@@ -33,8 +34,8 @@ type Props = {
 }
 
 const makeCleanDeviceName = (d: string) => {
-  let good = d.replace(Constants.badDeviceChars, '')
-  good = Constants.cleanDeviceName(good)
+  let good = d.replace(Provision.badDeviceChars, '')
+  good = Provision.cleanDeviceName(good)
   return good
 }
 
@@ -45,12 +46,12 @@ const EnterDevicename = (props: Props) => {
     setReadyToShowError(ready)
   }, 200)
   const cleanDeviceName = makeCleanDeviceName(deviceName)
-  const normalized = cleanDeviceName.replace(Constants.normalizeDeviceRE, '')
+  const normalized = cleanDeviceName.replace(Provision.normalizeDeviceRE, '')
   const disabled =
     normalized.length < 3 ||
     normalized.length > 64 ||
-    !Constants.goodDeviceRE.test(cleanDeviceName) ||
-    Constants.badDeviceRE.test(cleanDeviceName)
+    !Provision.goodDeviceRE.test(cleanDeviceName) ||
+    Provision.badDeviceRE.test(cleanDeviceName)
   const showDisabled = disabled && !!cleanDeviceName && readyToShowError
   const _setDeviceName = (deviceName: string) => {
     setDeviceName(deviceName)
@@ -59,7 +60,7 @@ const EnterDevicename = (props: Props) => {
   }
   const onContinue = () => (disabled ? {} : props.onContinue(cleanDeviceName))
 
-  const inputRef = React.useRef<Kb.PlainInput>(null)
+  const inputRef = React.useRef<Kb.PlainInputRef>(null)
   C.useOnMountOnce(() => {
     inputRef.current?.transformText(i => {
       if (!props.initialDevicename) return i
@@ -73,17 +74,19 @@ const EnterDevicename = (props: Props) => {
     })
   })
 
-  if (cleanDeviceName !== deviceName) {
-    inputRef.current?.transformText(() => {
-      return {
-        selection: {
-          end: cleanDeviceName.length,
-          start: cleanDeviceName.length,
-        },
-        text: cleanDeviceName,
-      }
-    })
-  }
+  React.useEffect(() => {
+    if (cleanDeviceName !== deviceName) {
+      inputRef.current?.transformText(() => {
+        return {
+          selection: {
+            end: cleanDeviceName.length,
+            start: cleanDeviceName.length,
+          },
+          text: cleanDeviceName,
+        }
+      })
+    }
+  }, [deviceName, cleanDeviceName])
 
   return (
     <SignupScreen
@@ -122,7 +125,7 @@ const EnterDevicename = (props: Props) => {
           />
           {showDisabled ? (
             <Kb.Text type="BodySmall" style={styles.deviceNameError}>
-              {Constants.deviceNameInstructions}
+              {Provision.deviceNameInstructions}
             </Kb.Text>
           ) : (
             <Kb.Text type="BodySmall">

@@ -4,12 +4,13 @@
 package client
 
 import (
+	"context"
+
 	"github.com/keybase/cli"
 	"github.com/keybase/client/go/libcmdline"
 	"github.com/keybase/client/go/libkb"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
-	"golang.org/x/net/context"
 )
 
 type CmdPGPPullPrivate struct {
@@ -25,7 +26,6 @@ func (v *CmdPGPPullPrivate) ParseArgv(ctx *cli.Context) (err error) {
 }
 
 func (v *CmdPGPPullPrivate) Run() (err error) {
-
 	if !v.force {
 		dui := v.G().UI.GetDumbOutputUI()
 		dui.Printf(

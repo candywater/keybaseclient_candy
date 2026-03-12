@@ -1,4 +1,3 @@
-import * as C from '@/constants'
 import * as React from 'react'
 import {Box2Measure} from './box'
 import Icon from './icon'
@@ -9,6 +8,7 @@ import {useTimeout} from './use-timers'
 import * as Styles from '@/styles'
 import logger from '@/logger'
 import type {MeasureRef} from './measure-ref'
+import {useConfigState} from '@/constants/config'
 
 const Kb = {
   Box2Measure,
@@ -59,10 +59,10 @@ const CopyText = (props: Props) => {
     }
   }, [withReveal, text, loadText])
 
-  const popupAnchor = React.useRef<MeasureRef>(null)
-  const textRef = React.useRef<TextMeasureRef>(null)
-  const copyToClipboard = C.useConfigState(s => s.dispatch.dynamic.copyToClipboard)
-  const showShareActionSheet = C.useConfigState(s => s.dispatch.dynamic.showShareActionSheet)
+  const popupAnchor = React.useRef<MeasureRef | null>(null)
+  const textRef = React.useRef<TextMeasureRef | null>(null)
+  const copyToClipboard = useConfigState(s => s.dispatch.dynamic.copyToClipboard)
+  const showShareActionSheet = useConfigState(s => s.dispatch.dynamic.showShareActionSheet)
   const copy = React.useCallback(() => {
     if (!text) {
       if (!loadText) {
@@ -78,7 +78,7 @@ const CopyText = (props: Props) => {
         textRef.current?.highlightText()
         copyToClipboard(text)
       }
-      onCopy && onCopy()
+      onCopy?.()
       if (hideOnCopy) {
         setRevealed(false)
       }
@@ -104,7 +104,7 @@ const CopyText = (props: Props) => {
       // if we don't have text to copy we should load it
       props.loadText()
     }
-    props.onReveal && props.onReveal()
+    props.onReveal?.()
     setRevealed(true)
   }
 
@@ -114,8 +114,8 @@ const CopyText = (props: Props) => {
       ? props.multiline
       : undefined
     : isRevealed
-    ? 1
-    : undefined
+      ? 1
+      : undefined
 
   return (
     <Kb.Box2Measure

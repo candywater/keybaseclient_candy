@@ -20,10 +20,10 @@ void quarantineFile(const char* inFilename) {
 }
 */
 import "C"
-import (
-	"unsafe"
 
-	"golang.org/x/net/context"
+import (
+	"context"
+	"unsafe"
 )
 
 // Quarantine is for adding the mark of the web.

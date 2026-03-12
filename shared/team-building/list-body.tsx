@@ -1,5 +1,7 @@
 import * as React from 'react'
 import * as C from '@/constants'
+import * as TB from '@/constants/team-building'
+import {useTeamsState} from '@/constants/teams'
 import * as Kb from '@/common-adapters'
 import * as Shared from './shared'
 import PeopleResult from './search-result/people-result'
@@ -12,10 +14,15 @@ import type {RootRouteProps} from '@/router-v2/route-params'
 import {RecsAndRecos, numSectionLabel} from './recs-and-recos'
 import {formatAnyPhoneNumbers} from '@/util/phone-numbers'
 import {useRoute} from '@react-navigation/native'
+import {useSettingsContactsState} from '@/constants/settings-contacts'
+import {useFollowerState} from '@/constants/followers'
+import {useCurrentUserState} from '@/constants/current-user'
 // import {useAnimatedScrollHandler} from '@/common-adapters/reanimated'
+import {useColorScheme} from 'react-native'
 
 const Suggestions = (props: Pick<Types.Props, 'namespace' | 'selectedService'>) => {
   const {namespace, selectedService} = props
+  const isDarkMode = useColorScheme() === 'dark'
   return (
     <Kb.Box2
       alignSelf="center"
@@ -29,7 +36,9 @@ const Suggestions = (props: Pick<Types.Props, 'namespace' | 'selectedService'>) 
         <Kb.Icon
           fontSize={48}
           type={Shared.serviceIdToIconFont(selectedService)}
-          style={Kb.Styles.collapseStyles([{color: Shared.serviceIdToAccentColor(selectedService)}])}
+          style={Kb.Styles.collapseStyles([
+            {color: Shared.serviceIdToAccentColor(selectedService, isDarkMode)},
+          ])}
         />
       )}
       {namespace === 'people' ? (
@@ -172,7 +181,7 @@ const sortAndSplitRecommendations = (
               shortcut: true,
             }
           }
-          sections[sectionIdx]?.data.push(rec)
+          sections[sectionIdx].data.push(rec)
         } else {
           if (!sections[numSectionIdx]) {
             sections[numSectionIdx] = {
@@ -181,7 +190,7 @@ const sortAndSplitRecommendations = (
               shortcut: true,
             }
           }
-          sections[numSectionIdx]?.data.push(rec)
+          sections[numSectionIdx].data.push(rec)
         }
       }
     }
@@ -223,17 +232,17 @@ export const ListBody = (
   const {onAdd, onRemove, teamSoFar, onSearchForMore, onChangeText} = props
   const {namespace, highlightedIndex, /*offset, */ enterInputCounter, onFinishTeamBuilding} = props
 
-  const contactsImported = C.useSettingsContactsState(s => s.importEnabled)
-  const contactsPermissionStatus = C.useSettingsContactsState(s => s.permissionStatus)
+  const contactsImported = useSettingsContactsState(s => s.importEnabled)
+  const contactsPermissionStatus = useSettingsContactsState(s => s.permissionStatus)
 
-  const username = C.useCurrentUserState(s => s.username)
-  const following = C.useFollowerState(s => s.following)
+  const username = useCurrentUserState(s => s.username)
+  const following = useFollowerState(s => s.following)
 
-  const maybeTeamDetails = C.useTeamsState(s => (teamID ? s.teamDetails.get(teamID) : undefined))
+  const maybeTeamDetails = useTeamsState(s => (teamID ? s.teamDetails.get(teamID) : undefined))
   const preExistingTeamMembers: T.Teams.TeamDetails['members'] = maybeTeamDetails?.members ?? emptyMap
-  const userRecs = C.useTBContext(s => s.userRecs)
-  const _teamSoFar = C.useTBContext(s => s.teamSoFar)
-  const _searchResults = C.useTBContext(s => s.searchResults)
+  const userRecs = TB.useTBContext(s => s.userRecs)
+  const _teamSoFar = TB.useTBContext(s => s.teamSoFar)
+  const _searchResults = TB.useTBContext(s => s.searchResults)
   const _recommendations = React.useMemo(
     () => deriveSearchResults(userRecs, _teamSoFar, username, following, preExistingTeamMembers),
     [userRecs, _teamSoFar, username, following, preExistingTeamMembers]
@@ -247,11 +256,6 @@ export const ListBody = (
     () => deriveSearchResults(userResults, _teamSoFar, username, following, preExistingTeamMembers),
     [userResults, _teamSoFar, username, following, preExistingTeamMembers]
   )
-
-  // TODO this crashes out renimated 3 https://github.com/software-mansion/react-native-reanimated/issues/2285
-  // in the tab bar, so we just disconnect the shared value for now, likely can just leave this as-is
-  // const onScroll: any = useAnimatedScrollHandler({onScroll: e => (offset.value = e.contentOffset.y)})
-  const onScroll = undefined
 
   const showResults = !!searchString
   const showRecs = !searchString && !!_recommendations && selectedService === 'keybase'
@@ -267,29 +271,43 @@ export const ListBody = (
   const showRecPending = !searchString && !recommendations && selectedService === 'keybase'
 
   const lastEnterInputCounterRef = React.useRef(enterInputCounter)
-  if (lastEnterInputCounterRef.current !== enterInputCounter) {
-    lastEnterInputCounterRef.current = enterInputCounter
-    const userResultsToShow = showRecs ? flattenRecommendations(recommendations ?? []) : searchResults
-    const selectedResult =
-      !!userResultsToShow && userResultsToShow[highlightedIndex % userResultsToShow.length]
-    if (selectedResult) {
-      // We don't handle cases where they hit enter on someone that is already a
-      // team member
-      if (selectedResult.isPreExistingTeamMember) {
-        return
+  React.useEffect(() => {
+    if (lastEnterInputCounterRef.current !== enterInputCounter) {
+      lastEnterInputCounterRef.current = enterInputCounter
+      const userResultsToShow = showRecs ? flattenRecommendations(recommendations ?? []) : searchResults
+      const selectedResult =
+        !!userResultsToShow && userResultsToShow[highlightedIndex % userResultsToShow.length]
+      if (selectedResult) {
+        // We don't handle cases where they hit enter on someone that is already a
+        // team member
+        if (selectedResult.isPreExistingTeamMember) {
+          return
+        }
+        if (teamSoFar.filter(u => u.userId === selectedResult.userId).length) {
+          onRemove(selectedResult.userId)
+          onChangeText('')
+        } else {
+          onAdd(selectedResult.userId)
+        }
+      } else if (!searchString && !!teamSoFar.length) {
+        // They hit enter with an empty search string and a teamSoFar
+        // We'll Finish the team building
+        onFinishTeamBuilding()
       }
-      if (teamSoFar.filter(u => u.userId === selectedResult.userId).length) {
-        onRemove(selectedResult.userId)
-        onChangeText('')
-      } else {
-        onAdd(selectedResult.userId)
-      }
-    } else if (!searchString && !!teamSoFar.length) {
-      // They hit enter with an empty search string and a teamSoFar
-      // We'll Finish the team building
-      onFinishTeamBuilding()
     }
-  }
+  }, [
+    enterInputCounter,
+    showRecs,
+    recommendations,
+    searchResults,
+    highlightedIndex,
+    teamSoFar,
+    onRemove,
+    onChangeText,
+    onAdd,
+    searchString,
+    onFinishTeamBuilding,
+  ])
 
   if (showRecPending || showLoading) {
     return (
@@ -314,7 +332,6 @@ export const ListBody = (
       <RecsAndRecos
         highlightedIndex={highlightedIndex}
         recommendations={recommendations}
-        onScroll={onScroll}
         recommendedHideYourself={recommendedHideYourself}
         namespace={namespace}
         selectedService={selectedService}
@@ -337,7 +354,6 @@ export const ListBody = (
         <Kb.List
           reAnimated={true}
           items={searchResults}
-          onScroll={onScroll}
           selectedIndex={highlightedIndex || 0}
           style={styles.list}
           contentContainerStyle={styles.listContentContainer}

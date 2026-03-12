@@ -2,11 +2,10 @@ package teams
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"strings"
 	"testing"
-
-	"golang.org/x/net/context"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/keybase/client/go/kbtest"
@@ -1229,7 +1228,8 @@ func TestLoaderCORE_10487(t *testing.T) {
 				keybase1.PerTeamKeyGeneration(1): {
 					keybase1.TeamApplication_KBFS,
 				},
-			}}, true)
+			},
+		}, true)
 	// When the bug was in place, this produced:
 	// "You don't have access to KBFS for this team libkb.KeyMaskNotFoundError"
 	require.NoError(t, err)

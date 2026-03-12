@@ -1114,8 +1114,12 @@ func postXDRToCallback(signed, callbackURL string) error {
 	values.Set("xdr", signed)
 
 	// POST it
-	_, err = http.PostForm(callbackURL, values)
-	return err
+	resp, err := http.PostForm(callbackURL, values) //nolint:gosec // G107: callbackURL is Stellar Horizon API endpoint from SEP-0007 URI
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
 }
 
 func percentageAmountChange(a, b int64) float64 {

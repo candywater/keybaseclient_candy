@@ -15,29 +15,31 @@ type Background =
 
 type Colors = typeof colors
 type TextTypeBold = 'BodyTinyBold' | 'BodySmallBold' | 'BodyBold' | 'BodyBig' | 'Header' | 'HeaderBig'
+
 // Talk to design before adding a color here - these should cover all cases.
-export type AllowedColors =
-  | Colors['blueDark']
-  | Colors['blueLighter'] // for terminal background only
-  | Colors['greenDark']
-  | Colors['greenLight']
-  | Colors['redDark']
-  | Colors['purpleDark']
-  | Colors['black']
-  | Colors['black_on_white']
-  | Colors['black_50']
-  | Colors['black_50_on_white']
-  | Colors['black_35']
-  | Colors['black_20']
-  | Colors['black_20_on_white']
-  | Colors['white']
-  | Colors['white_75']
-  | Colors['white_40']
-  // | Colors['white_40OrWhite_40']
-  | Colors['brown_75']
-  | Colors['orange']
-  | Colors['transparent']
-  | 'inherit'
+type AllowedColorNames =
+  | 'blueDark'
+  | 'blueLighter' // for terminal background only
+  | 'greenDark'
+  | 'greenLight'
+  | 'redDark'
+  | 'purpleDark'
+  | 'black'
+  | 'black_on_white'
+  | 'black_50'
+  | 'black_50_on_white'
+  | 'black_50OrWhite_40'
+  | 'black_35'
+  | 'black_20'
+  | 'black_20_on_white'
+  | 'white'
+  | 'white_75'
+  | 'white_40'
+  | 'brown_75'
+  | 'orange'
+  | 'transparent'
+
+export type AllowedColors = Colors[AllowedColorNames] | 'inherit'
 
 export type _StylesTextCrossPlatform = CSS._CustomStyles<'color', {color?: AllowedColors}>
 export type StylesTextCrossPlatform = CSS.CustomStyles<'color', {color?: AllowedColors}>
@@ -47,7 +49,7 @@ export type LineClampType = 1 | 2 | 3 | 4 | 5
 type Props = {
   ref?: never
   // TODO could make this ref if we make this a function component
-  textRef?: React.RefObject<TextMeasureRef | MeasureRef>
+  textRef?: React.RefObject<TextMeasureRef | MeasureRef | null>
   allowFontScaling?: boolean
   allowHighlightText?: boolean // if true, highlighttext through refs works,,
   center?: boolean
@@ -75,13 +77,13 @@ type Props = {
 }
 
 type MetaType = {
-  fontSize: number
+  fontSize: 12 | 13 | 14 | 15 | 18 | 24 | 16 | 17 | 20 | 28
   colorForBackground: {
     positive: string
     negative: string
   }
   isLink?: true
-  styleOverride?: object
+  styleOverride?: CSS.StylesCrossPlatform
   isTerminal?: true
 }
 
@@ -93,27 +95,14 @@ export type TextMeasureRef = {
 // export declare const Text: ReturnType<typeof React.forwardRef<TextMeasureRef | MeasureRef, Props>>
 export declare const Text: (p: Props) => React.ReactNode
 
-type TextStyle = {
+export type TextStyle = Omit<CSS.StylesCrossPlatform> & {
   fontSize: number
+  lineHeight: number
   color: string
   cursor: string
-  lineClamp?: number
-  clickable?: CSS._StylesDesktop
-  userSelect?: string
-  textDecoration?: string
-  colorForBackground?: string
-  styleOverride?: StylesTextCrossPlatform
-  lineHeight?: number
 }
 
-declare function getStyle(
-  type: TextType,
-  backgroundMode?: Background,
-  lineClamp?: number,
-  clickable?: boolean,
-  selectable?: boolean
-): TextStyle
+export declare function getTextStyle(type: TextType, isDarkMode: boolean): TextStyle
 
-export {getStyle}
 export type {Background, MetaType, Props, TextType, TextTypeBold}
 export default Text

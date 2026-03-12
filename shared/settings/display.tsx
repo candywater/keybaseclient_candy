@@ -3,19 +3,21 @@ import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import * as T from '@/constants/types'
 import logger from '@/logger'
+import {useConfigState} from '@/constants/config'
+import * as DarkMode from '@/constants/darkmode'
 
 const Display = () => {
-  const allowAnimatedEmojis = C.useConfigState(s => s.allowAnimatedEmojis)
-  const forceSmallNav = C.useConfigState(s => s.forceSmallNav)
-  const setForceSmallNav = C.useConfigState(s => s.dispatch.setForceSmallNav)
+  const allowAnimatedEmojis = useConfigState(s => s.allowAnimatedEmojis)
+  const forceSmallNav = useConfigState(s => s.forceSmallNav)
+  const setForceSmallNav = useConfigState(s => s.dispatch.setForceSmallNav)
   const toggleForceSmallNav = React.useCallback(() => {
     setForceSmallNav(!forceSmallNav)
   }, [forceSmallNav, setForceSmallNav])
 
-  const darkModePreference = C.useDarkModeState(s => s.darkModePreference)
+  const darkModePreference = DarkMode.useDarkModeState(s => s.darkModePreference)
   const toggleAnimatedEmoji = C.useRPC(T.RPCChat.localToggleEmojiAnimationsRpcPromise)
-  const supported = C.useDarkModeState(s => s.supported)
-  const onSetDarkModePreference = C.useDarkModeState(s => s.dispatch.setDarkModePreference)
+  const supported = DarkMode.useDarkModeState(s => s.supported)
+  const onSetDarkModePreference = DarkMode.useDarkModeState(s => s.dispatch.setDarkModePreference)
   const doToggleAnimatedEmoji = (enabled: boolean) => {
     toggleAnimatedEmoji(
       [{enabled}],

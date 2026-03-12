@@ -11,7 +11,7 @@ export type LogLevel = 'Error' | 'Warn' | 'Info' | 'Action' | 'Debug'
 export type LogLine = [Timestamp, string]
 export type LogLineWithLevel = [LogLevel, Timestamp, string]
 export type LogLineWithLevelISOTimestamp = [LogLevel, ISOTimestamp, string]
-export type LogFn = (...s: Array<any>) => void
+export type LogFn = (...s: Array<unknown>) => void
 
 export type Loggers = {
   error: Logger
@@ -109,8 +109,13 @@ class AggregateLoggerImpl {
 
   sendLogsToService = async (lines: Array<LogLineWithLevelISOTimestamp>) => {
     if (!isMobile) {
-      // don't want main node thread making these calls
+      // don't want main node thread making these calls — the node engine's
+      // NativeTransport forwards responses to the renderer without processing
+      // them locally, so RPCs sent from node never get responses.
       try {
+        if (typeof process !== 'undefined' && process.type !== 'renderer') {
+          return await Promise.resolve()
+        }
         const {hasEngine} = require('../engine/require') as {hasEngine: typeof HasEngineType}
         if (!hasEngine()) {
           return await Promise.resolve()

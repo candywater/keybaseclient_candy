@@ -1,11 +1,23 @@
 import type * as Styles from '@/styles'
 import type {RootParamList as KBRootParamList} from '@/router-v2/route-params'
-import type {NavigationContainerRef, NavigationState} from '@react-navigation/core'
-type Route = NavigationState<KBRootParamList>['routes'][0]
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack'
+import type {RouteProp} from '@react-navigation/native'
 import type {HeaderBackButtonProps} from '@react-navigation/elements'
-export type GetOptionsParams = {
-  navigation: NavigationContainerRef<KBRootParamList> & {pop: () => void}
-  route: Route
+
+export type GetOptionsParams<RouteName extends keyof KBRootParamList = keyof KBRootParamList> = {
+  navigation: NativeStackNavigationProp<KBRootParamList, RouteName>
+  route: RouteProp<KBRootParamList, RouteName>
+}
+
+// Type for screen components that receive navigation props
+export type ScreenProps<RouteName extends keyof KBRootParamList = keyof KBRootParamList> = {
+  navigation: NativeStackNavigationProp<KBRootParamList, RouteName>
+  route: RouteProp<KBRootParamList, RouteName>
+}
+
+export type ScreenComponentProps = {
+  route: {params: any}
+  navigation: NativeStackNavigationProp<KBRootParamList>
 }
 export type ModalType = 'Default' | 'DefaultFullHeight' | 'DefaultFullWidth' | 'Wide' | 'SuperWide'
 export type GetOptionsRet =
@@ -18,18 +30,24 @@ export type GetOptionsRet =
       modal2NoClose?: boolean
       modal2Type?: ModalType
       headerBottomStyle?: Styles.StylesCrossPlatform
-      headerLeft?: (p: HeaderBackButtonProps) => React.ReactNode
+      header?: () => React.ReactNode
+      headerLeft?: null | ((p: HeaderBackButtonProps) => React.ReactNode)
       headerRightActions?: (p: HeaderBackButtonProps) => React.ReactNode
       headerShown?: boolean
+      headerStyle?: Styles.StylesCrossPlatform
+      headerTitle?: string | (() => React.ReactNode)
+      headerShadowVisible?: boolean
+      headerTransparent?: boolean
       gesturesEnabled?: boolean
       title?: string
+      orientation?: 'all' | 'portrait'
+      presentation?: 'modal' | 'transparentModal' | 'card'
     }
   | undefined
-export type GetOptions = GetOptionsRet | ((p: GetOptionsParams) => GetOptionsRet)
+
+export type GetOptions = GetOptionsRet | ((p: any) => GetOptionsRet)
 export type RouteDef = {
-  getScreen?: () => React.ComponentType<any>
   getOptions?: GetOptions
-  screen?: React.ComponentType
-  skipShim?: boolean
+  screen: React.ComponentType<ScreenComponentProps>
 }
 export type RouteMap = {[K in string]?: RouteDef}

@@ -4,33 +4,24 @@ import * as C from '@/constants'
 import type * as T from '@/constants/types'
 import {pickSave} from '@/util/pick-files'
 import * as FsCommon from '@/fs/common'
+import {useArchiveState} from '@/constants/archive'
+import {settingsArchiveTab} from '@/constants/settings'
 
 type Props =
-  | {
-      type: 'chatID'
-      conversationIDKey: T.Chat.ConversationIDKey
-    }
-  | {
-      type: 'chatTeam'
-      teamname: string
-    }
+  | {type: 'chatID'; conversationIDKey: T.Chat.ConversationIDKey}
+  | {type: 'chatTeam'; teamname: string}
   | {type: 'chatAll'}
   | {type: 'fsAll'}
   | {type: 'gitAll'}
-  | {
-      type: 'fsPath'
-      path: string
-    }
-  | {
-      type: 'git'
-      gitURL: string
-    }
+  | {type: 'fsPath'; path: string}
+  | {type: 'git'; gitURL: string}
 
 const ArchiveModal = (p: Props) => {
   const {type} = p
+  const chatIDToDisplayname = useArchiveState(s => s.chatIDToDisplayname)
   const displayname = React.useMemo(() => {
-    return p.type === 'chatID' ? C.useArchiveState.getState().chatIDToDisplayname(p.conversationIDKey) : ''
-  }, [p])
+    return p.type === 'chatID' ? chatIDToDisplayname(p.conversationIDKey) : ''
+  }, [p, chatIDToDisplayname])
 
   let defaultPath = ''
   if (C.isElectron) {
@@ -62,10 +53,10 @@ const ArchiveModal = (p: Props) => {
 
   const [outpath, setOutpath] = React.useState(defaultPath)
   const [started, setStarted] = React.useState(false)
-  const start = C.useArchiveState(s => s.dispatch.start)
-  const resetWaiters = C.useArchiveState(s => s.dispatch.resetWaiters)
-  const archiveAllFilesResponseWaiter = C.useArchiveState(s => s.archiveAllFilesResponseWaiter)
-  const archiveAllGitResponseWaiter = C.useArchiveState(s => s.archiveAllGitResponseWaiter)
+  const start = useArchiveState(s => s.dispatch.start)
+  const resetWaiters = useArchiveState(s => s.dispatch.resetWaiters)
+  const archiveAllFilesResponseWaiter = useArchiveState(s => s.archiveAllFilesResponseWaiter)
+  const archiveAllGitResponseWaiter = useArchiveState(s => s.archiveAllGitResponseWaiter)
   const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
   const switchTab = C.useRouterState(s => s.dispatch.switchTab)
 
@@ -102,17 +93,17 @@ const ArchiveModal = (p: Props) => {
     resetWaiters()
     navigateUp()
   }, [navigateUp, resetWaiters])
+  const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
   const onProgress = React.useCallback(() => {
     resetWaiters()
     navigateUp()
     setTimeout(() => {
       switchTab(C.Tabs.settingsTab)
       setTimeout(() => {
-        // so we can go into the sub nav, very unusual so kinda hacky
-        C.Router2._getNavigator()?.navigate(C.Settings.settingsArchiveTab)
+        navigateAppend(settingsArchiveTab)
       }, 200)
     }, 200)
-  }, [navigateUp, resetWaiters, switchTab])
+  }, [navigateUp, resetWaiters, switchTab, navigateAppend])
 
   const selectPath = React.useCallback(() => {
     const f = async () => {
@@ -143,7 +134,7 @@ const ArchiveModal = (p: Props) => {
             </Kb.Box2>
             <Kb.Text type="Body">
               Note: public folders that you are not a writer of will be skipped. Use{' '}
-              <Kb.Text type="TerminalInline">keybase fs archive</Kb.Text> if you want to archive them.
+              <Kb.Text type="TerminalInline">keybase fs archive</Kb.Text> if you want to backup them.
             </Kb.Text>
           </Kb.Box2>
         ) : archiveAllFilesResponseWaiter.state === 'waiting' ? (
@@ -222,7 +213,7 @@ const ArchiveModal = (p: Props) => {
     </Kb.Box2>
   )
 
-  const modalHeader = Kb.useModalHeaderTitleAndCancel('Archive', onClose)
+  const modalHeader = Kb.useModalHeaderTitleAndCancel('Backup', onClose)
   return (
     <Kb.Modal
       mode="Wide"

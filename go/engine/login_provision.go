@@ -4,11 +4,10 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
-
-	"golang.org/x/net/context"
 
 	"github.com/keybase/client/go/kex2"
 	"github.com/keybase/client/go/libkb"
@@ -714,7 +713,6 @@ func (e *loginProvision) checkArg() error {
 }
 
 func (e *loginProvision) route(m libkb.MetaContext) (err error) {
-
 	defer m.Trace("loginProvision#route", &err)()
 
 	// check if User has any pgp keys, active devices
@@ -1112,7 +1110,6 @@ func (e *loginProvision) gpgSignKey(m libkb.MetaContext, fp *libkb.PGPFingerprin
 }
 
 func (e *loginProvision) gpgImportKey(m libkb.MetaContext, fp *libkb.PGPFingerprint) (libkb.GenericKey, error) {
-
 	// import it with gpg
 	cli, err := e.gpgClient(m)
 	if err != nil {

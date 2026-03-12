@@ -76,7 +76,6 @@ func (p *PRNG) Read(out []byte) int {
 }
 
 func (p *PRNG) Big(modulus *big.Int) *big.Int {
-
 	sign := modulus.Sign()
 	// For moduli of 0, the sign will be 0. Just return it, since there's
 	// nothing we can really do.
@@ -98,7 +97,7 @@ func (p *PRNG) Big(modulus *big.Int) *big.Int {
 	// and AND our candidate with that mask. That'll get rid of the
 	// bits we don't want.
 	var mask big.Int
-	mask.Lsh(big.NewInt(1), uint(bits))
+	mask.Lsh(big.NewInt(1), uint(bits)) //nolint:gosec // G115: BitLen() returns non-negative int, safe for bit shift
 	mask.Sub(&mask, big.NewInt(1))
 
 	// Compute the number of bytes it takes to get that many bits.

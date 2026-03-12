@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"errors"
 	"sync"
@@ -10,7 +11,6 @@ import (
 	"github.com/keybase/client/go/gregor"
 	"github.com/keybase/client/go/logger"
 	"github.com/keybase/clockwork"
-	"golang.org/x/net/context"
 )
 
 // MemEngine is an implementation of a gregor StateMachine that just keeps
@@ -219,6 +219,7 @@ func (t timeOrOffset) Offset() *time.Duration { return nil }
 func (t timeOrOffset) Before(t2 time.Time) bool {
 	return time.Time(t).Before(t2)
 }
+
 func (t timeOrOffset) IsZero() bool {
 	return time.Time(t).IsZero()
 }

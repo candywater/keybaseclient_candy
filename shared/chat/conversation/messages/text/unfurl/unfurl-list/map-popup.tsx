@@ -1,8 +1,10 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Kb from '@/common-adapters/index'
 import type * as T from '@/constants/types'
 import openURL from '@/util/open-url'
 import LocationMap from '@/chat/location-map'
+import {useConfigState} from '@/constants/config'
 
 type Props = {
   coord: T.Chat.Coordinate
@@ -15,7 +17,7 @@ type Props = {
 const UnfurlMapPopup = (props: Props) => {
   const {coord, isAuthor, isLiveLocation, url} = props
   const author = props.author ?? ''
-  const httpSrv = C.useConfigState(s => s.httpSrv)
+  const httpSrv = useConfigState(s => s.httpSrv)
 
   const clearModals = C.useRouterState(s => s.dispatch.clearModals)
   const onClose = () => {
@@ -25,10 +27,10 @@ const UnfurlMapPopup = (props: Props) => {
     onClose()
     openURL(url)
   }
-  const messageSend = C.useChatContext(s => s.dispatch.messageSend)
+  const sendMessage = Chat.useChatContext(s => s.dispatch.sendMessage)
   const onStopSharing = () => {
     onClose()
-    messageSend('/location stop')
+    sendMessage('/location stop')
   }
 
   const width = Kb.Styles.isMobile ? Math.ceil(Kb.Styles.dimensionWidth) : 300

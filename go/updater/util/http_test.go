@@ -61,11 +61,12 @@ func TestSaveHTTPResponse(t *testing.T) {
 	defer server.Close()
 	resp, err := http.Get(server.URL)
 	assert.NoError(t, err)
+	defer resp.Body.Close()
 
 	savePath := TempPath("", "TestSaveHTTPResponse.")
 	defer RemoveFileAtPath(savePath)
 
-	err = SaveHTTPResponse(resp, savePath, 0600, testLog)
+	err = SaveHTTPResponse(resp, savePath, 0o600, testLog)
 	assert.NoError(t, err)
 
 	saved, err := os.ReadFile(savePath)
@@ -80,6 +81,7 @@ func TestSaveHTTPResponseInvalidPath(t *testing.T) {
 	defer server.Close()
 	resp, err := http.Get(server.URL)
 	assert.NoError(t, err)
+	defer resp.Body.Close()
 
 	savePath := TempPath("", "TestSaveHTTPResponse.")
 	defer RemoveFileAtPath(savePath)
@@ -89,9 +91,9 @@ func TestSaveHTTPResponseInvalidPath(t *testing.T) {
 		badPath = `x:\` // Shouldn't be writable
 	}
 
-	err = SaveHTTPResponse(resp, badPath, 0600, testLog)
+	err = SaveHTTPResponse(resp, badPath, 0o600, testLog)
 	assert.Error(t, err)
-	err = SaveHTTPResponse(nil, savePath, 0600, testLog)
+	err = SaveHTTPResponse(nil, savePath, 0o600, testLog)
 	assert.Error(t, err)
 }
 
@@ -127,7 +129,7 @@ func TestURLExistsTimeout(t *testing.T) {
 }
 
 func TestURLExistsFile(t *testing.T) {
-	path, err := WriteTempFile("TestURLExistsFile", []byte(""), 0600)
+	path, err := WriteTempFile("TestURLExistsFile", []byte(""), 0o600)
 	assert.NoError(t, err)
 	exists, err := URLExists(URLStringForPath(path), 0, testLog)
 	assert.NoError(t, err)
@@ -225,7 +227,7 @@ func TestDownloadURLETag(t *testing.T) {
 	server := testServerWithETag(t, "ok", 0, etag)
 	defer server.Close()
 	destinationPath := TempPath("", "TestDownloadURLETag.")
-	err := os.WriteFile(destinationPath, data, 0600)
+	err := os.WriteFile(destinationPath, data, 0o600)
 	require.NoError(t, err)
 	digest, err := Digest(bytes.NewReader(data))
 	assert.NoError(t, err)

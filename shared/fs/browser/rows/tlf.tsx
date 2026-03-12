@@ -1,80 +1,88 @@
-import * as C from '@/constants'
 import * as T from '@/constants/types'
-import {rowStyles, StillCommon, type StillCommonProps} from './common'
+import {useOpen} from '@/fs/common/use-open'
+import {rowStyles, StillCommon} from './common'
 import * as Kb from '@/common-adapters'
 import {useFsPathMetadata, TlfInfoLine, Filename} from '@/fs/common'
+import {useFSState} from '@/constants/fs'
+import * as FS from '@/constants/fs'
+import {useCurrentUserState} from '@/constants/current-user'
 
-type TlfProps = StillCommonProps & {
-  loadPathMetadata?: boolean
-  // We don't use this at the moment. In the future this will be used for
-  // showing ignored folders when we allow user to show ignored folders in GUI.
-  isIgnored: boolean
-  mixedMode?: boolean
-  usernames: Array<string>
+export type OwnProps = {
+  destinationPickerIndex?: number
   disabled: boolean
+  mixedMode?: boolean
+  name: string
+  tlfType: T.FS.TlfType
 }
 
-const Content = (props: TlfProps) => (
-  <Kb.BoxGrow>
-    <Kb.Box2
-      direction="vertical"
-      fullWidth={true}
-      fullHeight={true}
-      style={Kb.Styles.collapseStyles([styles.leftBox, props.disabled && rowStyles.opacity30])}
-    >
-      <Kb.Box2 direction="horizontal" fullWidth={true} style={styles.minWidth}>
-        <Filename
-          type={C.FS.pathTypeToTextType(T.FS.PathType.Folder)}
-          style={Kb.Styles.collapseStyles([rowStyles.rowText, styles.kerning])}
-          path={props.path}
-        />
-      </Kb.Box2>
-      <TlfInfoLine path={props.path} mode="row" mixedMode={props.mixedMode} />
-    </Kb.Box2>
-  </Kb.BoxGrow>
-)
-const Avatars = (props: TlfProps) => (
-  <Kb.Box style={styles.avatarBox}>
-    {C.FS.isTeamPath(props.path) ? (
-      <Kb.Avatar size={32} isTeam={true} teamname={props.usernames[0]} />
-    ) : (
-      <Kb.AvatarLine maxShown={4} size={32} layout="horizontal" usernames={props.usernames} />
-    )}
-  </Kb.Box>
-)
-
+// TODO dont do this pattern
 const FsPathMetadataLoader = ({path}: {path: T.FS.Path}) => {
   useFsPathMetadata(path)
   return null
 }
 
-const Tlf = (props: TlfProps) => (
-  <>
-    {!!props.loadPathMetadata && <FsPathMetadataLoader path={props.path} />}
-    <StillCommon
-      path={props.path}
-      onOpen={props.disabled ? undefined : props.onOpen}
-      inDestinationPicker={props.inDestinationPicker}
-      mixedMode={props.mixedMode}
-      writingToJournal={false}
-      body={
-        Kb.Styles.isMobile ? (
-          <Kb.Box style={rowStyles.itemBox}>
-            <Content {...props} />
-          </Kb.Box>
-        ) : undefined
-      }
-      content={
-        !Kb.Styles.isMobile ? (
-          <>
-            <Content {...props} />
-            <Avatars {...props} />
-          </>
-        ) : undefined
-      }
-    />
-  </>
-)
+const TLFContainer = (p: OwnProps) => {
+  const {tlfType, name, mixedMode, destinationPickerIndex, disabled} = p
+  const tlf = useFSState(s => FS.getTlfFromTlfs(s.tlfs, tlfType, name))
+  const username = useCurrentUserState(s => s.username)
+  const path = FS.tlfTypeAndNameToPath(tlfType, name)
+  const _usernames = FS.getUsernamesFromTlfName(name).filter(name => name !== username)
+  const onOpen = useOpen({destinationPickerIndex, path})
+  const loadPathMetadata = tlf.syncConfig.mode !== T.FS.TlfSyncMode.Disabled
+  // Only include the user if they're the only one
+  const usernames = !_usernames.length ? [username] : _usernames
+
+  const content = (
+    <Kb.BoxGrow>
+      <Kb.Box2
+        direction="vertical"
+        fullWidth={true}
+        fullHeight={true}
+        style={Kb.Styles.collapseStyles([styles.leftBox, disabled && rowStyles.opacity30])}
+      >
+        <Kb.Box2 direction="horizontal" fullWidth={true} style={styles.minWidth}>
+          <Filename
+            type={FS.pathTypeToTextType(T.FS.PathType.Folder)}
+            style={Kb.Styles.collapseStyles([rowStyles.rowText, styles.kerning])}
+            path={path}
+          />
+        </Kb.Box2>
+        <TlfInfoLine path={path} mode="row" mixedMode={mixedMode} />
+      </Kb.Box2>
+    </Kb.BoxGrow>
+  )
+
+  const avatar = (
+    <Kb.Box style={styles.avatarBox}>
+      {FS.isTeamPath(path) ? (
+        <Kb.Avatar size={32} isTeam={true} teamname={usernames[0]} />
+      ) : (
+        <Kb.AvatarLine maxShown={4} size={32} layout="horizontal" usernames={usernames} />
+      )}
+    </Kb.Box>
+  )
+
+  return (
+    <>
+      {!!loadPathMetadata && <FsPathMetadataLoader path={path} />}
+      <StillCommon
+        path={path}
+        onOpen={disabled ? undefined : onOpen}
+        mixedMode={mixedMode}
+        writingToJournal={false}
+        body={Kb.Styles.isMobile ? <Kb.Box style={rowStyles.itemBox}>{content}</Kb.Box> : undefined}
+        content={
+          !Kb.Styles.isMobile ? (
+            <>
+              {content}
+              {avatar}
+            </>
+          ) : undefined
+        }
+      />
+    </>
+  )
+}
 
 const styles = Kb.Styles.styleSheetCreate(
   () =>
@@ -86,4 +94,4 @@ const styles = Kb.Styles.styleSheetCreate(
     }) as const
 )
 
-export default Tlf
+export default TLFContainer

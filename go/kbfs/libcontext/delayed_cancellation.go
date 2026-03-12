@@ -5,10 +5,9 @@
 package libcontext
 
 import (
+	"context"
 	"sync/atomic"
 	"time"
-
-	"golang.org/x/net/context"
 )
 
 // This file defines a set of functions for delaying context concellations.
@@ -103,7 +102,8 @@ func (e ContextAlreadyHasCancellationDelayerError) Error() string {
 // (with NewContextReplayable) if any delayed cancellation is used, e.g.
 // through EnableDelayedCancellationWithGracePeriod,
 func NewContextReplayable(
-	ctx context.Context, change CtxReplayFunc) context.Context {
+	ctx context.Context, change CtxReplayFunc,
+) context.Context {
 	ctx = change(ctx)
 	replays, _ := ctx.Value(CtxReplayKey).([]CtxReplayFunc)
 	replays = append(replays, change)
@@ -157,7 +157,8 @@ func newCancellationDelayer() *cancellationDelayer {
 // when operations associated with the context is done. Otherwise it leaks go
 // routines!
 func NewContextWithCancellationDelayer(
-	ctx context.Context) (newCtx context.Context, err error) {
+	ctx context.Context,
+) (newCtx context.Context, err error) {
 	v := ctx.Value(CtxCancellationDelayerKey)
 	if v != nil {
 		if _, ok := v.(*cancellationDelayer); ok {
@@ -235,12 +236,12 @@ func CleanupCancellationDelayer(ctx context.Context) error {
 // BackgroundContextWithCancellationDelayer generate a "Background"
 // context that is cancellation delayable
 func BackgroundContextWithCancellationDelayer() context.Context {
-	if ctx, err := NewContextWithCancellationDelayer(NewContextReplayable(
+	ctx, err := NewContextWithCancellationDelayer(NewContextReplayable(
 		context.Background(), func(c context.Context) context.Context {
 			return c
-		})); err != nil {
+		}))
+	if err != nil {
 		panic(err)
-	} else {
-		return ctx
 	}
+	return ctx
 }

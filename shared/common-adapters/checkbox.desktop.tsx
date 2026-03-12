@@ -22,33 +22,29 @@ const Checkbox = (props: Props) => {
       onClick={e =>
         // If something in labelComponent needs to catch a click without calling this, use
         // event.preventDefault()
-        props.disabled || e.defaultPrevented ? undefined : props.onCheck && props.onCheck(!props.checked)
+        props.disabled || e.defaultPrevented ? undefined : props.onCheck?.(!props.checked)
       }
     >
       <Kb.Icon
         boxStyle={Kb.Styles.collapseStyles([
           styles.checkbox,
-          !!props.boxBackgroundColor && styles.checkboxWhiteBorder,
-          !props.checked &&
-            !!props.boxBackgroundColor && {
-              backgroundColor: props.boxBackgroundColor,
-            },
-          props.checked && !props.boxBackgroundColor && styles.checkboxChecked,
+          props.checked && styles.checkboxChecked,
           props.disabled && styles.checkboxInactive,
           props.disabled && props.checked && styles.semiTransparent,
+          props.checkboxStyle,
         ])}
         type="iconfont-check"
-        style={Kb.Styles.collapseStyles([
-          styles.icon,
-          !!props.boxBackgroundColor && {color: props.boxBackgroundColor},
-          !props.checked && styles.transparent,
-        ])}
+        style={Kb.Styles.collapseStyles([styles.icon, !props.checked && styles.transparent])}
         hoverColor={Kb.Styles.globalColors.white}
-        color={Kb.Styles.globalColors.white}
+        color={props.checkboxColor ?? Kb.Styles.globalColors.white}
         fontSize={9}
       />
       <Kb.Box2 direction="vertical">
-        <Kb.Text type="Body">{props.labelComponent || props.label}</Kb.Text>
+        {props.labelComponent || (typeof props.label === 'string' ? (
+          <Kb.Text type={props.labelType ?? 'Body'}>{props.label}</Kb.Text>
+        ) : (
+          props.label
+        ))}
         {!!props.labelSubtitle && <Kb.Text type="BodySmall">{props.labelSubtitle}</Kb.Text>}
       </Kb.Box2>
     </Kb.Box>
@@ -79,10 +75,9 @@ const styles = Kb.Styles.styleSheetCreate(() => ({
     borderColor: Kb.Styles.globalColors.blue,
   },
   checkboxInactive: {borderColor: Kb.Styles.globalColors.black_10},
-  checkboxWhiteBorder: {borderColor: Kb.Styles.globalColors.white},
   clickable: Kb.Styles.platformStyles({
     isElectron: {
-      ...Styles.desktopStyles.clickable,
+      ...Kb.Styles.desktopStyles.clickable,
     },
   }),
   container: {

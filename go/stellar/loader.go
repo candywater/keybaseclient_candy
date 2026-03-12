@@ -1,11 +1,10 @@
 package stellar
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/keybase/client/go/chat/utils"
 	"github.com/keybase/client/go/libkb"
@@ -51,8 +50,10 @@ type Loader struct {
 	sync.Mutex
 }
 
-var defaultLoader *Loader
-var defaultLock sync.Mutex
+var (
+	defaultLoader *Loader
+	defaultLock   sync.Mutex
+)
 
 func NewLoader(g *libkb.GlobalContext) *Loader {
 	p := &Loader{

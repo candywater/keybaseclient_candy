@@ -1,40 +1,45 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
 import * as T from '@/constants/types'
-import {OrdinalContext} from '../ids-context'
+import {useOrdinal} from '../ids-context'
 import {sharedStyles} from '../shared-styles'
+import {Keyboard} from 'react-native'
+import {useFSState} from '@/constants/fs'
 
 type Props = {
   transferState: T.Chat.MessageAttachmentTransferState
-  toastTargetRef?: React.RefObject<Kb.MeasureRef>
+  toastTargetRef?: React.RefObject<Kb.MeasureRef | null>
 }
 
 // this is a function of how much space is taken up by the rest of the elements
 export const maxWidth = Kb.Styles.isMobile ? Math.min(356, Kb.Styles.dimensionWidth - 70) : 356
 export const maxHeight = 320
 
-export const missingMessage = C.Chat.makeMessageAttachment()
+export const missingMessage = Chat.makeMessageAttachment()
 
 export const ShowToastAfterSaving = ({transferState, toastTargetRef}: Props) => {
   const [showingToast, setShowingToast] = React.useState(false)
   const lastTransferStateRef = React.useRef(transferState)
-  const timerRef = React.useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = React.useRef<ReturnType<typeof setTimeout>>(undefined)
 
-  if (transferState !== lastTransferStateRef.current) {
-    // was downloading and now not
-    if (
-      (lastTransferStateRef.current === 'mobileSaving' || lastTransferStateRef.current === 'downloading') &&
-      !transferState
-    ) {
-      setShowingToast(true)
-      clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(() => {
-        setShowingToast(false)
-      }, 2000)
+  React.useEffect(() => {
+    if (transferState !== lastTransferStateRef.current) {
+      // was downloading and now not
+      if (
+        (lastTransferStateRef.current === 'mobileSaving' || lastTransferStateRef.current === 'downloading') &&
+        !transferState
+      ) {
+        setShowingToast(true)
+        clearTimeout(timerRef.current)
+        timerRef.current = setTimeout(() => {
+          setShowingToast(false)
+        }, 2000)
+      }
+      lastTransferStateRef.current = transferState
     }
-    lastTransferStateRef.current = transferState
-  }
+  }, [transferState])
 
   React.useEffect(() => {
     return () => {
@@ -61,10 +66,10 @@ export const ShowToastAfterSaving = ({transferState, toastTargetRef}: Props) => 
 
 export const TransferIcon = (p: {style: Kb.Styles.StylesCrossPlatform}) => {
   const {style} = p
-  const ordinal = React.useContext(OrdinalContext)
-  const state = C.useChatContext(s => {
+  const ordinal = useOrdinal()
+  const state = Chat.useChatContext(s => {
     const m = s.messageMap.get(ordinal)
-    if (!m || m.type !== 'attachment') {
+    if (m?.type !== 'attachment') {
       return 'none'
     }
 
@@ -83,7 +88,7 @@ export const TransferIcon = (p: {style: Kb.Styles.StylesCrossPlatform}) => {
     }
   })
 
-  const downloadPath = C.useChatContext(s => {
+  const downloadPath = Chat.useChatContext(s => {
     const m = s.messageMap.get(ordinal)
     if (m?.type === 'attachment') {
       return m.downloadPath
@@ -91,14 +96,14 @@ export const TransferIcon = (p: {style: Kb.Styles.StylesCrossPlatform}) => {
     return ''
   })
 
-  const download = C.useChatContext(s =>
+  const download = Chat.useChatContext(s =>
     C.isMobile ? s.dispatch.messageAttachmentNativeSave : s.dispatch.attachmentDownload
   )
   const onDownload = React.useCallback(() => {
     download(ordinal)
   }, [ordinal, download])
 
-  const openFinder = C.useFSState(s => s.dispatch.dynamic.openLocalPathInSystemFileManagerDesktop)
+  const openFinder = useFSState(s => s.dispatch.dynamic.openLocalPathInSystemFileManagerDesktop)
   const onFinder = React.useCallback(() => {
     downloadPath && openFinder?.(downloadPath)
   }, [openFinder, downloadPath])
@@ -175,10 +180,10 @@ export const getEditStyle = (isEditing: boolean) => {
 }
 
 export const Title = () => {
-  const ordinal = React.useContext(OrdinalContext)
-  const title = C.useChatContext(s => {
+  const ordinal = useOrdinal()
+  const title = Chat.useChatContext(s => {
     const m = s.messageMap.get(ordinal)
-    return m?.type === 'attachment' ? m.decoratedText?.stringValue() ?? m.title : ''
+    return m?.type === 'attachment' ? (m.decoratedText?.stringValue() ?? m.title) : ''
   })
 
   const styleOverride = React.useMemo(
@@ -204,8 +209,8 @@ export const Title = () => {
 }
 
 const CollapseIcon = ({isWhite}: {isWhite: boolean}) => {
-  const ordinal = React.useContext(OrdinalContext)
-  const isCollapsed = C.useChatContext(s => {
+  const ordinal = useOrdinal()
+  const isCollapsed = Chat.useChatContext(s => {
     const m = s.messageMap.get(ordinal)
     const message = m?.type === 'attachment' ? m : missingMessage
     const {isCollapsed} = message
@@ -214,7 +219,7 @@ const CollapseIcon = ({isWhite}: {isWhite: boolean}) => {
   return (
     <Kb.Icon
       hint="Collapse"
-      style={isWhite ? (styles.collapseLabelWhite as any) : (styles.collapseLabel as any) /* TODO FIX */}
+      style={isWhite ? (styles.collapseLabelWhite as Kb.IconStyle) : (styles.collapseLabel as Kb.IconStyle)}
       sizeType="Tiny"
       type={isCollapsed ? 'iconfont-caret-right' : 'iconfont-caret-down'}
     />
@@ -239,15 +244,11 @@ const styles = Kb.Styles.styleSheetCreate(() => ({
 }))
 
 const useCollapseAction = () => {
-  const ordinal = React.useContext(OrdinalContext)
-  const toggleMessageCollapse = C.useChatContext(s => s.dispatch.toggleMessageCollapse)
-  const onCollapse = React.useCallback(
-    (e: React.BaseSyntheticEvent) => {
-      e.stopPropagation()
-      toggleMessageCollapse(T.Chat.numberToMessageID(T.Chat.ordinalToNumber(ordinal)), ordinal)
-    },
-    [toggleMessageCollapse, ordinal]
-  )
+  const ordinal = useOrdinal()
+  const toggleMessageCollapse = Chat.useChatContext(s => s.dispatch.toggleMessageCollapse)
+  const onCollapse = React.useCallback(() => {
+    toggleMessageCollapse(T.Chat.numberToMessageID(T.Chat.ordinalToNumber(ordinal)), ordinal)
+  }, [toggleMessageCollapse, ordinal])
   return onCollapse
 }
 
@@ -271,14 +272,15 @@ const useCollapseIconMobile = (_isWhite: boolean) => null
 export const useCollapseIcon = C.isMobile ? useCollapseIconMobile : useCollapseIconDesktop
 
 export const useAttachmentState = () => {
-  const ordinal = React.useContext(OrdinalContext)
-  const attachmentPreviewSelect = C.useChatContext(s => s.dispatch.attachmentPreviewSelect)
+  const ordinal = useOrdinal()
+  const attachmentPreviewSelect = Chat.useChatContext(s => s.dispatch.attachmentPreviewSelect)
   const openFullscreen = React.useCallback(() => {
+    Keyboard.dismiss()
     attachmentPreviewSelect(ordinal)
   }, [attachmentPreviewSelect, ordinal])
 
   const {fileName, isCollapsed, isEditing, showTitle, submitState, transferProgress, transferState} =
-    C.useChatContext(
+    Chat.useChatContext(
       C.useShallow(s => {
         const m = s.messageMap.get(ordinal)
         const message = m?.type === 'attachment' ? m : missingMessage

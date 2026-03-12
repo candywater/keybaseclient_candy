@@ -4,8 +4,7 @@
 package client
 
 import (
-	"golang.org/x/net/context"
-
+	"context"
 	"encoding/hex"
 
 	"github.com/keybase/cli"
@@ -97,7 +96,6 @@ func (c *CmdSimpleFSPs) output(ops []keybase1.OpDescription) {
 
 // ParseArgv gets the optional -r switch
 func (c *CmdSimpleFSPs) ParseArgv(ctx *cli.Context) error {
-
 	c.recurse = ctx.Bool("recurse")
 
 	return nil

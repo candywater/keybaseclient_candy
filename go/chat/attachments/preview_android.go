@@ -5,15 +5,16 @@ package attachments
 
 import (
 	"bytes"
+	"context"
 	"io"
 
 	"github.com/keybase/client/go/chat/types"
 	"github.com/keybase/client/go/chat/utils"
-	"golang.org/x/net/context"
 )
 
 func previewVideo(ctx context.Context, log utils.DebugLabeler, src io.Reader,
-	basename string, nvh types.NativeVideoHelper) (res *PreviewRes, err error) {
+	basename string, nvh types.NativeVideoHelper,
+) (res *PreviewRes, err error) {
 	defer log.Trace(ctx, &err, "previewVideo")()
 	dat, duration, err := nvh.ThumbnailAndDuration(ctx, basename)
 	if err != nil {

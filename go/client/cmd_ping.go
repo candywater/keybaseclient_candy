@@ -4,6 +4,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"github.com/keybase/client/go/protocol/gregor1"
 	"github.com/keybase/client/go/protocol/keybase1"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
-	"golang.org/x/net/context"
 )
 
 type CmdPing struct {
@@ -108,13 +108,26 @@ func (t *pingGregorTransport) IsConnected() bool {
 
 func (t *pingGregorTransport) Finalize() {
 	t.G().Log.Debug("pingGregorTransport Finalize")
+	if t.transport != nil {
+		t.transport.Close()
+	}
 	t.transport = t.stagedTransport
 	t.stagedTransport = nil
 }
 
 func (t *pingGregorTransport) Close() {
 	t.G().Log.Debug("pingGregorTransport Close")
-	t.conn.Close()
+	if t.conn != nil {
+		t.conn.Close()
+	}
+	if t.transport != nil {
+		t.transport.Close()
+	}
+	t.transport = nil
+	if t.stagedTransport != nil {
+		t.stagedTransport.Close()
+	}
+	t.stagedTransport = nil
 }
 
 // pingGregorHandler implements rpc.ConnectionHandler
@@ -136,7 +149,7 @@ func (g *pingGregorHandler) OnConnect(ctx context.Context, conn *rpc.Connection,
 	response, err := ac.Ping(ctx)
 	if err != nil {
 		g.pingErrors <- err
-	} else if !(response == "pong" || response == "") {
+	} else if response != "pong" && response != "" {
 		g.pingErrors <- fmt.Errorf("Got an unexpected response from ping: %#v", response)
 	} else {
 		g.pingSuccess <- struct{}{}

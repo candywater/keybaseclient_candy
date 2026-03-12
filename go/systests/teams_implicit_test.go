@@ -1,16 +1,16 @@
 package systests
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
-	"golang.org/x/net/context"
-
 	"github.com/davecgh/go-spew/spew"
 	"github.com/keybase/client/go/emails"
+	"github.com/keybase/client/go/ephemeral"
 	"github.com/keybase/client/go/kbtest"
 	"github.com/keybase/client/go/libkb"
 	"github.com/keybase/client/go/protocol/keybase1"
@@ -33,6 +33,12 @@ func testImplicitTeamRotateOnRevoke(t *testing.T, public bool) {
 
 	alice := tt.addUser("alice")
 	bob := tt.addUserWithPaper("bob")
+	ekLibIface := bob.tc.G.GetEKLib()
+	ekLib, ok := ekLibIface.(*ephemeral.EKLib)
+	require.True(t, ok)
+	mctx := bob.MetaContext()
+	err := ekLib.Shutdown(mctx)
+	require.NoError(t, err)
 
 	iTeamName := strings.Join([]string{alice.username, bob.username}, ",")
 

@@ -1,17 +1,17 @@
-import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
-import {HighlightedContext, OrdinalContext} from '../ids-context'
+import {useIsHighlighted, useOrdinal} from '../ids-context'
 
 export const useEdited = () => {
-  const ordinal = React.useContext(OrdinalContext)
-  const hasBeenEdited = C.useChatContext(s => {
+  const ordinal = useOrdinal()
+  const hasBeenEdited = Chat.useChatContext(s => {
     const message = s.messageMap.get(ordinal)
     const hasBeenEdited = message?.hasBeenEdited ?? false
     return hasBeenEdited
   })
 
-  const showCenteredHighlight = React.useContext(HighlightedContext)
+  const showCenteredHighlight = useIsHighlighted()
   const edited = React.useMemo(() => {
     return hasBeenEdited ? (
       <Kb.Text

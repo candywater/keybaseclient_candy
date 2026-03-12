@@ -1,35 +1,52 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
-import * as Styles from '@/styles'
 import debounce from 'lodash/debounce'
 import type * as T from '@/constants/types'
 import {Bot} from '../info-panel/bot'
+import {getFeaturedSorted, useBotsState} from '@/constants/bots'
 
 type Props = {teamID?: T.Teams.TeamID}
 
-const renderSectionHeader = ({section}: {section: {title: string}}) => {
+const renderSectionHeader = ({section}: {section: {title?: string}}) => {
   return <Kb.SectionDivider label={section.title} />
 }
 
-const userEmptyPlaceholder = '---EMPTYUSERS---'
-const resultEmptyPlaceholder = '---EMPTYRESULT---'
+const userEmptyPlaceholder = '---EMPTYUSERS---' as const
+const resultEmptyPlaceholder = '---EMPTYRESULT---' as const
+
+type Item =
+  | {type: 'bot'; bot: T.RPCGen.FeaturedBot}
+  | {type: 'str'; str: string}
+  | {type: 'dummy'; value: typeof userEmptyPlaceholder | typeof resultEmptyPlaceholder}
+type Section = Omit<Kb.SectionType<Item>, 'title'> & {title: string}
 
 const SearchBotPopup = (props: Props) => {
-  const conversationIDKey = C.useChatContext(s => s.id)
+  const conversationIDKey = Chat.useChatContext(s => s.id)
   const teamID = props.teamID
   const [lastQuery, setLastQuery] = React.useState('')
-  const featuredBotsMap = C.useBotsState(s => s.featuredBotsMap)
-  const botSearchResults = C.useBotsState(s => s.botSearchResults)
-  const waiting = C.Waiting.useAnyWaiting([C.Bots.waitingKeyBotSearchUsers, C.Bots.waitingKeyBotSearchFeatured])
-  const clearModals = C.useRouterState(s => s.dispatch.clearModals)
+  const botsState = useBotsState(
+    C.useShallow(s => ({
+      botSearchResults: s.botSearchResults,
+      featuredBotsMap: s.featuredBotsMap,
+      getFeaturedBots: s.dispatch.getFeaturedBots,
+      searchFeaturedAndUsers: s.dispatch.searchFeaturedAndUsers,
+      setSearchFeaturedAndUsersResults: s.dispatch.setSearchFeaturedAndUsersResults,
+    }))
+  )
+  const {botSearchResults, featuredBotsMap, getFeaturedBots} = botsState
+  const {searchFeaturedAndUsers, setSearchFeaturedAndUsersResults} = botsState
+  const waiting = C.Waiting.useAnyWaiting([C.waitingKeyBotsSearchUsers, C.waitingKeyBotsSearchFeatured])
+  const {clearModals, navigateAppend} = C.useRouterState(
+    C.useShallow(s => ({
+      clearModals: s.dispatch.clearModals,
+      navigateAppend: s.dispatch.navigateAppend,
+    }))
+  )
   const onClose = () => {
     clearModals()
   }
-
-  const searchFeaturedAndUsers = C.useBotsState(s => s.dispatch.searchFeaturedAndUsers)
-  const getFeaturedBots = C.useBotsState(s => s.dispatch.getFeaturedBots)
-  const setSearchFeaturedAndUsersResults = C.useBotsState(s => s.dispatch.setSearchFeaturedAndUsersResults)
 
   const onSearch = debounce((query: string) => {
     setLastQuery(query)
@@ -39,7 +56,6 @@ const SearchBotPopup = (props: Props) => {
       setSearchFeaturedAndUsersResults(query, undefined)
     }
   }, 200)
-  const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
   const onSelect = (username: string) => {
     navigateAppend({
       props: {botUsername: username, conversationIDKey, teamID},
@@ -52,71 +68,77 @@ const SearchBotPopup = (props: Props) => {
     getFeaturedBots()
   })
 
-  const botData: Array<T.RPCGen.FeaturedBot | string> =
+  const botData: Array<Item> =
     lastQuery.length > 0
-      ? botSearchResults.get(lastQuery)?.bots.slice() ?? []
-      : C.Bots.getFeaturedSorted(featuredBotsMap)
+      ? (botSearchResults
+          .get(lastQuery)
+          ?.bots.slice()
+          .map(bot => ({bot, type: 'bot'}) as const) ?? [])
+      : getFeaturedSorted(featuredBotsMap).map(bot => ({bot, type: 'bot'}))
   if (!botData.length && !waiting) {
-    botData.push(resultEmptyPlaceholder)
+    botData.push({type: 'dummy', value: resultEmptyPlaceholder})
   }
   const botSection = {
     data: botData,
-    renderItem: ({index, item}: {index: number; item: T.RPCGen.FeaturedBot | string}) => {
-      return item === resultEmptyPlaceholder ? (
+    renderItem: ({index, item}: {index: number; item: Item}) => {
+      return item.type === 'dummy' && item.value === resultEmptyPlaceholder ? (
         <Kb.Text
-          style={{...Styles.padding(Styles.globalMargins.tiny, Styles.globalMargins.tiny)}}
+          style={{...Kb.Styles.padding(Kb.Styles.globalMargins.tiny, Kb.Styles.globalMargins.tiny)}}
           type="BodySmall"
         >
           No results were found
         </Kb.Text>
-      ) : typeof item !== 'string' ? (
-        <Bot {...item} onClick={onSelect} firstItem={index === 0} />
+      ) : item.type === 'bot' ? (
+        <Bot {...item.bot} onClick={onSelect} firstItem={index === 0} />
       ) : null
     },
     title: 'Featured bots',
-  }
-  const userData = !lastQuery.length
-    ? [userEmptyPlaceholder]
-    : botSearchResults
-        .get(lastQuery)
-        ?.users.filter(u => !featuredBotsMap.get(u))
-        .slice(0, 3) ?? []
+  } satisfies Section
+  const userData: Array<Item> = !lastQuery.length
+    ? [{type: 'dummy', value: userEmptyPlaceholder} as const]
+    : (
+        botSearchResults
+          .get(lastQuery)
+          ?.users.filter(u => !featuredBotsMap.get(u))
+          .slice(0, 3) ?? []
+      ).map(str => ({str, type: 'str'}) as const)
+
   if (!userData.length && !waiting) {
-    userData.push(resultEmptyPlaceholder)
+    userData.push({type: 'dummy', value: resultEmptyPlaceholder} as const)
   }
   const usersSection = {
     data: userData,
-    renderItem: ({item}: {item: string}) => {
+    renderItem: ({item}: {item: Item}) => {
       return (
         <Kb.Box2
           direction="horizontal"
           fullWidth={true}
-          style={{...Styles.padding(Styles.globalMargins.tiny, Styles.globalMargins.tiny)}}
+          style={{...Kb.Styles.padding(Kb.Styles.globalMargins.tiny, Kb.Styles.globalMargins.tiny)}}
         >
-          {item === userEmptyPlaceholder ? (
+          {item.type === 'dummy' && item.value === userEmptyPlaceholder ? (
             <Kb.Text type="BodySmall">Enter a bot username above</Kb.Text>
-          ) : item === resultEmptyPlaceholder ? (
+          ) : item.type === 'dummy' && item.value === resultEmptyPlaceholder ? (
             <Kb.Text type="BodySmall">No results were found</Kb.Text>
-          ) : (
+          ) : item.type === 'str' ? (
             <Kb.NameWithIcon
-              username={item}
+              username={item.str}
               horizontal={true}
               colorFollowing={true}
               onClick={onSelect}
               clickType="onClick"
             />
-          )}
+          ) : null}
         </Kb.Box2>
       )
     },
     title: 'Users',
-  }
+  } satisfies Section
   return (
     <Kb.Modal
       onClose={onClose}
       noScrollView={true}
       header={{
-        leftButton: Styles.isMobile ? (
+        leftButton: Kb.Styles.isMobile ? (
           <Kb.Text type="BodyBigLink" onClick={onClose}>
             {'Cancel'}
           </Kb.Text>
@@ -145,11 +167,11 @@ const SearchBotPopup = (props: Props) => {
   )
 }
 
-const styles = Styles.styleSheetCreate(() => ({
-  inputContainer: Styles.platformStyles({
-    isElectron: {padding: Styles.globalMargins.tiny},
+const styles = Kb.Styles.styleSheetCreate(() => ({
+  inputContainer: Kb.Styles.platformStyles({
+    isElectron: {padding: Kb.Styles.globalMargins.tiny},
   }),
-  modal: Styles.platformStyles({
+  modal: Kb.Styles.platformStyles({
     isElectron: {height: 500},
   }),
 }))

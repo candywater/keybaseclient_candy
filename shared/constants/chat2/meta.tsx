@@ -1,12 +1,10 @@
 // Meta manages the metadata about a conversation. Participants, isMuted, reset people, etc. Things that drive the inbox
-import * as C from '..'
+import {shallowEqual} from '../utils'
 import * as T from '../types'
+import * as Teams from '../teams/util'
 import * as Message from './message'
-import {formatTimeForConversationList} from '@/util/timestamp'
-import {globalColors} from '@/styles'
-import {isPhone} from '../platform'
-import type {AllowedColors} from '@/common-adapters/text'
 import {base64ToUint8Array, uint8ArrayToHex} from 'uint8array-extras'
+import {storeRegistry} from '../store-registry'
 
 const conversationMemberStatusToMembershipType = (m: T.RPCChat.ConversationMemberStatus) => {
   switch (m) {
@@ -126,16 +124,16 @@ const copyOverOldValuesIfEqual = (
   newMeta: T.Immutable<T.Chat.ConversationMeta>
 ) => {
   const merged = {...newMeta}
-  if (C.shallowEqual([...merged.rekeyers], [...oldMeta.rekeyers])) {
+  if (shallowEqual([...merged.rekeyers], [...oldMeta.rekeyers])) {
     merged.rekeyers = oldMeta.rekeyers
   }
-  if (C.shallowEqual([...merged.resetParticipants], [...oldMeta.resetParticipants])) {
+  if (shallowEqual([...merged.resetParticipants], [...oldMeta.resetParticipants])) {
     merged.resetParticipants = oldMeta.resetParticipants
   }
-  if (C.shallowEqual(merged.retentionPolicy, oldMeta.retentionPolicy)) {
+  if (shallowEqual(merged.retentionPolicy, oldMeta.retentionPolicy)) {
     merged.retentionPolicy = oldMeta.retentionPolicy
   }
-  if (C.shallowEqual(merged.teamRetentionPolicy, oldMeta.teamRetentionPolicy)) {
+  if (shallowEqual(merged.teamRetentionPolicy, oldMeta.teamRetentionPolicy)) {
     merged.teamRetentionPolicy = oldMeta.teamRetentionPolicy
   }
   return merged
@@ -208,18 +206,16 @@ const UIItemToRetentionPolicies = (
 ) => {
   // default inherit for teams, retain for ad-hoc
   // TODO remove these hard-coded defaults if core starts sending the defaults instead of nil to represent 'unset'
-  let retentionPolicy = isTeam
-    ? C.Teams.makeRetentionPolicy({type: 'inherit'})
-    : C.Teams.makeRetentionPolicy()
+  let retentionPolicy = isTeam ? Teams.makeRetentionPolicy({type: 'inherit'}) : Teams.makeRetentionPolicy()
   if (i.convRetention) {
     // it has been set for this conversation
-    retentionPolicy = C.Teams.serviceRetentionPolicyToRetentionPolicy(i.convRetention)
+    retentionPolicy = Teams.serviceRetentionPolicyToRetentionPolicy(i.convRetention)
   }
 
   // default for team-wide policy is 'retain'
-  let teamRetentionPolicy = C.Teams.makeRetentionPolicy()
+  let teamRetentionPolicy = Teams.makeRetentionPolicy()
   if (i.teamRetention) {
-    teamRetentionPolicy = C.Teams.serviceRetentionPolicyToRetentionPolicy(i.teamRetention)
+    teamRetentionPolicy = Teams.serviceRetentionPolicyToRetentionPolicy(i.teamRetention)
   }
   return {retentionPolicy, teamRetentionPolicy}
 }
@@ -257,7 +253,7 @@ export const inboxUIItemToConversationMeta = (
   const minWriterRoleEnum = i.convSettings?.minWriterRoleInfo
     ? i.convSettings.minWriterRoleInfo.role
     : undefined
-  let minWriterRole = minWriterRoleEnum !== undefined ? C.Teams.teamRoleByEnum[minWriterRoleEnum] : 'reader'
+  let minWriterRole = minWriterRoleEnum !== undefined ? Teams.teamRoleByEnum[minWriterRoleEnum] : 'reader'
   if (minWriterRole === 'none') {
     // means nothing. set it to reader.
     minWriterRole = 'reader'
@@ -267,10 +263,10 @@ export const inboxUIItemToConversationMeta = (
   const conversationIDKey = T.Chat.stringToConversationIDKey(i.convID)
   let pinnedMsg: T.Chat.PinnedMessageInfo | undefined
   if (i.pinnedMsg) {
-    const username = C.useCurrentUserState.getState().username
-    const devicename = C.useCurrentUserState.getState().deviceName
+    const username = storeRegistry.getState('current-user').username
+    const devicename = storeRegistry.getState('current-user').deviceName
     const getLastOrdinal = () =>
-      C.getConvoState(conversationIDKey).messageOrdinals?.at(-1) ?? T.Chat.numberToOrdinal(0)
+      storeRegistry.getConvoState(conversationIDKey).messageOrdinals?.at(-1) ?? T.Chat.numberToOrdinal(0)
     const message = Message.uiMessageToMessage(
       conversationIDKey,
       i.pinnedMsg.message,
@@ -355,7 +351,7 @@ export const makeConversationMeta = (): T.Chat.ConversationMeta => ({
   readMsgID: T.Chat.numberToMessageID(-1),
   rekeyers: new Set(),
   resetParticipants: new Set(),
-  retentionPolicy: C.Teams.makeRetentionPolicy(),
+  retentionPolicy: Teams.makeRetentionPolicy(),
   snippet: '',
   snippetDecorated: undefined,
   snippetDecoration: T.RPCChat.SnippetDecoration.none as T.RPCChat.SnippetDecoration,
@@ -363,7 +359,7 @@ export const makeConversationMeta = (): T.Chat.ConversationMeta => ({
   supersededBy: T.Chat.noConversationIDKey,
   supersedes: T.Chat.noConversationIDKey,
   teamID: '',
-  teamRetentionPolicy: C.Teams.makeRetentionPolicy(),
+  teamRetentionPolicy: Teams.makeRetentionPolicy(),
   teamType: 'adhoc' as T.Chat.TeamType,
   teamname: '',
   timestamp: 0,
@@ -372,49 +368,10 @@ export const makeConversationMeta = (): T.Chat.ConversationMeta => ({
   wasFinalizedBy: '',
 })
 
-export const getRowStyles = (isSelected: boolean, hasUnread: boolean) => {
-  const backgroundColor = isSelected
-    ? globalColors.blue
-    : isPhone
-      ? globalColors.fastBlank
-      : globalColors.blueGrey
-  const showBold = !isSelected && hasUnread
-  const subColor: AllowedColors = isSelected
-    ? globalColors.white
-    : hasUnread
-      ? globalColors.black
-      : globalColors.black_50
-  const usernameColor = isSelected ? globalColors.white : globalColors.black
-
-  return {
-    backgroundColor,
-    showBold,
-    subColor,
-    usernameColor,
-  }
-}
-
 export const getRowParticipants = (participants: T.Immutable<T.Chat.ParticipantInfo>, username: string) =>
   participants.name
     // Filter out ourselves unless it's our 1:1 conversation
     .filter((participant, _, list) => (list.length === 1 ? true : participant !== username))
-
-export const getConversationLabel = (
-  participantInfo: T.Chat.ParticipantInfo,
-  conv: T.Chat.ConversationMeta,
-  alwaysIncludeChannelName: boolean
-): string => {
-  if (conv.teamType === 'big') {
-    return conv.teamname + '#' + conv.channelname
-  }
-  if (conv.teamType === 'small') {
-    return alwaysIncludeChannelName ? conv.teamname + '#' + conv.channelname : conv.teamname
-  }
-  return getRowParticipants(participantInfo, '').join(',')
-}
-
-export const timestampToString = (meta: T.Chat.ConversationMeta) =>
-  formatTimeForConversationList(meta.timestamp)
 
 export const getTeams = (metaMap: T.Chat.MetaMap) =>
   [...metaMap.values()].reduce<Array<string>>((l, meta) => {

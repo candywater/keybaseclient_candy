@@ -14,7 +14,8 @@ import (
 )
 
 func checkNewTeambotKeyNotifications(tc *libkb.TestContext, notifications *teamNotifyHandler,
-	expectedArgs []keybase1.NewTeambotKeyArg) {
+	expectedArgs []keybase1.NewTeambotKeyArg,
+) {
 	matches := map[keybase1.NewTeambotKeyArg]struct{}{}
 	numFound := 0
 	for {
@@ -41,7 +42,8 @@ func checkNewTeambotKeyNotifications(tc *libkb.TestContext, notifications *teamN
 }
 
 func checkTeambotKeyNeededNotifications(tc *libkb.TestContext, notifications *teamNotifyHandler,
-	expectedArg keybase1.TeambotKeyNeededArg) {
+	expectedArg keybase1.TeambotKeyNeededArg,
+) {
 	select {
 	case arg := <-notifications.teambotKeyNeededCh:
 		require.Equal(tc.T, expectedArg, arg)
@@ -377,8 +379,15 @@ func TestTeambotKeyRemovedMember(t *testing.T) {
 	botua := tt.addUser("botua")
 	botuaUID := gregor1.UID(botua.uid.ToBytes())
 	mctx1 := libkb.NewMetaContextForTest(*user1.tc)
+	mctxBotua := libkb.NewMetaContextForTest(*botua.tc)
 	ekLib1 := mctx1.G().GetEKLib()
 	memberKeyer1 := mctx1.G().GetTeambotMemberKeyer()
+
+	// Ensure the bot has generated their ephemeral keys before adding to team
+	// This prevents a race condition where the teambot EK creation fails because
+	// the bot's user EK hasn't been generated yet
+	err := mctxBotua.G().GetEKLib().KeygenIfNeeded(mctxBotua)
+	require.NoError(t, err)
 
 	teamID, teamName := user1.createTeam2()
 	user1.addRestrictedBotTeamMember(teamName.String(), botua.username, keybase1.TeamBotSettings{})
@@ -395,6 +404,11 @@ func TestTeambotKeyRemovedMember(t *testing.T) {
 		},
 	}
 	checkNewTeambotKeyNotifications(botua.tc, botua.notifications, newKeyArgs)
+	newEkArg := keybase1.NewTeambotEkArg{
+		Id:         teamID,
+		Generation: 1,
+	}
+	checkNewTeambotEKNotifications(botua.tc, botua.notifications, newEkArg)
 	user1.removeTeamMember(teamName.String(), botua.username)
 
 	team, err := teams.Load(mctx1.Ctx(), mctx1.G(), keybase1.LoadTeamArg{

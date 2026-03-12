@@ -5,8 +5,10 @@ package badges
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 
@@ -18,7 +20,6 @@ import (
 	"github.com/keybase/client/go/protocol/keybase1"
 	"github.com/keybase/client/go/protocol/stellar1"
 	jsonw "github.com/keybase/go-jsonw"
-	"golang.org/x/net/context"
 )
 
 type LocalChatState interface {
@@ -87,9 +88,11 @@ func (b *BadgeState) Export(ctx context.Context) (keybase1.BadgeState, error) {
 	for _, info := range b.chatUnreadMap {
 		b.state.Conversations = append(b.state.Conversations, info)
 	}
-	b.state.Conversations, b.state.SmallTeamBadgeCount, b.state.BigTeamBadgeCount =
-		b.localChatState.ApplyLocalChatState(ctx, b.state.Conversations)
-	b.state.InboxVers = int(b.inboxVers)
+	b.state.Conversations, b.state.SmallTeamBadgeCount, b.state.BigTeamBadgeCount = b.localChatState.ApplyLocalChatState(ctx, b.state.Conversations)
+	if b.inboxVers > math.MaxInt {
+		return keybase1.BadgeState{}, fmt.Errorf("inbox version overflow: %d", b.inboxVers)
+	}
+	b.state.InboxVers = int(b.inboxVers) //nolint:gosec // G115: Overflow checked above
 
 	b.state.UnreadWalletAccounts = []keybase1.WalletAccountInfo{}
 	for accountID, count := range b.walletUnreadMap {
@@ -417,7 +420,8 @@ func (b *BadgeState) UpdateWithGregor(ctx context.Context, gstate gregor.State) 
 }
 
 func (b *BadgeState) UpdateWithChat(ctx context.Context, update chat1.UnreadUpdate,
-	inboxVers chat1.InboxVers, isMobile bool) {
+	inboxVers chat1.InboxVers, isMobile bool,
+) {
 	b.Lock()
 	defer b.Unlock()
 

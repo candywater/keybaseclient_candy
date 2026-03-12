@@ -1,36 +1,7 @@
 import * as C from '@/constants'
 import * as Kb from '@/common-adapters'
-import * as React from 'react'
-
-type Props = {
-  error: string
-  onBack: () => void
-}
-
-const useConn = () => {
-  const loggedIn = C.useConfigState(s => s.loggedIn)
-  const error = C.useRecoverState(s => s.error)
-  const popStack = C.useRouterState(s => s.dispatch.popStack)
-  const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
-  const onBack = () => {
-    loggedIn ? navigateUp() : popStack()
-  }
-  return {error, onBack}
-}
-
-const ErrorModal = (props: Props) => (
-  <Kb.Modal
-    header={{title: 'Error'}}
-    footer={{content: <Kb.Button label="Back" onClick={props.onBack} fullWidth={true} />}}
-    onClose={props.onBack}
-  >
-    <Kb.Box2 direction="vertical" centerChildren={true} fullWidth={true} style={styles.padding}>
-      <Kb.Text type="Body" center={true}>
-        {props.error}
-      </Kb.Text>
-    </Kb.Box2>
-  </Kb.Modal>
-)
+import {useState as useRecoverState} from '@/constants/recover-password'
+import {useConfigState} from '@/constants/config'
 
 const styles = Kb.Styles.styleSheetCreate(() => ({
   padding: {
@@ -39,7 +10,26 @@ const styles = Kb.Styles.styleSheetCreate(() => ({
 }))
 
 const ConnectedErrorModal = () => {
-  const props = useConn()
-  return <ErrorModal {...props} />
+  const loggedIn = useConfigState(s => s.loggedIn)
+  const error = useRecoverState(s => s.error)
+  const popStack = C.useRouterState(s => s.dispatch.popStack)
+  const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
+  const onBack = () => {
+    loggedIn ? navigateUp() : popStack()
+  }
+
+  return (
+    <Kb.Modal
+      header={{title: 'Error'}}
+      footer={{content: <Kb.Button label="Back" onClick={onBack} fullWidth={true} />}}
+      onClose={onBack}
+    >
+      <Kb.Box2 direction="vertical" centerChildren={true} fullWidth={true} style={styles.padding}>
+        <Kb.Text type="Body" center={true}>
+          {error}
+        </Kb.Text>
+      </Kb.Box2>
+    </Kb.Modal>
+  )
 }
 export default ConnectedErrorModal

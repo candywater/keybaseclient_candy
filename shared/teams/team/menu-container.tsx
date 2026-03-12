@@ -1,19 +1,21 @@
 import * as C from '@/constants'
 import * as Kb from '@/common-adapters'
-import * as React from 'react'
+import type * as React from 'react'
+import * as FS from '@/constants/fs/util'
+import * as Teams from '@/constants/teams'
 import capitalize from 'lodash/capitalize'
 import * as T from '@/constants/types'
 import {pluralize} from '@/util/string'
 
 type OwnProps = {
-  attachTo?: React.RefObject<Kb.MeasureRef>
+  attachTo?: React.RefObject<Kb.MeasureRef | null>
   onHidden: () => void
   teamID: T.Teams.TeamID
   visible: boolean
 }
 
 type Props = {
-  attachTo?: React.RefObject<Kb.MeasureRef>
+  attachTo?: React.RefObject<Kb.MeasureRef | null>
   items: Kb.MenuItems
   teamname: string
   memberCount: number
@@ -78,13 +80,13 @@ const styles = Kb.Styles.styleSheetCreate(() => ({
 
 const Container = (ownProps: OwnProps) => {
   const {teamID} = ownProps
-  const {teamname, role, memberCount} = C.useTeamsState(s => C.Teams.getTeamMeta(s, teamID))
-  const yourOperations = C.useTeamsState(s => C.Teams.getCanPerformByID(s, teamID))
+  const {teamname, role, memberCount} = Teams.useTeamsState(s => Teams.getTeamMeta(s, teamID))
+  const yourOperations = Teams.useTeamsState(s => Teams.getCanPerformByID(s, teamID))
   const canDeleteTeam = yourOperations.deleteTeam
   const canInvite = yourOperations.manageMembers
-  const canLeaveTeam = C.useTeamsState(s => !C.Teams.isLastOwner(s, teamID) && role !== 'none')
+  const canLeaveTeam = Teams.useTeamsState(s => !Teams.isLastOwner(s, teamID) && role !== 'none')
   const canViewFolder = !yourOperations.joinTeam
-  const startAddMembersWizard = C.useTeamsState(s => s.dispatch.startAddMembersWizard)
+  const startAddMembersWizard = Teams.useTeamsState(s => s.dispatch.startAddMembersWizard)
   const onAddOrInvitePeople = () => {
     startAddMembersWizard(teamID)
   }
@@ -96,7 +98,7 @@ const Container = (ownProps: OwnProps) => {
     navigateAppend({props: {teamID}, selected: 'teamReallyLeaveTeam'})
   }
   const onOpenFolder = (teamname: string) => {
-    C.FS.makeActionForOpenPathInFilesTab(T.FS.stringToPath(`/keybase/team/${teamname}`))
+    FS.makeActionForOpenPathInFilesTab(T.FS.stringToPath(`/keybase/team/${teamname}`))
   }
 
   const items: Kb.MenuItems = ['Divider']

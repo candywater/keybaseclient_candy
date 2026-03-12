@@ -70,7 +70,8 @@ type blockingLocalizer struct {
 }
 
 func newBlockingLocalizer(g *globals.Context, pipeline *localizerPipeline,
-	localizeCb chan types.AsyncInboxResult) *blockingLocalizer {
+	localizeCb chan types.AsyncInboxResult,
+) *blockingLocalizer {
 	return &blockingLocalizer{
 		Contextified:  globals.NewContextified(g),
 		DebugLabeler:  utils.NewDebugLabeler(g.ExternalG(), "blockingLocalizer", false),
@@ -80,11 +81,12 @@ func newBlockingLocalizer(g *globals.Context, pipeline *localizerPipeline,
 }
 
 func (b *blockingLocalizer) Localize(ctx context.Context, uid gregor1.UID, inbox types.Inbox,
-	maxLocalize *int) (res []chat1.ConversationLocal, err error) {
+	maxLocalize *int,
+) (res []chat1.ConversationLocal, err error) {
 	defer b.Trace(ctx, &err, "Localize")()
 	inbox = b.filterSelfFinalized(ctx, inbox)
 	convs := b.getConvs(inbox, maxLocalize)
-	if err := b.baseLocalizer.pipeline.queue(ctx, uid, convs, b.localizeCb); err != nil {
+	if err := b.pipeline.queue(ctx, uid, convs, b.localizeCb); err != nil {
 		b.Debug(ctx, "Localize: failed to queue: %s", err)
 		return res, err
 	}
@@ -122,7 +124,8 @@ type nonBlockingLocalizer struct {
 }
 
 func newNonblockingLocalizer(g *globals.Context, pipeline *localizerPipeline,
-	localizeCb chan types.AsyncInboxResult) *nonBlockingLocalizer {
+	localizeCb chan types.AsyncInboxResult,
+) *nonBlockingLocalizer {
 	return &nonBlockingLocalizer{
 		Contextified:  globals.NewContextified(g),
 		DebugLabeler:  utils.NewDebugLabeler(g.ExternalG(), "nonBlockingLocalizer", false),
@@ -155,7 +158,8 @@ func (b *nonBlockingLocalizer) filterInboxRes(ctx context.Context, inbox types.I
 }
 
 func (b *nonBlockingLocalizer) Localize(ctx context.Context, uid gregor1.UID, inbox types.Inbox,
-	maxLocalize *int) (res []chat1.ConversationLocal, err error) {
+	maxLocalize *int,
+) (res []chat1.ConversationLocal, err error) {
 	defer b.Trace(ctx, &err, "Localize")()
 	// Run some easy filters for empty messages and known errors to optimize UI drawing behavior
 	inbox = b.filterSelfFinalized(ctx, inbox)
@@ -174,7 +178,7 @@ func (b *nonBlockingLocalizer) Localize(ctx context.Context, uid gregor1.UID, in
 	// Spawn off localization into its own goroutine and use cb to communicate with outside world
 	go func(ctx context.Context) {
 		b.Debug(ctx, "Localize: starting background localization: convs: %d", len(inbox.ConvsUnverified))
-		if err := b.baseLocalizer.pipeline.queue(ctx, uid, b.getConvs(inbox, maxLocalize), b.localizeCb); err != nil {
+		if err := b.pipeline.queue(ctx, uid, b.getConvs(inbox, maxLocalize), b.localizeCb); err != nil {
 			b.Debug(ctx, "Localize: failed to queue: %s", err)
 			close(b.localizeCb)
 		}
@@ -257,7 +261,8 @@ func (l *localizerPipelineJob) complete(convID chat1.ConversationID) {
 }
 
 func newLocalizerPipelineJob(ctx context.Context, g *globals.Context, uid gregor1.UID,
-	convs []types.RemoteConversation, retCh chan types.AsyncInboxResult) *localizerPipelineJob {
+	convs []types.RemoteConversation, retCh chan types.AsyncInboxResult,
+) *localizerPipelineJob {
 	return &localizerPipelineJob{
 		ctx:     globals.BackgroundChatCtx(ctx, g),
 		retCh:   retCh,
@@ -308,7 +313,8 @@ func (s *localizerPipeline) Disconnected() {
 }
 
 func (s *localizerPipeline) queue(ctx context.Context, uid gregor1.UID, convs []types.RemoteConversation,
-	retCh chan types.AsyncInboxResult) error {
+	retCh chan types.AsyncInboxResult,
+) error {
 	defer s.Trace(ctx, nil, "queue")()
 	s.Lock()
 	defer s.Unlock()
@@ -338,7 +344,8 @@ func (s *localizerPipeline) start(ctx context.Context) {
 	}
 	s.clearQueue()
 	s.started = true
-	go s.localizeLoop()
+	stopCh := s.stopCh
+	go s.localizeLoop(stopCh)
 }
 
 func (s *localizerPipeline) stop(ctx context.Context) chan struct{} {
@@ -469,12 +476,9 @@ func (s *localizerPipeline) localizeJobPulled(job *localizerPipelineJob, stopCh 
 	s.Debug(job.ctx, "localizeJobPulled: job pass complete")
 }
 
-func (s *localizerPipeline) localizeLoop() {
+func (s *localizerPipeline) localizeLoop(stopCh chan struct{}) {
 	ctx := context.Background()
 	s.Debug(ctx, "localizeLoop: starting up")
-	s.Lock()
-	stopCh := s.stopCh
-	s.Unlock()
 	for {
 		select {
 		case job := <-s.jobQueue:
@@ -591,7 +595,8 @@ func getUnverifiedTlfNameForErrors(conversationRemote chat1.Conversation) string
 }
 
 func (s *localizerPipeline) getMinWriterRoleInfoLocal(ctx context.Context, uid gregor1.UID,
-	conv chat1.Conversation) (*chat1.ConversationMinWriterRoleInfoLocal, error) {
+	conv chat1.Conversation,
+) (*chat1.ConversationMinWriterRoleInfoLocal, error) {
 	if conv.ConvSettings == nil || conv.ReaderInfo == nil {
 		return nil, nil
 	}
@@ -619,7 +624,8 @@ func (s *localizerPipeline) getMinWriterRoleInfoLocal(ctx context.Context, uid g
 }
 
 func (s *localizerPipeline) getConvSettingsLocal(ctx context.Context, uid gregor1.UID,
-	conv chat1.Conversation) (*chat1.ConversationSettingsLocal, error) {
+	conv chat1.Conversation,
+) (*chat1.ConversationSettingsLocal, error) {
 	settings := conv.ConvSettings
 	if settings == nil {
 		return nil, nil
@@ -635,7 +641,8 @@ func (s *localizerPipeline) getConvSettingsLocal(ctx context.Context, uid gregor
 
 // returns an incomplete list in case of error
 func (s *localizerPipeline) getResetUsernamesMetadata(ctx context.Context, uidMapper libkb.UIDMapper,
-	conv chat1.Conversation) (res []string) {
+	conv chat1.Conversation,
+) (res []string) {
 	if len(conv.Metadata.ResetList) == 0 {
 		return res
 	}
@@ -657,7 +664,8 @@ func (s *localizerPipeline) getResetUsernamesMetadata(ctx context.Context, uidMa
 }
 
 func (s *localizerPipeline) getPinnedMsg(ctx context.Context, uid gregor1.UID, conv chat1.Conversation,
-	pinMessage chat1.MessageUnboxed) (pinnedMsg chat1.MessageUnboxed, pinnerUsername string, valid bool, err error) {
+	pinMessage chat1.MessageUnboxed,
+) (pinnedMsg chat1.MessageUnboxed, pinnerUsername string, valid bool, err error) {
 	defer s.Trace(ctx, &err, "getPinnedMsg: %v", pinMessage.GetMessageID())()
 	if !pinMessage.IsValidFull() {
 		s.Debug(ctx, "getPinnedMsg: not a valid pin message")
@@ -695,7 +703,8 @@ func (s *localizerPipeline) getPinnedMsg(ctx context.Context, uid gregor1.UID, c
 }
 
 func (s *localizerPipeline) localizeConversation(ctx context.Context, uid gregor1.UID,
-	rc types.RemoteConversation) (conversationLocal chat1.ConversationLocal) {
+	rc types.RemoteConversation,
+) (conversationLocal chat1.ConversationLocal) {
 	ctx = globals.CtxModifyUnboxMode(ctx, types.UnboxModeQuick)
 	ctx = libkb.WithLogTag(ctx, "CHTLOC")
 	conversationRemote := rc.Conv

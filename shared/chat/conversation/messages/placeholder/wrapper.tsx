@@ -1,4 +1,4 @@
-import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
 import * as T from '@/constants/types'
@@ -15,11 +15,11 @@ const WrapperPlaceholder = React.memo(function WrapperPlaceholder(p: Props) {
   const o = T.Chat.ordinalToNumber(ordinal)
   const code = o * 16807
   const width = baseWidth + (code % 20) * mult // pseudo randomize the length
-  const noAnchor = React.useRef<Kb.MeasureRef>(null)
+  const noAnchor = React.useRef<Kb.MeasureRef | null>(null)
 
   const forceListRedraw = React.useContext(ForceListRedrawContext)
 
-  const type = C.useChatContext(s => s.messageMap.get(ordinal)?.type)
+  const type = Chat.useChatContext(s => s.messageMap.get(ordinal)?.type)
   const [lastType, setLastType] = React.useState(type)
 
   if (lastType !== type) {

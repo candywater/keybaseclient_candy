@@ -1,15 +1,16 @@
 import * as C from '@/constants'
-import * as Constants from '@/constants/crypto'
+import * as Chat from '@/constants/chat2'
+import * as Crypto from '@/constants/crypto'
 import * as Kb from '@/common-adapters'
 import * as Path from '@/util/path'
-import * as Platforms from '@/constants/platform'
 import * as React from 'react'
 import capitalize from 'lodash/capitalize'
 import type * as T from '@/constants/types'
-import {getStyle} from '@/common-adapters/text'
-import {humanizeBytes} from '@/constants/fs'
 import {pickFiles} from '@/util/pick-files'
 import type HiddenString from '@/util/hidden-string'
+import {useFSState} from '@/constants/fs'
+import * as FS from '@/constants/fs'
+import {useConfigState} from '@/constants/config'
 
 type OutputProps = {operation: T.Crypto.Operations}
 type OutputActionsBarProps = {operation: T.Crypto.Operations}
@@ -23,18 +24,16 @@ type OutputInfoProps = {
     | Array<React.ReactElement<typeof Kb.BannerParagraph>>
 }
 
-const largeOutputLimit = 120
-
 export const SignedSender = (props: SignedSenderProps) => {
   const {operation} = props
-  const waiting = C.Waiting.useAnyWaiting(Constants.waitingKey)
+  const waiting = C.Waiting.useAnyWaiting(C.waitingKeyCrypto)
 
   const {
     outputSigned: signed,
     outputSenderUsername: signedByUsername,
     outputSenderFullname: signedByFullname,
     outputStatus,
-  } = C.useCryptoState(
+  } = Crypto.useCryptoState(
     C.useShallow(s => {
       const o = s[operation]
       const {outputSigned, outputSenderUsername, outputSenderFullname, outputStatus} = o
@@ -42,7 +41,7 @@ export const SignedSender = (props: SignedSenderProps) => {
     })
   )
 
-  const isSelfSigned = operation === Constants.Operations.Encrypt || operation === Constants.Operations.Sign
+  const isSelfSigned = operation === Crypto.Operations.Encrypt || operation === Crypto.Operations.Sign
   const avatarSize = isSelfSigned ? 16 : Kb.Styles.isMobile ? 32 : 48
   const usernameType = isSelfSigned ? 'BodySmallBold' : 'BodyBold'
 
@@ -123,7 +122,7 @@ export const SignedSender = (props: SignedSenderProps) => {
 const OutputProgress = (props: OutputProgressProps) => {
   const {operation} = props
 
-  const {bytesComplete, bytesTotal, inProgress} = C.useCryptoState(
+  const {bytesComplete, bytesTotal, inProgress} = Crypto.useCryptoState(
     C.useShallow(s => {
       const o = s[operation]
       const {bytesComplete, bytesTotal, inProgress} = o
@@ -136,7 +135,7 @@ const OutputProgress = (props: OutputProgressProps) => {
   return inProgress ? (
     <Kb.Box2 direction="vertical" fullWidth={true} alignItems="center">
       <Kb.ProgressBar ratio={ratio} style={styles.progressBar} />
-      <Kb.Text type="Body">{`${humanizeBytes(bytesComplete, 1)} / ${humanizeBytes(bytesTotal, 1)}`}</Kb.Text>
+      <Kb.Text type="Body">{`${FS.humanizeBytes(bytesComplete, 1)} / ${FS.humanizeBytes(bytesTotal, 1)}`}</Kb.Text>
     </Kb.Box2>
   ) : null
 }
@@ -144,7 +143,7 @@ const OutputProgress = (props: OutputProgressProps) => {
 export const OutputInfoBanner = (props: OutputInfoProps) => {
   const {operation} = props
 
-  const outputStatus = C.useCryptoState(s => s[operation].outputStatus)
+  const outputStatus = Crypto.useCryptoState(s => s[operation].outputStatus)
   return outputStatus === 'success' ? (
     <Kb.Banner
       color="grey"
@@ -159,11 +158,10 @@ export const OutputInfoBanner = (props: OutputInfoProps) => {
 
 export const OutputActionsBar = (props: OutputActionsBarProps) => {
   const {operation} = props
-  const canSaveAsText = operation === Constants.Operations.Encrypt || operation === Constants.Operations.Sign
-  const canReplyInChat =
-    operation === Constants.Operations.Decrypt || operation === Constants.Operations.Verify
+  const canSaveAsText = operation === Crypto.Operations.Encrypt || operation === Crypto.Operations.Sign
+  const canReplyInChat = operation === Crypto.Operations.Decrypt || operation === Crypto.Operations.Verify
 
-  const waiting = C.Waiting.useAnyWaiting(Constants.waitingKey)
+  const waiting = C.Waiting.useAnyWaiting(C.waitingKeyCrypto)
 
   const {
     output,
@@ -172,7 +170,7 @@ export const OutputActionsBar = (props: OutputActionsBarProps) => {
     outputType,
     outputSigned: signed,
     outputSenderUsername: signedByUsername,
-  } = C.useCryptoState(
+  } = Crypto.useCryptoState(
     C.useShallow(s => {
       const o = s[operation]
       const {output, outputValid, outputStatus, outputType, outputSigned, outputSenderUsername} = o
@@ -182,7 +180,7 @@ export const OutputActionsBar = (props: OutputActionsBarProps) => {
 
   const actionsDisabled = waiting || !outputValid
 
-  const openLocalPathInSystemFileManagerDesktop = C.useFSState(
+  const openLocalPathInSystemFileManagerDesktop = useFSState(
     s => s.dispatch.dynamic.openLocalPathInSystemFileManagerDesktop
   )
   const onShowInFinder = () => {
@@ -190,33 +188,33 @@ export const OutputActionsBar = (props: OutputActionsBarProps) => {
   }
 
   const navigateUp = C.useRouterState(s => s.dispatch.navigateUp)
-  const previewConversation = C.useChatState(s => s.dispatch.previewConversation)
+  const previewConversation = Chat.useChatState(s => s.dispatch.previewConversation)
   const onReplyInChat = (username: HiddenString) => {
     navigateUp()
     previewConversation({participants: [username.stringValue()], reason: 'search'})
   }
 
-  const copyToClipboard = C.useConfigState(s => s.dispatch.dynamic.copyToClipboard)
+  const copyToClipboard = useConfigState(s => s.dispatch.dynamic.copyToClipboard)
   const onCopyOutput = () => {
     copyToClipboard(output.stringValue())
   }
 
-  const downloadSignedText = C.useCryptoState(s => s.dispatch.downloadSignedText)
-  const downloadEncryptedText = C.useCryptoState(s => s.dispatch.downloadEncryptedText)
+  const downloadSignedText = Crypto.useCryptoState(s => s.dispatch.downloadSignedText)
+  const downloadEncryptedText = Crypto.useCryptoState(s => s.dispatch.downloadEncryptedText)
 
   const onSaveAsText = () => {
-    if (operation === Constants.Operations.Sign) {
+    if (operation === Crypto.Operations.Sign) {
       downloadSignedText()
       return
     }
 
-    if (operation === Constants.Operations.Encrypt) {
+    if (operation === Crypto.Operations.Encrypt) {
       downloadEncryptedText()
       return
     }
   }
 
-  const popupAnchor = React.useRef<Kb.MeasureRef>(null)
+  const popupAnchor = React.useRef<Kb.MeasureRef | null>(null)
   const [showingToast, setShowingToast] = React.useState(false)
 
   const setHideToastTimeout = Kb.useTimeout(() => setShowingToast(false), 1500)
@@ -306,8 +304,8 @@ const OutputFileDestination = (props: {operation: T.Crypto.Operations}) => {
   const {operation} = props
   const operationTitle = capitalize(operation)
 
-  const input = C.useCryptoState(s => s[operation].input.stringValue())
-  const runFileOperation = C.useCryptoState(s => s.dispatch.runFileOperation)
+  const input = Crypto.useCryptoState(s => s[operation].input.stringValue())
+  const runFileOperation = Crypto.useCryptoState(s => s.dispatch.runFileOperation)
 
   const onOpenFile = () => {
     const f = async () => {
@@ -316,7 +314,7 @@ const OutputFileDestination = (props: {operation: T.Crypto.Operations}) => {
         allowDirectories: true,
         allowFiles: false,
         buttonLabel: 'Select',
-        ...(Platforms.isDarwin ? {defaultPath} : {}),
+        ...(C.isDarwin ? {defaultPath} : {}),
       })
       if (!filePaths.length) return
       const path = filePaths[0]!
@@ -361,7 +359,7 @@ export const OperationOutput = (props: OutputProps) => {
     outputValid,
     outputStatus,
     outputType,
-  } = C.useCryptoState(
+  } = Crypto.useCryptoState(
     C.useShallow(s => {
       const o = s[operation]
       const {inProgress, inputType, output, outputValid, outputStatus, outputType} = o
@@ -370,7 +368,7 @@ export const OperationOutput = (props: OutputProps) => {
   )
   const output = _output.stringValue()
 
-  const openLocalPathInSystemFileManagerDesktop = C.useFSState(
+  const openLocalPathInSystemFileManagerDesktop = useFSState(
     s => s.dispatch.dynamic.openLocalPathInSystemFileManagerDesktop
   )
   const onShowInFinder = () => {
@@ -378,15 +376,7 @@ export const OperationOutput = (props: OutputProps) => {
     openLocalPathInSystemFileManagerDesktop?.(output)
   }
 
-  const waiting = C.Waiting.useAnyWaiting(Constants.waitingKey)
-
-  // Output text can be 24 px when output is less that 120 characters
-  const outputTextIsLarge =
-    operation === Constants.Operations.Decrypt || operation === Constants.Operations.Verify
-  const {fontSize, lineHeight} = getStyle('HeaderBig')
-  const outputLargeStyle = outputTextIsLarge &&
-    output &&
-    output.length <= largeOutputLimit && {fontSize, lineHeight}
+  const waiting = C.Waiting.useAnyWaiting(C.waitingKeyCrypto)
 
   const fileOutputTextColor =
     textType === 'cipher' ? Kb.Styles.globalColors.greenDark : Kb.Styles.globalColors.black
@@ -443,7 +433,7 @@ export const OperationOutput = (props: OutputProps) => {
         <Kb.Text
           type={textType === 'cipher' ? 'Terminal' : 'Body'}
           selectable={!actionsDisabled}
-          style={Kb.Styles.collapseStyles([styles.output, outputLargeStyle])}
+          style={styles.output}
         >
           {output}
         </Kb.Text>

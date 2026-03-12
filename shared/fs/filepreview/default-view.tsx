@@ -3,18 +3,33 @@ import * as C from '@/constants'
 import * as Kb from '@/common-adapters'
 import {PathItemAction, LastModifiedLine, ItemIcon, type ClickableProps} from '../common'
 import {hasShare} from '../common/path-item-action/layout'
+import * as FS from '@/constants/fs'
+import {useFSState} from '@/constants/fs'
 
-type DefaultViewProps = {
-  download: () => void
-  sfmiEnabled: boolean
-  path: T.FS.Path
-  pathItem: T.FS.PathItem
-  showInSystemFileManager: () => void
+type OwnProps = {path: T.FS.Path}
+
+const Share = (p: ClickableProps) => {
+  const {onClick, mref} = p
+  return <Kb.Button key="share" label="Share" onClick={onClick} ref={mref} />
 }
 
-const Share = (p: ClickableProps) => <Kb.Button key="share" label="Share" onClick={p.onClick} ref={p.mref} />
-const DefaultView = (props: DefaultViewProps) => {
-  const fileContext = C.useFSState(s => s.fileContext.get(props.path) || C.FS.emptyFileContext)
+const Container = (ownProps: OwnProps) => {
+  const {path} = ownProps
+  const {pathItem, sfmiEnabled, _download, openPathInSystemFileManagerDesktop, fileContext} = useFSState(
+    C.useShallow(s => ({
+      _download: s.dispatch.download,
+      fileContext: s.fileContext.get(path) || FS.emptyFileContext,
+      openPathInSystemFileManagerDesktop: s.dispatch.dynamic.openPathInSystemFileManagerDesktop,
+      pathItem: FS.getPathItem(s.pathItems, path),
+      sfmiEnabled: s.sfmi.driverStatus.type === T.FS.DriverStatusType.Enabled,
+    }))
+  )
+  const download = () => {
+    _download(path, 'download')
+  }
+  const showInSystemFileManager = () => {
+    openPathInSystemFileManagerDesktop?.(path)
+  }
   return (
     <Kb.Box2 direction="vertical" fullWidth={true} fullHeight={true} style={styles.container}>
       <Kb.Box2
@@ -24,15 +39,15 @@ const DefaultView = (props: DefaultViewProps) => {
         centerChildren={true}
         style={styles.innerContainer}
       >
-        <ItemIcon path={props.path} size={96} />
+        <ItemIcon path={path} size={96} />
         <Kb.Text type="BodyBig" style={styles.filename}>
-          {props.pathItem.name}
+          {pathItem.name}
         </Kb.Text>
-        <Kb.Text type="BodySmall">{C.FS.humanReadableFileSize(props.pathItem.size)}</Kb.Text>
-        {C.isMobile && <LastModifiedLine path={props.path} mode="default" />}
-        {props.pathItem.type === T.FS.PathType.Symlink && (
+        <Kb.Text type="BodySmall">{FS.humanReadableFileSize(pathItem.size)}</Kb.Text>
+        {C.isMobile && <LastModifiedLine path={path} mode="default" />}
+        {pathItem.type === T.FS.PathType.Symlink && (
           <Kb.Text type="BodySmall" style={styles.symlink}>
-            {'This is a symlink' + (props.pathItem.linkTarget ? ` to: ${props.pathItem.linkTarget}.` : '.')}
+            {'This is a symlink' + (pathItem.linkTarget ? ` to: ${pathItem.linkTarget}.` : '.')}
           </Kb.Text>
         )}
         {C.isMobile && (
@@ -42,7 +57,7 @@ const DefaultView = (props: DefaultViewProps) => {
         )}
         {
           // Enable this button for desktop when we have in-app sharing.
-          hasShare('screen', props.path, props.pathItem, fileContext) && (
+          hasShare('screen', path, pathItem, fileContext) && (
             <>
               <Kb.Box2 direction="vertical" gap="medium" gapStart={true} />
               <PathItemAction
@@ -50,7 +65,7 @@ const DefaultView = (props: DefaultViewProps) => {
                   component: Share,
                   type: 'component',
                 }}
-                path={props.path}
+                path={path}
                 initView={T.FS.PathItemActionMenuView.Share}
                 mode="screen"
               />
@@ -58,13 +73,13 @@ const DefaultView = (props: DefaultViewProps) => {
           )
         }
         {!C.isIOS &&
-          (props.sfmiEnabled ? (
+          (sfmiEnabled ? (
             <Kb.Button
               key="open"
               type="Dim"
               label={'Show in ' + C.fileUIName}
               style={{marginTop: Kb.Styles.globalMargins.small}}
-              onClick={props.showInSystemFileManager}
+              onClick={showInSystemFileManager}
             />
           ) : (
             <Kb.Button
@@ -72,7 +87,7 @@ const DefaultView = (props: DefaultViewProps) => {
               mode="Secondary"
               label="Download"
               style={{marginTop: Kb.Styles.globalMargins.small}}
-              onClick={props.download}
+              onClick={download}
             />
           ))}
       </Kb.Box2>
@@ -114,4 +129,4 @@ const styles = Kb.Styles.styleSheetCreate(
     }) as const
 )
 
-export default DefaultView
+export default Container

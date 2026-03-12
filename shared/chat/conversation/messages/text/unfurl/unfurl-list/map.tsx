@@ -1,19 +1,20 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as Kb from '@/common-adapters/index'
 import * as T from '@/constants/types'
 import * as React from 'react'
 import UnfurlImage from './image'
-import {OrdinalContext} from '@/chat/conversation/messages/ids-context'
+import {useOrdinal} from '@/chat/conversation/messages/ids-context'
 import {formatDurationForLocation} from '@/util/timestamp'
 import {getUnfurlInfo} from './use-state'
 import {maxWidth} from '@/chat/conversation/messages/attachment/shared'
 
 const UnfurlMap = React.memo(function UnfurlGeneric(p: {idx: number}) {
   const {idx} = p
-  const ordinal = React.useContext(OrdinalContext)
+  const ordinal = useOrdinal()
   const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
 
-  const data = C.useChatContext(
+  const data = Chat.useChatContext(
     C.useShallow(s => {
       const {unfurl, youAreAuthor, author} = getUnfurlInfo(s, ordinal, idx)
       if (unfurl?.unfurlType !== T.RPCChat.UnfurlType.generic) {
@@ -101,7 +102,7 @@ type AgeProps = {
 
 const UpdateAge = (props: AgeProps) => {
   const {time} = props
-  const [duration, setDuration] = React.useState(Date.now() - time)
+  const [duration, setDuration] = React.useState(() => Date.now() - time)
   React.useEffect(() => {
     const timer = setInterval(() => {
       setDuration(Date.now() - time)
@@ -110,7 +111,7 @@ const UpdateAge = (props: AgeProps) => {
       clearInterval(timer)
     }
   }, [time])
-  let durationText = ''
+  let durationText: string
   if (duration < 60000) {
     durationText = 'updated just now'
   } else if (duration > 14400000) {
@@ -132,7 +133,7 @@ type DurationProps = {
 
 const LiveDuration = (props: DurationProps) => {
   const {liveLocationEndTime} = props
-  const [duration, setDuration] = React.useState(liveLocationEndTime - Date.now())
+  const [duration, setDuration] = React.useState(() => liveLocationEndTime - Date.now())
   React.useEffect(() => {
     const timer = setInterval(() => {
       setDuration(liveLocationEndTime - Date.now())

@@ -1,10 +1,15 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import * as T from '@/constants/types'
-import * as FsConstants from '@/constants/fs'
 import * as FsCommon from '@/fs/common'
 import {MobileSendToChat} from '../chat/send-to-chat'
+import {navigateAppend} from '@/constants/router2/util'
+import {settingsFeedbackTab} from '@/constants/settings'
+import * as FS from '@/constants/fs'
+import {useFSState} from '@/constants/fs'
+import {useConfigState} from '@/constants/config'
 
 export const OriginalOrCompressedButton = ({incomingShareItems}: IncomingShareProps) => {
   const originalTotalSize = incomingShareItems.reduce((bytes, item) => bytes + (item.originalSize ?? 0), 0)
@@ -13,7 +18,7 @@ export const OriginalOrCompressedButton = ({incomingShareItems}: IncomingSharePr
     0
   )
   const originalOnly = originalTotalSize <= scaledTotalSize
-  const setUseOriginalInStore = C.useConfigState.getState().dispatch.setIncomingShareUseOriginal
+  const setUseOriginalInStore = useConfigState(s => s.dispatch.setIncomingShareUseOriginal)
 
   const setUseOriginalInService = React.useCallback((useOriginal: boolean) => {
     T.RPCGen.incomingShareSetPreferenceRpcPromise({
@@ -46,7 +51,7 @@ export const OriginalOrCompressedButton = ({incomingShareItems}: IncomingSharePr
     !originalOnly && syncCompressPreferenceFromServiceToStore()
   }, [originalOnly, syncCompressPreferenceFromServiceToStore])
 
-  const useOriginalValue = C.useConfigState(s => s.incomingShareUseOriginal)
+  const useOriginalValue = useConfigState(s => s.incomingShareUseOriginal)
 
   const isLarge = (useOriginalValue ? originalTotalSize : scaledTotalSize) > 1024 * 1024 * 150
 
@@ -68,12 +73,12 @@ export const OriginalOrCompressedButton = ({incomingShareItems}: IncomingSharePr
               icon: useOriginalValue ? 'iconfont-check' : undefined,
               onClick: () => setUseOriginalFromUI(true),
               rightTitle: isLarge ? 'Large file' : undefined,
-              title: `Keep full size (${FsConstants.humanizeBytes(originalTotalSize, 1)})`,
+              title: `Keep full size (${FS.humanizeBytes(originalTotalSize, 1)})`,
             },
             {
               icon: useOriginalValue ? undefined : 'iconfont-check',
               onClick: () => setUseOriginalFromUI(false),
-              title: `Compress (${FsConstants.humanizeBytes(scaledTotalSize, 1)})`,
+              title: `Compress (${FS.humanizeBytes(scaledTotalSize, 1)})`,
             },
           ]}
         />
@@ -166,7 +171,7 @@ const useHeader = (incomingShareItems: ReadonlyArray<T.RPCGen.IncomingShareItem>
 }
 
 const useFooter = (incomingShareItems: ReadonlyArray<T.RPCGen.IncomingShareItem>) => {
-  const setIncomingShareSource = C.useFSState(s => s.dispatch.setIncomingShareSource)
+  const setIncomingShareSource = useFSState(s => s.dispatch.setIncomingShareSource)
   const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
   const saveInFiles = () => {
     setIncomingShareSource(incomingShareItems)
@@ -194,8 +199,12 @@ type IncomingShareProps = {
   incomingShareItems: ReadonlyArray<T.RPCGen.IncomingShareItem>
 }
 
-const IncomingShare = (props: IncomingShareProps) => {
-  const useOriginalValue = C.useConfigState(s => s.incomingShareUseOriginal)
+type IncomingShareWithSelectionProps = IncomingShareProps & {
+  selectedConversationIDKey?: T.Chat.ConversationIDKey
+}
+
+const IncomingShare = (props: IncomingShareWithSelectionProps) => {
+  const useOriginalValue = useConfigState(s => s.incomingShareUseOriginal)
   const {sendPaths, text} = props.incomingShareItems.reduce(
     ({sendPaths, text}, item) => {
       if (item.content) {
@@ -209,14 +218,49 @@ const IncomingShare = (props: IncomingShareProps) => {
       }
       return {sendPaths, text}
     },
-    {sendPaths: [] as Array<string>, text: undefined as string | undefined}
+    {sendPaths: new Array<string>(), text: undefined as string | undefined}
   )
+
+  // Pre-selected conv: navToThread + attachments directly (skip MobileSendToChat)
+  const selectedConversationIDKey = props.selectedConversationIDKey
+  const canDirectNav = selectedConversationIDKey && Chat.isValidConversationIDKey(selectedConversationIDKey)
+  const hasNavigatedRef = React.useRef(false)
+  React.useEffect(() => {
+    if (!canDirectNav || hasNavigatedRef.current) return
+    hasNavigatedRef.current = true
+    const {dispatch} = Chat.getConvoState(selectedConversationIDKey!)
+    text && dispatch.injectIntoInput(text)
+    dispatch.navigateToThread('extension')
+    if (sendPaths.length > 0) {
+      const meta = Chat.getConvoState(selectedConversationIDKey!).meta
+      const tlfName = meta.conversationIDKey === selectedConversationIDKey ? meta.tlfname : ''
+      navigateAppend({
+        props: {
+          conversationIDKey: selectedConversationIDKey,
+          pathAndOutboxIDs: sendPaths.map(p => ({
+            path: Kb.Styles.normalizePath(p),
+          })),
+          selectConversationWithReason: 'extension' as const,
+          tlfName,
+        },
+        selected: 'chatAttachmentGetTitles',
+      })
+    }
+  }, [canDirectNav, selectedConversationIDKey, sendPaths, text])
+
+  const header = useHeader(props.incomingShareItems)
+  const footer = useFooter(props.incomingShareItems)
+
+  if (canDirectNav) {
+    return (
+      <Kb.Box2 direction="vertical" centerChildren={true} fullHeight={true}>
+        <Kb.ProgressIndicator type="Large" />
+      </Kb.Box2>
+    )
+  }
+
   return (
-    <Kb.Modal
-      noScrollView={true}
-      header={useHeader(props.incomingShareItems)}
-      footer={useFooter(props.incomingShareItems)}
-    >
+    <Kb.Modal noScrollView={true} header={header} footer={footer}>
       <Kb.Box2 direction="vertical" fullWidth={true} fullHeight={true}>
         <Kb.Box2 direction="vertical" fullWidth={true} style={Kb.Styles.globalStyles.flexOne}>
           <MobileSendToChat isFromShareExtension={true} sendPaths={sendPaths} text={text} />
@@ -233,7 +277,7 @@ const IncomingShareError = () => {
     clearModals()
     navigateAppend({
       props: {feedback: `iOS share failure`},
-      selected: C.Settings.settingsFeedbackTab,
+      selected: settingsFeedbackTab,
     })
   }
   const onCancel = () => clearModals()
@@ -278,7 +322,7 @@ const useIncomingShareItems = () => {
   React.useEffect(getIncomingShareItemsIOS, [getIncomingShareItemsIOS])
 
   // Android
-  const androidShare = C.useConfigState(s => s.androidShare)
+  const androidShare = useConfigState(s => s.androidShare)
   const getIncomingShareItemsAndroid = React.useCallback(() => {
     if (!C.isAndroid || !androidShare) {
       return
@@ -295,12 +339,19 @@ const useIncomingShareItems = () => {
   return {incomingShareError, incomingShareItems}
 }
 
-const IncomingShareMain = () => {
+type IncomingShareMainProps = {
+  selectedConversationIDKey?: T.Chat.ConversationIDKey
+}
+
+const IncomingShareMain = (props: IncomingShareMainProps) => {
   const {incomingShareError, incomingShareItems} = useIncomingShareItems()
   return incomingShareError ? (
     <IncomingShareError />
   ) : incomingShareItems.length ? (
-    <IncomingShare incomingShareItems={incomingShareItems} />
+    <IncomingShare
+      incomingShareItems={incomingShareItems}
+      selectedConversationIDKey={props.selectedConversationIDKey}
+    />
   ) : (
     <Kb.Box2 direction="vertical" centerChildren={true} fullHeight={true}>
       <Kb.ProgressIndicator type="Large" />

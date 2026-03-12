@@ -4,6 +4,7 @@
 package libkb
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,7 +16,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"golang.org/x/net/context"
 )
 
 // table names
@@ -68,9 +68,10 @@ func levelDbPut(ops levelDBOps, cleaner *levelDbCleaner, id DbKey, aliases []DbK
 func levelDbGetWhich(ops levelDBOps, cleaner *levelDbCleaner, key []byte) (val []byte, found bool, err error) {
 	val, err = ops.Get(key, nil)
 	found = false
-	if err == nil {
+	switch err {
+	case nil:
 		found = true
-	} else if err == leveldb.ErrNotFound {
+	case leveldb.ErrNotFound:
 		err = nil
 	}
 

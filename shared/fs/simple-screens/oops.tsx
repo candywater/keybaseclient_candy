@@ -1,7 +1,7 @@
 import * as T from '@/constants/types'
 import * as C from '@/constants'
 import * as Kb from '@/common-adapters'
-import * as Container from '@/util/container'
+import {useSafeNavigation} from '@/util/safe-navigation'
 
 type OwnProps = {
   path: T.FS.Path
@@ -54,7 +54,7 @@ const NoAccess = (props: Props) => (
         type={C.isMobile ? 'icon-fancy-no-access-mobile-128-125' : 'icon-fancy-no-access-desktop-96-94'}
       />
       <Kb.Text type="Header" style={styles.textYouDontHave}>
-        You don't have access to this folder or file.
+        {"You don't have access to this folder or file."}
       </Kb.Text>
       <Explain {...props} />
       <Kb.Button
@@ -79,7 +79,7 @@ const NonExistent = (props: Props) => (
         }
       />
       <Kb.Text type="Header" style={styles.textYouDontHave}>
-        This file or folder doesn't exist.
+        {"This file or folder doesn't exist."}
       </Kb.Text>
       <Kb.Box2 direction="horizontal" style={styles.explainBox}>
         <Kb.Text center={true} type="Body">
@@ -98,7 +98,7 @@ const NonExistent = (props: Props) => (
 )
 
 const Oops = (props: OwnProps) => {
-  const nav = Container.useSafeNavigation()
+  const nav = useSafeNavigation()
   const openParent = () =>
     nav.safeNavigateAppend({props: {path: T.FS.getPathParent(props.path)}, selected: 'fsRoot'})
   switch (props.reason) {

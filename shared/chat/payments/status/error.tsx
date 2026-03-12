@@ -1,4 +1,3 @@
-import * as React from 'react'
 import {Box2} from '@/common-adapters/box'
 import type {MeasureRef} from '@/common-adapters/measure-ref'
 import Divider from '@/common-adapters/divider'
@@ -16,7 +15,7 @@ const Kb = {
 }
 
 type Props = {
-  attachTo?: React.RefObject<MeasureRef>
+  attachTo?: React.RefObject<MeasureRef | null>
   onHidden: () => void
   error: string
   visible: boolean

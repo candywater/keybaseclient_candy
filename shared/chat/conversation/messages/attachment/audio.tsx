@@ -1,21 +1,30 @@
-import * as C from '@/constants'
-import * as React from 'react'
+import * as Chat from '@/constants/chat2'
+import type * as T from '@/constants/types'
 import * as Kb from '@/common-adapters'
-import {OrdinalContext} from '../ids-context'
+import {useOrdinal} from '../ids-context'
 import AudioPlayer from '@/chat/audio/audio-player'
+import {useFSState} from '@/constants/fs'
 
-const missingMessage = C.Chat.makeMessageAttachment()
+const missingMessage = Chat.makeMessageAttachment()
+
+const messageAttachmentHasProgress = (message: T.Chat.MessageAttachment) => {
+  return (
+    !!message.transferState &&
+    message.transferState !== 'remoteUploading' &&
+    message.transferState !== 'mobileSaving'
+  )
+}
 const AudioAttachment = () => {
-  const ordinal = React.useContext(OrdinalContext)
+  const ordinal = useOrdinal()
 
   // TODO not message
-  const message = C.useChatContext(s => {
+  const message = Chat.useChatContext(s => {
     const m = s.messageMap.get(ordinal)
     return m?.type === 'attachment' ? m : missingMessage
   })
-  const progressLabel = C.Chat.messageAttachmentTransferStateToProgressLabel(message.transferState)
-  const hasProgress = C.Chat.messageAttachmentHasProgress(message)
-  const openLocalPathInSystemFileManagerDesktop = C.useFSState(
+  const progressLabel = Chat.messageAttachmentTransferStateToProgressLabel(message.transferState)
+  const hasProgress = messageAttachmentHasProgress(message)
+  const openLocalPathInSystemFileManagerDesktop = useFSState(
     s => s.dispatch.dynamic.openLocalPathInSystemFileManagerDesktop
   )
   const onShowInFinder = () => {

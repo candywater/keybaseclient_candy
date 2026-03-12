@@ -80,7 +80,7 @@ type GpgBaseKey struct {
 }
 
 func (k GpgBaseKey) AlgoString() string {
-	switch packet.PublicKeyAlgorithm(k.Algo) {
+	switch packet.PublicKeyAlgorithm(k.Algo) { //nolint:gosec // G115: GPG algorithm IDs are small enum values (1-3), safe to convert
 	case packet.PubKeyAlgoDSA:
 		return "D"
 	case packet.PubKeyAlgoRSA:
@@ -338,9 +338,11 @@ type GpgKeyIndex struct {
 func (ki *GpgKeyIndex) Len() int {
 	return len(ki.Keys)
 }
+
 func (ki *GpgKeyIndex) Swap(i, j int) {
 	ki.Keys[i], ki.Keys[j] = ki.Keys[j], ki.Keys[i]
 }
+
 func (ki *GpgKeyIndex) Less(i, j int) bool {
 	a, b := ki.Keys[i], ki.Keys[j]
 	if len(a.identities) > len(b.identities) {

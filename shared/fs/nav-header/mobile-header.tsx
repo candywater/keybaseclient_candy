@@ -1,11 +1,12 @@
 import * as C from '@/constants'
-import * as Constants from '@/constants/fs'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import * as Kbfs from '../common'
 import type * as T from '@/constants/types'
 import Actions from './actions'
-import MainBanner from './main-banner/container'
+import MainBanner from './main-banner'
+import * as FS from '@/constants/fs'
+import {useFSState} from '@/constants/fs'
 
 /*
  *
@@ -20,14 +21,18 @@ type Props = {
 }
 
 const MaybePublicTag = ({path}: {path: T.FS.Path}) =>
-  Constants.hasPublicTag(path) ? (
+  FS.hasPublicTag(path) ? (
     <Kb.Meta title="public" backgroundColor={Kb.Styles.globalColors.green} />
   ) : null
 
 const NavMobileHeader = (props: Props) => {
-  const expanded = C.useFSState(s => s.folderViewFilter !== undefined)
+  const {expanded, setFolderViewFilter} = useFSState(
+    C.useShallow(s => ({
+      expanded: s.folderViewFilter !== undefined,
+      setFolderViewFilter: s.dispatch.setFolderViewFilter,
+    }))
+  )
   const {pop} = C.useNav()
-  const setFolderViewFilter = C.useFSState(s => s.dispatch.setFolderViewFilter)
 
   const filterDone = setFolderViewFilter
   const triggerFilterMobile = () => setFolderViewFilter('')
@@ -43,7 +48,7 @@ const NavMobileHeader = (props: Props) => {
     filterDone()
   }, [filterDone, props.path])
 
-  return props.path === Constants.defaultPath ? (
+  return props.path === FS.defaultPath ? (
     <Kb.SafeAreaViewTop>
       <Kb.Box2 direction="vertical" fullWidth={true} style={styles.headerContainer} centerChildren={true}>
         <Kb.Text type="BodyBig">Files</Kb.Text>

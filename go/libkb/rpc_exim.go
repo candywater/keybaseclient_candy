@@ -6,6 +6,7 @@
 package libkb
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -22,7 +23,6 @@ import (
 	"github.com/keybase/go-crypto/openpgp"
 	pgpErrors "github.com/keybase/go-crypto/openpgp/errors"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
-	"golang.org/x/net/context"
 )
 
 func (sh SigHint) Export() *keybase1.SigHint {
@@ -211,7 +211,6 @@ type ErrorUnwrapper struct {
 
 func NewContextifiedErrorUnwrapper(g *GlobalContext) ErrorUnwrapper {
 	return ErrorUnwrapper{NewContextified(g)}
-
 }
 
 func (c ErrorUnwrapper) MakeArg() interface{} {
@@ -228,8 +227,10 @@ func (c ErrorUnwrapper) UnwrapError(arg interface{}) (appError error, dispatchEr
 	return
 }
 
-var _ rpc.ErrorUnwrapper = NewContextifiedErrorUnwrapper(nil)
-var _ rpc.ErrorUnwrapper = ErrorUnwrapper{}
+var (
+	_ rpc.ErrorUnwrapper = NewContextifiedErrorUnwrapper(nil)
+	_ rpc.ErrorUnwrapper = ErrorUnwrapper{}
+)
 
 // =============================================================================
 
@@ -620,13 +621,22 @@ func ImportStatusAsError(g *GlobalContext, s *keybase1.Status) error {
 		return ChatUsersAlreadyInConversationError{Uids: uids}
 	case SCChatBadConversationError:
 		var msg string
+		var convID chat1.ConversationID
 		for _, field := range s.Fields {
 			if field.Key == "Msg" {
 				msg = field.Value
 			}
+			if field.Key == "ConvID" {
+				bs, err := chat1.MakeConvID(field.Value)
+				if err != nil && g != nil {
+					g.Log.Warning("error parsing ChatBadConversationError")
+				}
+				convID = bs
+			}
 		}
 		return ChatBadConversationError{
-			Msg: msg,
+			Msg:    msg,
+			ConvID: convID,
 		}
 	case SCNeedSelfRekey:
 		ret := NeedSelfRekeyError{Msg: s.Desc}
@@ -1316,13 +1326,13 @@ func (l perUserKeyList) Len() int { return len(l) }
 func (l perUserKeyList) Less(i, j int) bool {
 	return l[i].Gen < l[j].Gen
 }
+
 func (l perUserKeyList) Swap(i, j int) {
 	l[i], l[j] = l[j], l[i]
 }
 
 // ExportPerUserKeys exports the per-user public KIDs.
 func (ckf ComputedKeyFamily) ExportPerUserKeys() (ret []keybase1.PerUserKey) {
-
 	for _, k := range ckf.cki.PerUserKeys {
 		ret = append(ret, k)
 	}
@@ -1430,7 +1440,6 @@ func (p PerUserKeysList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 func (p PerUserKeysList) Less(i, j int) bool { return p[i].Gen < p[j].Gen }
 
 func (cki *ComputedKeyInfos) exportUPKV2Incarnation(uid keybase1.UID, username string, eldestSeqno keybase1.Seqno, kf *KeyFamily, status keybase1.StatusCode, reset *keybase1.ResetSummary) keybase1.UserPlusKeysV2 {
-
 	var perUserKeysList PerUserKeysList
 	if cki != nil {
 		for _, puk := range cki.PerUserKeys {
@@ -2233,7 +2242,7 @@ func (e ChatUsersAlreadyInConversationError) ToStatus() keybase1.Status {
 }
 
 func (e ChatBadConversationError) ToStatus() keybase1.Status {
-	return keybase1.Status{
+	s := keybase1.Status{
 		Code: SCChatBadConversationError,
 		Name: "SC_CHAT_BAD_CONVERSATION_ERROR",
 		Fields: []keybase1.StringKVPair{
@@ -2241,8 +2250,13 @@ func (e ChatBadConversationError) ToStatus() keybase1.Status {
 				Key:   "Msg",
 				Value: e.Msg,
 			},
+			{
+				Key:   "ConvID",
+				Value: e.ConvID.String(),
+			},
 		},
 	}
+	return s
 }
 
 func (e BadEmailError) ToStatus() keybase1.Status {

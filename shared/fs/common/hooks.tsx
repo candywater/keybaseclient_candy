@@ -1,33 +1,40 @@
 import * as C from '@/constants'
-import * as Constants from '@/constants/fs'
 import * as React from 'react'
 import * as T from '@/constants/types'
 import * as Kb from '@/common-adapters'
 import logger from '@/logger'
-import type * as Styles from '@/styles'
-import type {StylesTextCrossPlatform} from '@/common-adapters/text'
+import * as FS from '@/constants/fs'
+import {useFSState} from '@/constants/fs'
 
-const isPathItem = (path: T.FS.Path) => T.FS.getPathLevel(path) > 2 || Constants.hasSpecialFileElement(path)
+const isPathItem = (path: T.FS.Path) => T.FS.getPathLevel(path) > 2 || FS.hasSpecialFileElement(path)
 
 const useFsPathSubscriptionEffect = (path: T.FS.Path, topic: T.RPCGen.PathSubscriptionTopic) => {
-  const subscribePath = C.useFSState(s => s.dispatch.subscribePath)
-  const unsubscribe = C.useFSState(s => s.dispatch.unsubscribe)
+  const {subscribePath, unsubscribe} = useFSState(
+    C.useShallow(s => ({
+      subscribePath: s.dispatch.subscribePath,
+      unsubscribe: s.dispatch.unsubscribe,
+    }))
+  )
   React.useEffect(() => {
     if (T.FS.getPathLevel(path) < 3) {
       return () => {}
     }
 
-    const subscriptionID = Constants.makeUUID()
+    const subscriptionID = FS.makeUUID()
     subscribePath(subscriptionID, path, topic)
     return () => unsubscribe(subscriptionID)
   }, [subscribePath, unsubscribe, path, topic])
 }
 
 const useFsNonPathSubscriptionEffect = (topic: T.RPCGen.SubscriptionTopic) => {
-  const subscribeNonPath = C.useFSState(s => s.dispatch.subscribeNonPath)
-  const unsubscribe = C.useFSState(s => s.dispatch.unsubscribe)
+  const {subscribeNonPath, unsubscribe} = useFSState(
+    C.useShallow(s => ({
+      subscribeNonPath: s.dispatch.subscribeNonPath,
+      unsubscribe: s.dispatch.unsubscribe,
+    }))
+  )
   React.useEffect(() => {
-    const subscriptionID = Constants.makeUUID()
+    const subscriptionID = FS.makeUUID()
     subscribeNonPath(subscriptionID, topic)
     return () => {
       unsubscribe(subscriptionID)
@@ -38,13 +45,13 @@ const useFsNonPathSubscriptionEffect = (topic: T.RPCGen.SubscriptionTopic) => {
 export const useFsPathMetadata = (path: T.FS.Path) => {
   useFsPathSubscriptionEffect(path, T.RPCGen.PathSubscriptionTopic.stat)
   React.useEffect(() => {
-    isPathItem(path) && C.useFSState.getState().dispatch.loadPathMetadata(path)
+    isPathItem(path) && useFSState.getState().dispatch.loadPathMetadata(path)
   }, [path])
 }
 
 export const useFsChildren = (path: T.FS.Path, initialLoadRecursive?: boolean) => {
   useFsPathSubscriptionEffect(path, T.RPCGen.PathSubscriptionTopic.children)
-  const {folderListLoad} = C.useFSState.getState().dispatch
+  const folderListLoad = useFSState(s => s.dispatch.folderListLoad)
   React.useEffect(() => {
     isPathItem(path) && folderListLoad(path, initialLoadRecursive || false)
   }, [folderListLoad, path, initialLoadRecursive])
@@ -52,16 +59,20 @@ export const useFsChildren = (path: T.FS.Path, initialLoadRecursive?: boolean) =
 
 export const useFsTlfs = () => {
   useFsNonPathSubscriptionEffect(T.RPCGen.SubscriptionTopic.favorites)
-  const favoritesLoad = C.useFSState(s => s.dispatch.favoritesLoad)
+  const favoritesLoad = useFSState(s => s.dispatch.favoritesLoad)
   React.useEffect(() => {
     favoritesLoad()
   }, [favoritesLoad])
 }
 
 export const useFsTlf = (path: T.FS.Path) => {
-  const tlfPath = Constants.getTlfPath(path)
-  const tlfs = C.useFSState(s => s.tlfs)
-  const loadAdditionalTlf = C.useFSState(s => s.dispatch.loadAdditionalTlf)
+  const tlfPath = FS.getTlfPath(path)
+  const {tlfs, loadAdditionalTlf} = useFSState(
+    C.useShallow(s => ({
+      loadAdditionalTlf: s.dispatch.loadAdditionalTlf,
+      tlfs: s.tlfs,
+    }))
+  )
   const active =
     // If we don't have a TLF path, we are not inside a TLF yet. So no need
     // to load.
@@ -73,7 +84,7 @@ export const useFsTlf = (path: T.FS.Path) => {
     // cover the refresh, so no need to load here. (To be clear,
     // notifications don't cover syncConfig, but we already load when user
     // toggles change.)
-    Constants.getTlfFromPathInFavoritesOnly(tlfs, tlfPath) === Constants.unknownTlf
+    FS.getTlfFromPathInFavoritesOnly(tlfs, tlfPath) === FS.unknownTlf
   // We need to load TLFs. We don't have notifications for this rpc yet, so
   // just poll on a 10s interval.
   Kb.useInterval(
@@ -90,35 +101,39 @@ export const useFsTlf = (path: T.FS.Path) => {
 
 export const useFsOnlineStatus = () => {
   useFsNonPathSubscriptionEffect(T.RPCGen.SubscriptionTopic.onlineStatus)
-  const getOnlineStatus = C.useFSState(s => s.dispatch.getOnlineStatus)
+  const getOnlineStatus = useFSState(s => s.dispatch.getOnlineStatus)
   React.useEffect(() => {
     getOnlineStatus()
   }, [getOnlineStatus])
 }
 
 export const useFsPathInfo = (path: T.FS.Path, knownPathInfo: T.FS.PathInfo): T.FS.PathInfo => {
-  const pathInfo = C.useFSState(s => s.pathInfos.get(path) || Constants.emptyPathInfo)
-  const alreadyKnown = knownPathInfo !== Constants.emptyPathInfo
+  const pathInfo = useFSState(s => s.pathInfos.get(path) || FS.emptyPathInfo)
+  const alreadyKnown = knownPathInfo !== FS.emptyPathInfo
   React.useEffect(() => {
     if (alreadyKnown) {
-      C.useFSState.getState().dispatch.loadedPathInfo(path, knownPathInfo)
-    } else if (pathInfo === Constants.emptyPathInfo) {
+      useFSState.getState().dispatch.loadedPathInfo(path, knownPathInfo)
+    } else if (pathInfo === FS.emptyPathInfo) {
       // We only need to load if it's empty. This never changes once we have
       // it.
-      C.useFSState.getState().dispatch.loadPathInfo(path)
+      useFSState.getState().dispatch.loadPathInfo(path)
     }
   }, [path, alreadyKnown, knownPathInfo, pathInfo])
   return alreadyKnown ? knownPathInfo : pathInfo
 }
 
 export const useFsSoftError = (path: T.FS.Path): T.FS.SoftError | undefined => {
-  const softErrors = C.useFSState(s => s.softErrors)
-  return Constants.getSoftError(softErrors, path)
+  const softErrors = useFSState(s => s.softErrors)
+  return FS.getSoftError(softErrors, path)
 }
 
 export const useFsDownloadInfo = (downloadID: string): T.FS.DownloadInfo => {
-  const info = C.useFSState(s => s.downloads.info.get(downloadID) || Constants.emptyDownloadInfo)
-  const loadDownloadInfo = C.useFSState(s => s.dispatch.loadDownloadInfo)
+  const {info, loadDownloadInfo} = useFSState(
+    C.useShallow(s => ({
+      info: s.downloads.info.get(downloadID) || FS.emptyDownloadInfo,
+      loadDownloadInfo: s.dispatch.loadDownloadInfo,
+    }))
+  )
   React.useEffect(() => {
     // This never changes, so simply just load it once.
     downloadID && loadDownloadInfo(downloadID)
@@ -128,16 +143,24 @@ export const useFsDownloadInfo = (downloadID: string): T.FS.DownloadInfo => {
 
 export const useFsDownloadStatus = () => {
   useFsNonPathSubscriptionEffect(T.RPCGen.SubscriptionTopic.downloadStatus)
-  const loadDownloadStatus = C.useFSState(s => s.dispatch.loadDownloadStatus)
+  const {loadDownloadStatus} = useFSState(
+    C.useShallow(s => ({
+      loadDownloadStatus: s.dispatch.loadDownloadStatus,
+    }))
+  )
   React.useEffect(() => {
     loadDownloadStatus()
   }, [loadDownloadStatus])
 }
 
 export const useFsFileContext = (path: T.FS.Path) => {
-  const pathItem = C.useFSState(s => Constants.getPathItem(s.pathItems, path))
+  const {pathItem, loadFileContext} = useFSState(
+    C.useShallow(s => ({
+      loadFileContext: s.dispatch.loadFileContext,
+      pathItem: FS.getPathItem(s.pathItems, path),
+    }))
+  )
   const [urlError, setUrlError] = React.useState<string>('')
-  const loadFileContext = C.useFSState(s => s.dispatch.loadFileContext)
   React.useEffect(() => {
     urlError && logger.info(`urlError: ${urlError}`)
     pathItem.type === T.FS.PathType.File && loadFileContext(path)
@@ -156,24 +179,24 @@ export const useFsFileContext = (path: T.FS.Path) => {
 
 export const useFsWatchDownloadForMobile = C.isMobile
   ? (downloadID: string, downloadIntent?: T.FS.DownloadIntent): boolean => {
-      const dlState = C.useFSState(s => s.downloads.state.get(downloadID) || Constants.emptyDownloadState)
-      const finished = dlState !== Constants.emptyDownloadState && !Constants.downloadIsOngoing(dlState)
-
       const dlInfo = useFsDownloadInfo(downloadID)
       useFsFileContext(dlInfo.path)
 
-      const mimeType = C.useFSState(
-        s => s.fileContext.get(dlInfo.path) || Constants.emptyFileContext
-      ).contentType
+      const {dlState, finishedDownloadWithIntentMobile, finishedRegularDownloadMobile} = useFSState(
+        C.useShallow(s => ({
+          dlState: s.downloads.state.get(downloadID) || FS.emptyDownloadState,
+          finishedDownloadWithIntentMobile: s.dispatch.dynamic.finishedDownloadWithIntentMobile,
+          finishedRegularDownloadMobile: s.dispatch.dynamic.finishedRegularDownloadMobile,
+        }))
+      )
+      const finished = dlState !== FS.emptyDownloadState && !FS.downloadIsOngoing(dlState)
+      const {mimeType} = useFSState(
+        C.useShallow(s => ({
+          mimeType: (s.fileContext.get(dlInfo.path) || FS.emptyFileContext).contentType,
+        }))
+      )
 
       const [justDoneWithIntent, setJustDoneWithIntent] = React.useState(false)
-
-      const finishedDownloadWithIntentMobile = C.useFSState(
-        s => s.dispatch.dynamic.finishedDownloadWithIntentMobile
-      )
-      const finishedRegularDownloadMobile = C.useFSState(
-        s => s.dispatch.dynamic.finishedRegularDownloadMobile
-      )
 
       React.useEffect(() => {
         if (!downloadID || !downloadIntent || !finished || !mimeType) {
@@ -198,11 +221,7 @@ export const useFsWatchDownloadForMobile = C.isMobile
     }
   : () => false
 
-export const useFuseClosedSourceConsent = (
-  disabled: boolean,
-  backgroundColor?: Styles.Color,
-  textStyle?: StylesTextCrossPlatform
-) => {
+export const useFuseClosedSourceConsent = (disabled: boolean, invert = false) => {
   const [agreed, setAgreed] = React.useState<boolean>(false)
 
   const component = React.useMemo(() => {
@@ -210,16 +229,21 @@ export const useFuseClosedSourceConsent = (
       <Kb.Checkbox
         disabled={disabled}
         checked={agreed}
-        boxBackgroundColor={backgroundColor}
         onCheck={(v: boolean) => setAgreed(v)}
+        checkboxStyle={invert ? {backgroundColor: Kb.Styles.globalColors.white} : undefined}
+        checkboxColor={invert ? Kb.Styles.globalColors.black : undefined}
         labelComponent={
-          <Kb.Text type="BodySmall" style={textStyle} onClick={() => setAgreed(a => !a)}>
+          <Kb.Text
+            type="BodySmall"
+            style={invert ? {color: Kb.Styles.globalColors.white} : undefined}
+            onClick={() => setAgreed(a => !a)}
+          >
             {`I understand that a closed-source kernel extension (FUSE for macOS) will be installed.`}
           </Kb.Text>
         }
       />
     ) : undefined
-  }, [disabled, agreed, backgroundColor, textStyle])
+  }, [disabled, agreed, invert])
 
   return {
     canContinue: !C.isDarwin || agreed,

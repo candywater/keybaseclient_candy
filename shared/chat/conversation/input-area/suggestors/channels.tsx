@@ -1,6 +1,7 @@
 import * as C from '@/constants'
-import * as React from 'react'
+import * as Chat from '@/constants/chat2'
 import * as T from '@/constants/types'
+import * as Teams from '@/constants/teams'
 import * as Common from './common'
 import * as Kb from '@/common-adapters'
 
@@ -41,9 +42,9 @@ const ItemRenderer = (p: Common.ItemRendererProps<ChannelType>) => {
 
 const noChannel: Array<{channelname: string}> = []
 const getChannelSuggestions = (
-  s: C.Chat.ConvoState,
+  s: Chat.ConvoState,
   teamname: string,
-  teamMeta: C.Teams.State['teamMeta']
+  teamMeta: Teams.State['teamMeta']
 ) => {
   if (!teamname) {
     // this is an impteam, so get mutual teams from state
@@ -52,7 +53,7 @@ const getChannelSuggestions = (
       return noChannel
     }
     // TODO not reactive
-    const suggestions = (C.useChatState.getState().inboxLayout?.bigTeams ?? []).reduce<
+    const suggestions = (Chat.useChatState.getState().inboxLayout?.bigTeams ?? []).reduce<
       Array<{channelname: string; teamname: string}>
     >((arr, t) => {
       t.state === T.RPCChat.UIInboxBigTeamRowTyp.channel &&
@@ -65,7 +66,7 @@ const getChannelSuggestions = (
   }
   // TODO: get all the channels in the team, too, for this
   // TODO not reactive
-  const suggestions = (C.useChatState.getState().inboxLayout?.bigTeams ?? []).reduce<
+  const suggestions = (Chat.useChatState.getState().inboxLayout?.bigTeams ?? []).reduce<
     Array<{channelname: string}>
   >((arr, t) => {
     t.state === T.RPCChat.UIInboxBigTeamRowTyp.channel &&
@@ -78,21 +79,16 @@ const getChannelSuggestions = (
 }
 
 const useDataSource = (filter: string) => {
-  const conversationIDKey = C.useChatContext(s => s.id)
-  const channelSuggestionsTriggered = C.useChatContext(s => s.dispatch.channelSuggestionsTriggered)
-  C.Chat.useCIDChanged(conversationIDKey, () => {
-    channelSuggestionsTriggered()
-  })
-
-  const meta = C.useChatContext(s => s.meta)
+  const conversationIDKey = Chat.useChatContext(s => s.id)
+  const meta = Chat.useChatContext(s => s.meta)
   const {teamID} = meta
 
   const suggestChannelsLoading = C.Waiting.useAnyWaiting([
-    C.Teams.getChannelsWaitingKey(teamID),
-    C.Chat.waitingKeyMutualTeams(conversationIDKey),
+    C.waitingKeyTeamsGetChannels(teamID),
+    C.waitingKeyChatMutualTeams(conversationIDKey),
   ])
-  const teamMeta = C.useTeamsState(s => s.teamMeta)
-  return C.useChatContext(
+  const teamMeta = Teams.useTeamsState(s => s.teamMeta)
+  return Chat.useChatContext(
     C.useDeep(s => {
       const fil = filter.toLowerCase()
       // don't include 'small' here to ditch the single #general suggestion
@@ -117,8 +113,8 @@ type ListProps = Pick<
 > & {
   filter: string
   onSelected: (item: ChannelType, final: boolean) => void
-  onMoveRef: React.MutableRefObject<((up: boolean) => void) | undefined>
-  onSubmitRef: React.MutableRefObject<(() => boolean) | undefined>
+  setOnMoveRef: (r: (up: boolean) => void) => void
+  setOnSubmitRef: (r: () => boolean) => void
 }
 export const List = (p: ListProps) => {
   const {filter, ...rest} = p

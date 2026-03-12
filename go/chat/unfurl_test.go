@@ -52,8 +52,9 @@ func (d *dummyHTTPSrv) Start() string {
 	mux.HandleFunc("/favicon.ico", d.handleFavicon)
 	mux.HandleFunc("/apple-touch-icon.png", d.handleApple)
 	d.srv = &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", localhost, port),
-		Handler: mux,
+		Addr:              fmt.Sprintf("%s:%d", localhost, port),
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second, // Prevent Slowloris attacks
 	}
 	go func() { _ = d.srv.Serve(listener) }()
 	return d.srv.Addr
@@ -249,7 +250,7 @@ func TestChatSrvUnfurl(t *testing.T) {
 			chat1.ResolveUnfurlPromptArg{
 				ConvID:           conv.Id,
 				MsgID:            origID,
-				Result:           chat1.NewUnfurlPromptResultWithAccept("0.1"),
+				Result:           chat1.NewUnfurlPromptResultWithAccept("127.0.0.1"),
 				IdentifyBehavior: keybase1.TLFIdentifyBehavior_GUI,
 			}))
 		consumeNewMsgRemote(t, listener0, chat1.MessageType_TEXT) // from whitelist add
@@ -292,7 +293,7 @@ func TestChatSrvUnfurl(t *testing.T) {
 			chat1.ResolveUnfurlPromptArg{
 				ConvID:           conv.Id,
 				MsgID:            origID,
-				Result:           chat1.NewUnfurlPromptResultWithAccept("0.1"),
+				Result:           chat1.NewUnfurlPromptResultWithAccept("127.0.0.1"),
 				IdentifyBehavior: keybase1.TLFIdentifyBehavior_GUI,
 			}))
 		time.Sleep(200 * time.Millisecond)
@@ -378,6 +379,5 @@ func TestChatSrvUnfurl(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, chat1.UnfurlMode_NEVER, settings.Mode)
 		require.Equal(t, []string{"cnn.com", "nytimes.com"}, settings.Whitelist)
-
 	})
 }

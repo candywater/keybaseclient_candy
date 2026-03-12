@@ -1,13 +1,14 @@
 package sig3
 
 import (
+	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
-	"github.com/keybase/client/go/msgpack"
-	"github.com/keybase/go-crypto/ed25519"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/keybase/client/go/msgpack"
+	"github.com/stretchr/testify/require"
 )
 
 func genKey(t *testing.T) (pair KeyPair) {
@@ -118,7 +119,7 @@ func TestSignAndVerifyHappyPath(t *testing.T) {
 	require.True(t, castOk)
 	require.NotNil(t, rk2.Signer())
 	require.Equal(t, rk2.Signer().KID, outerKey.pub)
-	require.Equal(t, rk2.Signer().UID, rk.Base.inner.Signer.UID)
+	require.Equal(t, rk2.Signer().UID, rk.inner.Signer.UID)
 }
 
 func TestSignAndVerifyHappyPathFourFold(t *testing.T) {
@@ -129,7 +130,7 @@ func TestSignAndVerifyHappyPathFourFold(t *testing.T) {
 	require.True(t, castOk)
 	require.NotNil(t, rk2.Signer())
 	require.Equal(t, rk2.Signer().KID, outerKey.pub)
-	require.Equal(t, rk2.Signer().UID, rk.Base.inner.Signer.UID)
+	require.Equal(t, rk2.Signer().UID, rk.inner.Signer.UID)
 	require.Equal(t, len(rk2.rkb().PTKs), 4)
 }
 

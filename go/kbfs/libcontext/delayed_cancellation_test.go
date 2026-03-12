@@ -5,10 +5,9 @@
 package libcontext
 
 import (
+	"context"
 	"testing"
 	"time"
-
-	"golang.org/x/net/context"
 )
 
 type testDCKeyType int
@@ -55,7 +54,8 @@ func TestReplayableContext(t *testing.T) {
 }
 
 func makeContextWithDelayedCancellation(t *testing.T) (
-	ctx context.Context, originalCancel context.CancelFunc) {
+	ctx context.Context, originalCancel context.CancelFunc,
+) {
 	ctx = context.Background()
 	ctx = NewContextReplayable(ctx, func(ctx context.Context) context.Context {
 		return context.WithValue(ctx, testDCKey, "O_O")

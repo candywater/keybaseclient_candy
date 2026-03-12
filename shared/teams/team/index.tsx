@@ -1,13 +1,13 @@
 import * as C from '@/constants'
+import * as Teams from '@/constants/teams'
 import * as React from 'react'
-import * as Container from '@/util/container'
 import * as Kb from '@/common-adapters'
 import type * as T from '@/constants/types'
 import {useTeamDetailsSubscribe, useTeamsSubscribe} from '../subscriber'
 import {SelectionPopup, useActivityLevels} from '../common'
-import TeamTabs from './tabs/container'
+import TeamTabs from './tabs'
 import NewTeamHeader from './new-header'
-import Settings from './settings-tab/container'
+import Settings from './settings-tab'
 import {
   useMembersSections,
   useBotSections,
@@ -16,7 +16,9 @@ import {
   useChannelsSections,
   useEmojiSections,
   type Section,
+  type Item,
 } from './rows'
+import {useBotsState} from '@/constants/bots'
 
 type Props = {
   teamID: T.Teams.TeamID
@@ -31,10 +33,10 @@ const useTabsState = (
   teamID: T.Teams.TeamID,
   providedTab?: T.Teams.TabKey
 ): [T.Teams.TabKey, (t: T.Teams.TabKey) => void] => {
-  const loadTeamChannelList = C.useTeamsState(s => s.dispatch.loadTeamChannelList)
+  const loadTeamChannelList = Teams.useTeamsState(s => s.dispatch.loadTeamChannelList)
   const defaultSelectedTab = lastSelectedTabs.get(teamID) ?? providedTab ?? defaultTab
   const [selectedTab, _setSelectedTab] = React.useState<T.Teams.TabKey>(defaultSelectedTab)
-  const resetErrorInSettings = C.useTeamsState(s => s.dispatch.resetErrorInSettings)
+  const resetErrorInSettings = Teams.useTeamsState(s => s.dispatch.resetErrorInSettings)
   const setSelectedTab = React.useCallback(
     (t: T.Teams.TabKey) => {
       lastSelectedTabs.set(teamID, t)
@@ -49,19 +51,23 @@ const useTabsState = (
     [resetErrorInSettings, loadTeamChannelList, teamID, selectedTab]
   )
 
-  const prevTeamID = Container.usePrevious(teamID)
+  const prevTeamIDRef = React.useRef(teamID)
 
   React.useEffect(() => {
-    if (teamID !== prevTeamID) {
+    if (teamID !== prevTeamIDRef.current) {
       setSelectedTab(defaultSelectedTab)
     }
-  }, [teamID, prevTeamID, setSelectedTab, defaultSelectedTab])
+  }, [teamID, setSelectedTab, defaultSelectedTab])
+
+  React.useEffect(() => {
+    prevTeamIDRef.current = teamID
+  }, [teamID])
   return [selectedTab, setSelectedTab]
 }
 
 const useLoadFeaturedBots = (teamDetails: T.Teams.TeamDetails, shouldLoad: boolean) => {
-  const featuredBotsMap = C.useBotsState(s => s.featuredBotsMap)
-  const searchFeaturedBots = C.useBotsState(s => s.dispatch.searchFeaturedBots)
+  const featuredBotsMap = useBotsState(s => s.featuredBotsMap)
+  const searchFeaturedBots = useBotsState(s => s.dispatch.searchFeaturedBots)
   const _bots = React.useMemo(
     () => [...teamDetails.members.values()].filter(m => m.type === 'restrictedbot' || m.type === 'bot'),
     [teamDetails.members]
@@ -82,10 +88,10 @@ const Team = (props: Props) => {
   const initialTab = props.initialTab
   const [selectedTab, setSelectedTab] = useTabsState(teamID, initialTab)
 
-  const teamDetails = C.useTeamsState(s => s.teamDetails.get(teamID)) ?? C.Teams.emptyTeamDetails
-  const teamMeta = C.useTeamsState(C.useDeep(s => C.Teams.getTeamMeta(s, teamID)))
-  const yourOperations = C.useTeamsState(s => C.Teams.getCanPerformByID(s, teamID))
-  const teamSeen = C.useTeamsState(s => s.dispatch.teamSeen)
+  const teamDetails = Teams.useTeamsState(s => s.teamDetails.get(teamID)) ?? Teams.emptyTeamDetails
+  const teamMeta = Teams.useTeamsState(C.useDeep(s => Teams.getTeamMeta(s, teamID)))
+  const yourOperations = Teams.useTeamsState(s => Teams.getCanPerformByID(s, teamID))
+  const teamSeen = Teams.useTeamsState(s => s.dispatch.teamSeen)
 
   C.Router2.useSafeFocusEffect(
     React.useCallback(() => {
@@ -100,14 +106,13 @@ const Team = (props: Props) => {
 
   // Sections
   const headerSection = {
-    data: ['header', 'tabs'],
-    key: 'headerSection',
-    renderItem: ({item}: {item: unknown}) =>
-      item === 'header' ? (
+    data: [{type: 'header'}, {type: 'tabs'}],
+    renderItem: ({item}: {item: Item}) =>
+      item.type === 'header' ? (
         <NewTeamHeader teamID={teamID} />
-      ) : (
+      ) : item.type === 'tabs' ? (
         <TeamTabs teamID={teamID} selectedTab={selectedTab} setSelectedTab={setSelectedTab} />
-      ),
+      ) : null,
   } as const
 
   const sections: Array<Section> = [headerSection]
@@ -132,7 +137,7 @@ const Team = (props: Props) => {
       sections.push(...invitesSections)
       break
     case 'settings':
-      sections.push({data: ['settings'], key: 'teamSettings', renderItem: () => <Settings teamID={teamID} />})
+      sections.push({data: [{type: 'settings'}], renderItem: () => <Settings teamID={teamID} />})
       break
     case 'channels':
       sections.push(...channelsSections)
@@ -157,6 +162,10 @@ const Team = (props: Props) => {
     []
   )
 
+  const getItemHeight = React.useCallback(() => {
+    return 48
+  }, [])
+
   return (
     <Kb.Styles.CanFixOverdrawContext.Provider value={false}>
       <Kb.Box style={styles.container}>
@@ -166,6 +175,7 @@ const Team = (props: Props) => {
           sections={sections}
           contentContainerStyle={styles.listContentContainer}
           style={styles.list}
+          getItemHeight={getItemHeight}
         />
         <SelectionPopup
           selectedTab={
@@ -202,13 +212,7 @@ const styles = Kb.Styles.styleSheetCreate(() => ({
     right: 0,
     top: 0,
   },
-  list: Kb.Styles.platformStyles({
-    isElectron: {
-      ...Kb.Styles.globalStyles.fillAbsolute,
-      ...Kb.Styles.globalStyles.flexBoxColumn,
-      alignItems: 'stretch',
-    },
-  }),
+  list: Kb.Styles.platformStyles({}),
   listContentContainer: Kb.Styles.platformStyles({
     isMobile: {
       display: 'flex',

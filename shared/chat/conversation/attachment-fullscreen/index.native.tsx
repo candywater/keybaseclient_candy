@@ -1,15 +1,14 @@
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
-import * as Styles from '@/styles'
 import {useMessagePopup} from '../messages/message-popup'
 import {Video, ResizeMode} from 'expo-av'
 import logger from '@/logger'
 import {ShowToastAfterSaving} from '../messages/attachment/shared'
 import type {Props} from '.'
 import {useData, usePreviewFallback} from './hooks'
-import {type GestureResponderEvent, Animated, View, useWindowDimensions, Image} from 'react-native'
-// TODO bring this back when we update expo-image > 1.8.0
-// import {Image} from 'expo-image'
+import {type GestureResponderEvent, Animated, View} from 'react-native'
+import {useSafeAreaFrame} from 'react-native-safe-area-context'
+import {Image} from 'expo-image'
 
 const Fullscreen = React.memo(function Fullscreen(p: Props) {
   const {showHeader: _showHeader = true} = p
@@ -43,6 +42,7 @@ const Fullscreen = React.memo(function Fullscreen(p: Props) {
       ? {height: data.fullHeight, width: data.fullWidth}
       : {height: data.previewWidth, width: data.previewHeight}
   }, [data.fullHeight, data.fullWidth, data.previewHeight, data.previewWidth, imgSrc, path])
+
   const {showPopup, popup} = useMessagePopup({ordinal})
 
   const onSwipe = React.useCallback(
@@ -59,7 +59,7 @@ const Fullscreen = React.memo(function Fullscreen(p: Props) {
   let content: React.ReactNode = null
   let spinner: React.ReactNode = null
 
-  const {width: windowWidth} = useWindowDimensions()
+  const {width: windowWidth} = useSafeAreaFrame()
   const needDiff = windowWidth / 3
   const initialTouch = React.useRef(-1)
   const maxTouchesRef = React.useRef(0)
@@ -124,6 +124,7 @@ const Fullscreen = React.memo(function Fullscreen(p: Props) {
       )
     }
   }
+
   if (!loaded && isVideo) {
     spinner = (
       <Kb.Box2
@@ -138,26 +139,33 @@ const Fullscreen = React.memo(function Fullscreen(p: Props) {
     )
   }
 
-  const fadeAnim = React.useRef(new Animated.Value(1)).current
+  const fadeAnimRef = React.useRef(new Animated.Value(1))
+  const [fadeAnim, setFadeAnim] = React.useState<null | Animated.Value>(null)
+
   React.useEffect(() => {
-    Animated.timing(fadeAnim, {
-      duration: 240,
-      toValue: showHeader ? 1 : 0,
-      useNativeDriver: true,
-    }).start()
+    setFadeAnim(fadeAnimRef.current)
+  }, [])
+
+  React.useEffect(() => {
+    fadeAnim &&
+      Animated.timing(fadeAnim, {
+        duration: 240,
+        toValue: showHeader ? 1 : 0,
+        useNativeDriver: true,
+      }).start()
   }, [showHeader, fadeAnim])
 
   return (
     <Kb.Box2
       direction="vertical"
-      style={{backgroundColor: Styles.globalColors.blackOrBlack, position: 'relative'}}
+      style={{backgroundColor: Kb.Styles.globalColors.blackOrBlack, position: 'relative'}}
       fullWidth={true}
       fullHeight={true}
     >
       {spinner}
       <ShowToastAfterSaving transferState={message.transferState} />
       <Kb.BoxGrow>{content}</Kb.BoxGrow>
-      <Animated.View style={[styles.animated, {opacity: fadeAnim}]}>
+      <Animated.View style={[styles.animated, {opacity: fadeAnim ?? 1}]}>
         <Kb.Box2 direction="horizontal" fullWidth={true} fullHeight={true} style={styles.headerWrapper}>
           <Kb.Text type="Body" onClick={onClose} style={styles.close}>
             Close
@@ -173,13 +181,13 @@ const Fullscreen = React.memo(function Fullscreen(p: Props) {
   )
 })
 
-const styles = Styles.styleSheetCreate(
+const styles = Kb.Styles.styleSheetCreate(
   () =>
     ({
       allMedia: {
-        color: Styles.globalColors.blueDark,
+        color: Kb.Styles.globalColors.blueDark,
         marginLeft: 'auto',
-        padding: Styles.globalMargins.small,
+        padding: Kb.Styles.globalMargins.small,
       },
       animated: {
         height: 50,
@@ -189,36 +197,36 @@ const styles = Styles.styleSheetCreate(
         top: 0,
       },
       assetWrapper: {
-        ...Styles.globalStyles.flexBoxCenter,
+        ...Kb.Styles.globalStyles.flexBoxCenter,
         flex: 1,
       },
       close: {
-        color: Styles.globalColors.blueDark,
-        padding: Styles.globalMargins.small,
+        color: Kb.Styles.globalColors.blueDark,
+        padding: Kb.Styles.globalMargins.small,
       },
       fastImage: {
-        height: Styles.dimensionHeight,
-        width: Styles.dimensionWidth,
+        height: Kb.Styles.dimensionHeight,
+        width: Kb.Styles.dimensionWidth,
       },
       headerFooter: {
-        ...Styles.globalStyles.flexBoxRow,
+        ...Kb.Styles.globalStyles.flexBoxRow,
         alignItems: 'center',
-        backgroundColor: Styles.globalColors.blackOrBlack,
-        bottom: Styles.globalMargins.small,
+        backgroundColor: Kb.Styles.globalColors.blackOrBlack,
+        bottom: Kb.Styles.globalMargins.small,
         flexShrink: 0,
         height: 34,
-        left: Styles.globalMargins.small,
+        left: Kb.Styles.globalMargins.small,
         position: 'absolute',
         width: 34,
         zIndex: 3,
       },
-      headerWrapper: {backgroundColor: Styles.globalColors.blackOrBlack},
+      headerWrapper: {backgroundColor: Kb.Styles.globalColors.blackOrBlack},
       progressIndicator: {width: 48},
       progressWrapper: {position: 'absolute'},
       safeAreaTop: {
-        ...Styles.globalStyles.flexBoxColumn,
-        ...Styles.globalStyles.fillAbsolute,
-        backgroundColor: Styles.globalColors.blackOrBlack,
+        ...Kb.Styles.globalStyles.flexBoxColumn,
+        ...Kb.Styles.globalStyles.fillAbsolute,
+        backgroundColor: Kb.Styles.globalColors.blackOrBlack,
       },
       videoWrapper: {
         alignItems: 'center',
@@ -228,7 +236,7 @@ const styles = Styles.styleSheetCreate(
         width: '100%',
       },
       zoomableBox: {
-        backgroundColor: Styles.globalColors.blackOrBlack,
+        backgroundColor: Kb.Styles.globalColors.blackOrBlack,
         height: '100%',
         position: 'relative',
         width: '100%',

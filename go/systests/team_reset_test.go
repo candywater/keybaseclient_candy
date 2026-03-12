@@ -1,10 +1,9 @@
 package systests
 
 import (
+	"context"
 	"testing"
 	"time"
-
-	"golang.org/x/net/context"
 
 	libkb "github.com/keybase/client/go/libkb"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
@@ -18,7 +17,6 @@ func divDebug(ctx *smuContext, fmt string, arg ...interface{}) {
 }
 
 func pollForMembershipUpdate(team smuTeam, ann *smuUser, bob *smuUser, cam *smuUser) {
-
 	// Keep reloading this team until we get that Bob has been deactivated.
 	// It might happen after the team is rotated, since a cache bust via gregor has
 	// to happen

@@ -4,13 +4,13 @@ package chat
 // this source code is governed by the included BSD license.
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 
 	"github.com/keybase/client/go/chat/globals"
 	"github.com/keybase/client/go/chat/signencrypt"
@@ -908,7 +908,6 @@ func TestChatMessagePublic(t *testing.T) {
 // This prevents one kind of misattribution within a tlf.
 // Device mismatches are probably tolerated.
 func TestChatMessageSenderMismatch(t *testing.T) {
-
 	var allUIDs []keybase1.UID
 
 	doWithMBVersions(func(mbVersion chat1.MessageBoxedVersion) {
@@ -1069,7 +1068,7 @@ func TestChatMessageDeletedNotSuperseded(t *testing.T) {
 		// The server was not setting supersededBy on EDITs when their TEXT got deleted.
 		// So there are existing messages which have no supersededBy but are legitimately deleted.
 		// Tracked in CORE-4662
-		require.NoError(t, err, "suprisingly, should be able to unbox with deleted but no supersededby")
+		require.NoError(t, err, "surprisingly, should be able to unbox with deleted but no supersededby")
 		require.Equal(t, chat1.MessageBody{}, unboxed.MessageBody)
 	})
 }

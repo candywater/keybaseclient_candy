@@ -1,20 +1,17 @@
 import * as T from '@/constants/types'
 import * as React from 'react'
 import * as C from '@/constants'
+import {useDeepLinksState} from '@/constants/deeplinks'
 import * as Styles from '@/styles'
-import Channel from '../channel-container'
+import Channel from './channel'
 import KbfsPath from '@/fs/common/kbfs-path'
 import MaybeMention from './maybe-mention'
 import Mention from '../mention-container'
-import PaymentStatus from '../../chat/payments/status/container'
+import PaymentStatus from '../../chat/payments/status'
 import Text, {type StylesTextCrossPlatform} from '@/common-adapters/text'
 import WithTooltip from '../with-tooltip'
 import type {StyleOverride} from '.'
-import type {
-  emojiDataToRenderableEmoji as emojiDataToRenderableEmojiType,
-  renderEmoji as renderEmojiType,
-  RPCToEmojiData as RPCToEmojiDataType,
-} from '@/util/emoji'
+import {RPCToEmojiData, default as Emoji} from '@/common-adapters/emoji'
 import {base64ToUint8Array, uint8ArrayToString} from 'uint8array-extras'
 
 const prefix = 'keybase://'
@@ -32,7 +29,7 @@ type KeybaseLinkProps = {
 }
 
 const KeybaseLink = (props: KeybaseLinkProps) => {
-  const handleAppLink = C.useDeepLinksState(s => s.dispatch.handleAppLink)
+  const handleAppLink = useDeepLinksState(s => s.dispatch.handleAppLink)
   const onClick = React.useCallback(() => {
     handleAppLink(props.link)
   }, [handleAppLink, props.link])
@@ -230,19 +227,17 @@ const ServiceDecoration = (p: Props) => {
       />
     )
   } else if (parsed.typ === T.RPCChat.UITextDecorationTyp.emoji) {
-    const {emojiDataToRenderableEmoji, renderEmoji, RPCToEmojiData} = require('@/util/emoji') as {
-      emojiDataToRenderableEmoji: typeof emojiDataToRenderableEmojiType
-      renderEmoji: typeof renderEmojiType
-      RPCToEmojiData: typeof RPCToEmojiDataType
-    }
-    return renderEmoji({
-      customStyle: styleOverride?.customEmoji,
-      emoji: emojiDataToRenderableEmoji(RPCToEmojiData(parsed.emoji, disableEmojiAnimation)),
-      showTooltip: !parsed.emoji.isReacji,
-      size:
-        parsed.emoji.isBig && !disableBigEmojis ? 32 : parsed.emoji.isReacji && !Styles.isMobile ? 18 : 16,
-      style: styleOverride?.emoji,
-    })
+    return (
+      <Emoji
+        customStyle={styleOverride?.customEmoji}
+        emojiData={RPCToEmojiData(parsed.emoji, disableEmojiAnimation)}
+        showTooltip={!parsed.emoji.isReacji}
+        size={
+          parsed.emoji.isBig && !disableBigEmojis ? 32 : parsed.emoji.isReacji && !Styles.isMobile ? 18 : 16
+        }
+        style={styleOverride?.emoji}
+      />
+    )
   }
   return null
 }

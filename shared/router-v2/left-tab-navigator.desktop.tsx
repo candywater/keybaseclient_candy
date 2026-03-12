@@ -1,8 +1,10 @@
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
-import * as C from '@/constants'
 import TabBar from './tab-bar.desktop'
 import {useNavigationBuilder, TabRouter, createNavigatorFactory} from '@react-navigation/core'
+import type {TypedNavigator, NavigatorTypeBagBase, StaticConfig} from '@react-navigation/native'
+import type * as Tabs from '@/constants/tabs'
+import * as Router2 from '@/constants/router2'
 
 type BackBehavior = Parameters<typeof TabRouter>[0]['backBehavior']
 type Props = Parameters<typeof useNavigationBuilder>[1] & {backBehavior: BackBehavior}
@@ -36,31 +38,36 @@ const LeftTabNavigator = React.memo(function LeftTabNavigator({
     screenOptions,
   })
 
-  const renderedRef = React.useRef<{[key: string]: boolean}>({})
-  // render if its been rendered before
-  const shouldRender = React.useCallback((key: string, selected: boolean) => {
-    if (renderedRef.current[key]) {
-      return true
-    }
-    if (selected) {
-      renderedRef.current[key] = true
-      return true
-    }
-    return false
-  }, [])
+  const {index: selectedIndex} = state
+  const selectedRoute = state.routes[selectedIndex]?.key
 
-  const hasModals = C.useRouterState(s => C.Router2.getModalStack(s.navState).length > 0)
+  const [rendered, setRendered] = React.useState(new Set<string>(selectedRoute ? [selectedRoute] : []))
+  React.useEffect(() => {
+    if (!selectedRoute) return
+    if (rendered.has(selectedRoute)) return
+    const next = new Set(rendered)
+    next.add(selectedRoute)
+    setRendered(next)
+  }, [selectedRoute, rendered])
+
+  const hasModals = Router2.useRouterState(() => Router2.getModalStack().length > 0)
 
   return (
     <NavigationContent>
       <Kb.Box2 direction="horizontal" fullHeight={true} fullWidth={true} style={styles.box}>
-        <TabBar state={state} navigation={navigation as any} />
+        <TabBar
+          state={state}
+          navigation={
+            // eslint-disable-next-line
+            navigation as any
+          }
+        />
         <Kb.BoxGrow>
           {state.routes.map((route, i) => {
             const routeKey = route.key
             const desc = descriptors[routeKey]
             const selected = i === state.index
-            const needDesc = desc ? shouldRender(routeKey, selected) : false
+            const needDesc = desc ? rendered.has(routeKey) : false
             return <RouteBox key={route.name} selected={selected} desc={needDesc ? desc : undefined} />
           })}
         </Kb.BoxGrow>
@@ -80,4 +87,13 @@ const styles = Kb.Styles.styleSheetCreate(() => ({
   hidden: {display: 'none'},
 }))
 
-export const createLeftTabNavigator = createNavigatorFactory(LeftTabNavigator)
+type NavType = NavigatorTypeBagBase & {
+  ParamList: {
+    [key in (typeof Tabs.desktopTabs)[number]]: undefined
+  }
+}
+
+export const createLeftTabNavigator = createNavigatorFactory(LeftTabNavigator) as () => TypedNavigator<
+  NavType,
+  StaticConfig<NavigatorTypeBagBase>
+>

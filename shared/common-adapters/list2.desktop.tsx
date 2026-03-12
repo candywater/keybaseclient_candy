@@ -1,105 +1,110 @@
 import * as React from 'react'
-import AutoSizer from 'react-virtualized-auto-sizer'
-import {FixedSizeList, VariableSizeList} from 'react-window'
+import * as Styles from '@/styles'
+import {List, type RowComponentProps} from 'react-window'
 import type {Props} from './list2'
 import {smallHeight, largeHeight} from './list-item2'
 
-class List2<T> extends React.PureComponent<Props<T>> {
-  _keyExtractor = (index: number) => {
-    const item = this.props.items[index]
-    if (this.props.indexAsKey || !item) {
-      return String(index)
-    }
+const Row = React.memo(function Row(
+  p: RowComponentProps<{
+    items: ReadonlyArray<unknown>
+    renderItem: (index: number, item: unknown) => React.ReactElement | null
+  }>
+) {
+  const {index, style, items, renderItem} = p
+  const item = items[index]
+  return item ? <div style={style}>{renderItem(index, item)}</div> : <div style={style} />
+}) as (
+  props: RowComponentProps<{
+    items: ReadonlyArray<unknown>
+    renderItem: (index: number, item: unknown) => React.ReactElement | null
+  }>
+) => React.ReactElement
 
-    const keyProp = this.props.keyProperty || 'key'
-    const i: {[key: string]: string} = item
-    return i[keyProp] ?? String(index)
-  }
-
-  // This has to be a separate variable since if we construct it inside render
-  // it's a new function everytime, and that triggers react-window to unmount
-  // all rows and mount again.
-  _row = (p: {index: number; style: React.CSSProperties}) => {
-    const {index, style} = p
-    const item = this.props.items[index]
-    return item ? <div style={style}>{this.props.renderItem(index, item)}</div> : null
-  }
+function List2<T>(props: Props<T>) {
+  const {items, renderItem, style, itemHeight} = props
 
   // Need to pass in itemData to make items re-render on prop changes.
-  _fixed = (p: {height: number; width: number; itemHeight: number}) => {
-    const {height, width, itemHeight} = p
+  const _fixed = (p: {itemHeight: number}) => {
+    const {itemHeight} = p
     return (
-      <FixedSizeList
-        style={this.props.style as React.CSSProperties}
-        height={height}
-        width={width}
-        itemCount={this.props.items.length}
-        itemData={this.props.items}
-        itemKey={this._keyExtractor}
-        itemSize={itemHeight}
-      >
-        {this._row}
-      </FixedSizeList>
-    )
-  }
-
-  private variableSizeListRef = React.createRef<VariableSizeList>()
-  _variableItemSize = (index: number) =>
-    this.props.itemHeight.type === 'variable'
-      ? this.props.itemHeight.getItemLayout(index, this.props.items[index]).length
-      : 0
-  _variable = (p: {height: number; width: number}) => {
-    const {height, width} = p
-    return (
-      <VariableSizeList
-        ref={this.variableSizeListRef}
-        style={this.props.style as React.CSSProperties}
-        height={height}
-        width={width}
-        itemCount={this.props.items.length}
-        itemData={this.props.items}
-        itemKey={this._keyExtractor}
-        itemSize={this._variableItemSize}
-        estimatedItemSize={this.props.estimatedItemHeight}
-      >
-        {this._row}
-      </VariableSizeList>
-    )
-  }
-
-  componentDidUpdate(prevProps: Props<T>) {
-    if (prevProps.forceLayout !== this.props.forceLayout) {
-      this.variableSizeListRef.current?.resetAfterIndex(0, true)
-    }
-  }
-
-  render() {
-    if (this.props.items.length === 0) return null
-    return (
-      <AutoSizer doNotBailOutOnEmptyChildren={true}>
-        {(p: {height?: number; width?: number}) => {
-          let {height = 1, width = 1} = p
-          if (isNaN(height)) {
-            height = 1
-          }
-          if (isNaN(width)) {
-            width = 1
-          }
-          switch (this.props.itemHeight.type) {
-            case 'fixed':
-              return this._fixed({height, itemHeight: this.props.itemHeight.height, width})
-            case 'fixedListItem2Auto': {
-              const itemHeight = this.props.itemHeight.sizeType === 'Large' ? largeHeight : smallHeight
-              return this._fixed({height, itemHeight, width})
-            }
-            case 'variable':
-              return this._variable({height, width})
-            default:
-              return <></>
-          }
+      <List
+        listRef={props.desktopRef as any}
+        style={
+          {
+            height: '100%',
+            overflowY: 'scroll',
+            width: '100%',
+            ...Styles.castStyleDesktop(style),
+          } as const
+        }
+        rowCount={items.length}
+        rowProps={{
+          items,
+          renderItem: renderItem as (index: number, item: unknown) => React.ReactElement | null,
         }}
-      </AutoSizer>
+        rowHeight={itemHeight}
+        rowComponent={Row}
+      />
     )
+  }
+
+  const _variableItemSize = (index: number, data: {items: ReadonlyArray<unknown>}) => {
+    const {items} = data
+    return itemHeight.type === 'variable' ? itemHeight.getItemLayout(index, items[index] as T).length : 0
+  }
+
+  if (items.length === 0) return null
+  switch (props.itemHeight.type) {
+    case 'fixed':
+      return _fixed({itemHeight: props.itemHeight.height})
+    case 'fixedListItem2Auto': {
+      const itemHeight = props.itemHeight.sizeType === 'Large' ? largeHeight : smallHeight
+      return _fixed({itemHeight})
+    }
+    case 'trueVariable':
+      return (
+        <List
+          listRef={props.desktopRef as any}
+          style={
+            {
+              height: '100%',
+              overflowY: 'scroll',
+              width: '100%',
+              ...Styles.castStyleDesktop(style),
+            } as const
+          }
+          rowCount={items.length}
+          rowProps={{
+            items,
+            renderItem: renderItem as (index: number, item: unknown) => React.ReactElement | null,
+          }}
+          rowHeight={props.itemHeight.rowHeight}
+          rowComponent={Row}
+        />
+      )
+    case 'variable':
+      return (
+        <List
+          listRef={props.desktopRef as any}
+          style={
+            {
+              height: '100%',
+              overflowY: 'scroll',
+              width: '100%',
+              ...Styles.castStyleDesktop(style),
+            } as const
+          }
+          rowCount={items.length}
+          rowProps={{
+            items,
+            renderItem: renderItem as (index: number, item: unknown) => React.ReactElement | null,
+          }}
+          rowHeight={_variableItemSize}
+          rowComponent={Row}
+        />
+      )
+    default:
+      return <></>
   }
 }
 

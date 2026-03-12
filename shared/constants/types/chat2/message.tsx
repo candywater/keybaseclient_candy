@@ -22,7 +22,7 @@ export type Reaction = T.Immutable<{
 }>
 export type ReactionDesc = T.Immutable<{
   decorated: string
-  users: Set<Reaction>
+  users: ReadonlyArray<Reaction>
 }>
 export type Reactions = ReadonlyMap<string, ReactionDesc>
 

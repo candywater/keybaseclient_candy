@@ -4,10 +4,12 @@ import * as C from '@/constants'
 import * as Kb from '@/common-adapters'
 import ChooseView from './choose-view'
 import type {SizeType} from '@/common-adapters/icon'
+import {useFSState} from '@/constants/fs'
+import * as FS from '@/constants/fs'
 
 export type ClickableProps = {
   onClick: () => void
-  mref: React.RefObject<Kb.MeasureRef>
+  mref: React.RefObject<Kb.MeasureRef | null>
 }
 
 type ClickableComponent = {
@@ -31,25 +33,24 @@ export type Props = {
 }
 
 type ICProps = {
-  measureRef: React.RefObject<Kb.MeasureRef>
+  measureRef: React.RefObject<Kb.MeasureRef | null>
   onClick: () => void
   sizeType: SizeType
   actionIconWhite?: boolean | undefined
 }
 const IconClickable = React.memo(function IconClickable(props: ICProps) {
+  const {measureRef, actionIconWhite, sizeType, onClick} = props
   return (
     <Kb.WithTooltip tooltip="More actions">
       <Kb.Icon
         fixOverdraw={false}
         type="iconfont-ellipsis"
-        color={
-          props.actionIconWhite ? Kb.Styles.globalColors.whiteOrBlueDark : Kb.Styles.globalColors.black_50
-        }
-        hoverColor={props.actionIconWhite ? undefined : Kb.Styles.globalColors.black}
+        color={actionIconWhite ? Kb.Styles.globalColors.whiteOrBlueDark : Kb.Styles.globalColors.black_50}
+        hoverColor={actionIconWhite ? undefined : Kb.Styles.globalColors.black}
         padding="tiny"
-        sizeType={props.sizeType}
-        onClick={props.onClick}
-        ref={props.measureRef}
+        sizeType={sizeType}
+        onClick={onClick}
+        ref={measureRef}
       />
     </Kb.WithTooltip>
   )
@@ -57,8 +58,13 @@ const IconClickable = React.memo(function IconClickable(props: ICProps) {
 
 const PathItemAction = (props: Props) => {
   const {initView, path, mode} = props
-  const setPathItemActionMenuDownload = C.useFSState(s => s.dispatch.setPathItemActionMenuDownload)
-  const setPathItemActionMenuView = C.useFSState(s => s.dispatch.setPathItemActionMenuView)
+  const {setPathItemActionMenuDownload, setPathItemActionMenuView} = useFSState(
+    C.useShallow(s => {
+      const setPathItemActionMenuDownload = s.dispatch.setPathItemActionMenuDownload
+      const setPathItemActionMenuView = s.dispatch.setPathItemActionMenuView
+      return {setPathItemActionMenuDownload, setPathItemActionMenuView}
+    })
+  )
 
   const makePopup = React.useCallback(
     (p: Kb.Popup2Parms) => {
@@ -91,7 +97,7 @@ const PathItemAction = (props: Props) => {
     showPopup()
   }, [initView, setPathItemActionMenuView, showPopup])
 
-  if (props.path === C.FS.defaultPath) {
+  if (props.path === FS.defaultPath) {
     return null
   }
 

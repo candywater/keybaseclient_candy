@@ -5,6 +5,7 @@ package libkb
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -98,8 +99,10 @@ func (f *JSONConfigFile) getUserConfigWithLock() (ret *UserConfig, err error) {
 	} else if ret != nil {
 		f.userConfigWrapper.userConfig = ret
 	} else {
-		err = ConfigError{f.filename,
-			fmt.Sprintf("Didn't find a UserConfig for %s", s)}
+		err = ConfigError{
+			f.filename,
+			fmt.Sprintf("Didn't find a UserConfig for %s", s),
+		}
 	}
 	return
 }
@@ -374,7 +377,6 @@ func (f *JSONConfigFile) SetUserConfig(u *UserConfig, overwrite bool) error {
 }
 
 func (f *JSONConfigFile) setUserConfigWithLock(u *UserConfig, overwrite bool) error {
-
 	if u == nil {
 		f.G().Log.Debug("| SetUserConfig(nil)")
 		err := f.jw.DeleteKey("current_user")
@@ -853,8 +855,10 @@ func (f *JSONConfigFile) GetProxyCACerts() (ret []string, err error) {
 		for i := 0; i < l; i++ {
 			s, e2 := jw.AtIndex(i).GetString()
 			if e2 != nil {
-				err = ConfigError{f.filename,
-					fmt.Sprintf("Error reading proxy CA file @ index %d: %s", i, e2)}
+				err = ConfigError{
+					f.filename,
+					fmt.Sprintf("Error reading proxy CA file @ index %d: %s", i, e2),
+				}
 				return
 			}
 
@@ -952,6 +956,9 @@ func (f *JSONConfigFile) GetTimeAtPath(path string) keybase1.Time {
 	if err != nil {
 		return ret
 	}
+	if u > math.MaxInt64 {
+		return ret
+	}
 	ret = keybase1.Time(u)
 	return ret
 }
@@ -990,6 +997,9 @@ func (f *JSONConfigFile) GetBug3964RepairTime(un NormalizedUsername) (time.Time,
 	i, err := strconv.ParseUint(s, 10, 64)
 	if err != nil {
 		return time.Time{}, err
+	}
+	if i > math.MaxInt64 {
+		return time.Time{}, fmt.Errorf("timestamp overflow: %d", i)
 	}
 	return keybase1.FromTime(keybase1.Time(i)), nil
 }

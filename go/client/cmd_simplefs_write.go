@@ -5,11 +5,10 @@ package client
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
-
-	"golang.org/x/net/context"
 
 	"github.com/keybase/cli"
 	"github.com/keybase/client/go/libcmdline"
@@ -54,7 +53,6 @@ func NewCmdSimpleFSWrite(cl *libcmdline.CommandLine, g *libkb.GlobalContext) cli
 
 // Run runs the command in client/server mode.
 func (c *CmdSimpleFSWrite) Run() error {
-
 	cli, err := GetSimpleFSClient(c.G())
 	if err != nil {
 		return err

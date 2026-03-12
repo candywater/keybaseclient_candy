@@ -5,11 +5,11 @@ import FloatingBox from './floating-box'
 import Box from './box'
 import {KeyboardAvoidingView2} from './keyboard-avoiding-view'
 import {useTimeout} from './use-timers'
-import {NativeAnimated, NativeEasing} from './native-wrappers.native'
+import {Animated as NativeAnimated, Easing as NativeEasing} from 'react-native'
 import type {Props} from './toast'
 import {colors, darkColors} from '@/styles/colors'
-import {isDarkMode} from '@/styles/dark-mode'
 import noop from 'lodash/noop'
+import {useColorScheme} from 'react-native'
 
 const Kb = {
   Box,
@@ -21,29 +21,33 @@ const Toast = (props: Props) => {
   const {visible} = props
   const [shouldRender, setShouldRender] = React.useState(false)
   const opacityRef = React.useRef(new NativeAnimated.Value(0))
+  const [opacity, setOpacity] = React.useState<NativeAnimated.Value | undefined>(undefined)
+  React.useEffect(() => {
+    setOpacity(opacityRef.current)
+  }, [])
   const setShouldRenderFalseLater = useTimeout(() => {
     setShouldRender(false)
-  }, 100)
+  }, 1000)
   React.useEffect(() => {
     if (visible) {
       setShouldRender(true)
-      const opacity = opacityRef.current
       return () => {
-        NativeAnimated.timing(opacity, {
-          duration: 100,
-          easing: NativeEasing.linear,
-          toValue: 0,
-          useNativeDriver: false,
-        }).start()
+        opacity &&
+          NativeAnimated.timing(opacity, {
+            duration: 200,
+            easing: NativeEasing.linear,
+            toValue: 0,
+            useNativeDriver: false,
+          }).start()
         setShouldRenderFalseLater()
       }
     }
     return noop
-  }, [visible, setShouldRenderFalseLater, opacityRef])
+  }, [visible, setShouldRenderFalseLater, opacity])
   React.useEffect(() => {
-    if (shouldRender) {
-      const animation = NativeAnimated.timing(opacityRef.current, {
-        duration: 100,
+    if (shouldRender && opacity) {
+      const animation = NativeAnimated.timing(opacity, {
+        duration: 200,
         easing: NativeEasing.linear,
         toValue: 1,
         useNativeDriver: false,
@@ -54,7 +58,7 @@ const Toast = (props: Props) => {
       }
     }
     return noop
-  }, [shouldRender])
+  }, [shouldRender, opacity])
 
   // since this uses portals we need to hide if we're hidden else we can get stuck showing if our render is frozen
   C.Router2.useSafeFocusEffect(
@@ -65,6 +69,8 @@ const Toast = (props: Props) => {
     }, [])
   )
 
+  const isDarkMode = useColorScheme() === 'dark'
+
   return shouldRender ? (
     <Kb.FloatingBox>
       <Kb.KeyboardAvoidingView2>
@@ -72,9 +78,14 @@ const Toast = (props: Props) => {
           <NativeAnimated.View
             style={Styles.collapseStyles([
               styles.container,
+              {
+                // RN bugs with animated dynamicColors so have to use the raw ones
+                // known bug this won't work if the dark mode changes dynamic on ios currently
+                backgroundColor: isDarkMode ? darkColors.black : colors.black,
+              },
               props.containerStyle,
-              {opacity: opacityRef.current},
-            ] as any)}
+              {opacity: (opacity as number | undefined) ?? 0},
+            ])}
           >
             {props.children}
           </NativeAnimated.View>
@@ -88,9 +99,6 @@ const styles = Styles.styleSheetCreate(() => {
   return {
     container: {
       alignItems: 'center',
-      // RN bugs with animated dynamicColors so have to use the raw ones
-      // known bug this won't work if the dark mode changes dynamic on ios currently
-      backgroundColor: isDarkMode() ? darkColors.black : colors.black,
       borderRadius: 140,
       borderWidth: 0,
       display: 'flex',

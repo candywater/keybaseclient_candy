@@ -1,9 +1,10 @@
 import * as C from '@/constants'
+import * as TB from '@/constants/team-building'
 import * as React from 'react'
 import * as Kb from '@/common-adapters/index'
-import * as Constants from '@/constants/team-building'
 import type * as T from 'constants/types'
 import ContinueButton from './continue-button'
+import {useSettingsPhoneState} from '@/constants/settings-phone'
 
 type PhoneSearchProps = {
   continueLabel: string
@@ -13,14 +14,14 @@ type PhoneSearchProps = {
 
 const PhoneSearch = (props: PhoneSearchProps) => {
   const {namespace} = props
-  const teamBuildingSearchResults = C.useTBContext(s => s.searchResults)
+  const teamBuildingSearchResults = TB.useTBContext(s => s.searchResults)
   const [isPhoneValid, setPhoneValidity] = React.useState(false)
   const [phoneNumber, setPhoneNumber] = React.useState('')
   const [phoneInputKey, setPhoneInputKey] = React.useState(0)
-  const waiting = C.Waiting.useAnyWaiting(Constants.searchWaitingKey)
-  const loadDefaultPhoneCountry = C.useSettingsPhoneState(s => s.dispatch.loadDefaultPhoneCountry)
+  const waiting = C.Waiting.useAnyWaiting(TB.searchWaitingKey)
+  const loadDefaultPhoneCountry = useSettingsPhoneState(s => s.dispatch.loadDefaultPhoneCountry)
   // trigger a default phone number country rpc if it's not already loaded
-  const defaultCountry = C.useSettingsPhoneState(s => s.defaultCountry)
+  const defaultCountry = useSettingsPhoneState(s => s.defaultCountry)
   React.useEffect(() => {
     !defaultCountry && loadDefaultPhoneCountry()
   }, [defaultCountry, loadDefaultPhoneCountry])
@@ -33,7 +34,7 @@ const PhoneSearch = (props: PhoneSearchProps) => {
     }
   }
 
-  const addUsersToTeamSoFar = C.useTBContext(s => s.dispatch.addUsersToTeamSoFar)
+  const addUsersToTeamSoFar = TB.useTBContext(s => s.dispatch.addUsersToTeamSoFar)
 
   const user: T.TB.User | undefined = isPhoneValid
     ? teamBuildingSearchResults.get(phoneNumber)?.get('phone')?.[0]
@@ -106,15 +107,15 @@ export const UserMatchMention = ({username}: UserMatchMentionProps) => (
   <Kb.Box2 direction="horizontal" gap="xtiny" style={styles.userMatchMention} centerChildren={true}>
     <Kb.Icon type="iconfont-check" sizeType="Tiny" color={Kb.Styles.globalColors.greenDark} />
     <Kb.Text type="BodySmall">
-      Great! That's{' '}
+      {"Great! That's "}
       <Kb.ConnectedUsernames
         colorFollowing={true}
         inline={true}
         onUsernameClicked="profile"
         type="BodySmallBold"
         usernames={username}
-      />{' '}
-      on Keybase.
+      />
+      {' on Keybase.'}
     </Kb.Text>
   </Kb.Box2>
 )

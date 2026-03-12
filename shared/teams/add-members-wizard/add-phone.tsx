@@ -1,24 +1,26 @@
 import * as C from '@/constants'
 import * as React from 'react'
+import {useTeamsState} from '@/constants/teams'
 import * as Kb from '@/common-adapters'
-import * as Container from '@/util/container'
 import * as T from '@/constants/types'
 import {ModalTitle, usePhoneNumberList} from '../common'
+import {useSafeNavigation} from '@/util/safe-navigation'
+import {useSettingsPhoneState} from '@/constants/settings-phone'
 
 const waitingKey = 'phoneLookup'
 
 const AddPhone = () => {
-  const teamID = C.useTeamsState(s => s.addMembersWizard.teamID)
+  const teamID = useTeamsState(s => s.addMembersWizard.teamID)
   const [error, setError] = React.useState('')
-  const nav = Container.useSafeNavigation()
+  const nav = useSafeNavigation()
   const onBack = () => nav.safeNavigateUp()
 
   const {phoneNumbers, setPhoneNumber, addPhoneNumber, removePhoneNumber} = usePhoneNumberList()
   const disabled = !phoneNumbers.length || phoneNumbers.some(pn => !pn.valid)
   const waiting = C.Waiting.useAnyWaiting(waitingKey)
 
-  const defaultCountry = C.useSettingsPhoneState(s => s.defaultCountry)
-  const loadDefaultPhoneCountry = C.useSettingsPhoneState(s => s.dispatch.loadDefaultPhoneCountry)
+  const defaultCountry = useSettingsPhoneState(s => s.defaultCountry)
+  const loadDefaultPhoneCountry = useSettingsPhoneState(s => s.dispatch.loadDefaultPhoneCountry)
 
   React.useEffect(() => {
     if (!defaultCountry) {
@@ -27,7 +29,7 @@ const AddPhone = () => {
   }, [defaultCountry, loadDefaultPhoneCountry])
 
   const emailsToAssertionsRPC = C.useRPC(T.RPCGen.userSearchBulkEmailOrPhoneSearchRpcPromise)
-  const addMembersWizardPushMembers = C.useTeamsState(s => s.dispatch.addMembersWizardPushMembers)
+  const addMembersWizardPushMembers = useTeamsState(s => s.dispatch.addMembersWizardPushMembers)
   const onContinue = () => {
     setError('')
     emailsToAssertionsRPC(
@@ -48,7 +50,7 @@ const AddPhone = () => {
   }
 
   const maybeSubmit = (evt?: React.KeyboardEvent) => {
-    if (!disabled && evt && evt.key === 'Enter' && (evt.ctrlKey || evt.metaKey)) {
+    if (!disabled && evt?.key === 'Enter' && (evt.ctrlKey || evt.metaKey)) {
       onContinue()
     }
   }

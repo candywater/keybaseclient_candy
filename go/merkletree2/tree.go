@@ -243,7 +243,8 @@ func (t *Tree) makeNextRootMetadata(ctx logger.ContextInterface, tr Transaction,
 }
 
 func (t *Tree) GenerateAndStoreMasterSecret(
-	ctx logger.ContextInterface, tr Transaction, s Seqno) (ms MasterSecret, err error) {
+	ctx logger.ContextInterface, tr Transaction, s Seqno,
+) (ms MasterSecret, err error) {
 	ms, err = t.cfg.Encoder.GenerateMasterSecret(s)
 	if err != nil {
 		return nil, err
@@ -277,7 +278,8 @@ func (t *Tree) encodeKVPairs(sortedKVPairs []KeyValuePair) (kevPairs []KeyEncode
 // state. This function does not check the condition is true for efficiency
 // reasons.
 func (t *Tree) Build(
-	ctx logger.ContextInterface, tr Transaction, sortedKVPairs []KeyValuePair, addOnsHash Hash) (s Seqno, rootHash Hash, err error) {
+	ctx logger.ContextInterface, tr Transaction, sortedKVPairs []KeyValuePair, addOnsHash Hash,
+) (s Seqno, rootHash Hash, err error) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -341,7 +343,8 @@ func (t *Tree) Build(
 }
 
 func (t *Tree) hashTreeRecursive(ctx logger.ContextInterface, tr Transaction, s Seqno, ms MasterSecret,
-	p *Position, sortedKEVPairs []KeyEncodedValuePair) (ret Hash, err error) {
+	p *Position, sortedKEVPairs []KeyEncodedValuePair,
+) (ret Hash, err error) {
 	select {
 	case <-ctx.Ctx().Done():
 		return nil, ctx.Ctx().Err()
@@ -406,7 +409,6 @@ func (t *Tree) makeKeyHashPairsFromKeyValuePairs(ms MasterSecret, unhashed []Key
 }
 
 func (t *Tree) makeAndStoreLeaf(ctx logger.ContextInterface, tr Transaction, s Seqno, ms MasterSecret, p *Position, sortedKEVPairs []KeyEncodedValuePair, ret *Hash) (err error) {
-
 	err = t.makeKeyHashPairsFromKeyValuePairs(ms, sortedKEVPairs, &t.bufLeaf)
 	if err != nil {
 		return err
@@ -570,7 +572,7 @@ func (t *Tree) getEncodedValueWithInclusionProofOrExclusionProof(ctx logger.Cont
 		sort.Sort(PosHashPairsInMerkleProofOrder(deepestAndCurrSiblings))
 
 		var currSiblings []PositionHashPair
-		// if we found a PositionHashPair corrisponding to the first element in
+		// if we found a PositionHashPair corresponding to the first element in
 		// deepestAndCurrSiblingPositions, it means the path might be deeper and we
 		// need to fetch more siblings.
 		candidateDeepest := len(deepestAndCurrSiblings)
@@ -603,7 +605,7 @@ func (t *Tree) getEncodedValueWithInclusionProofOrExclusionProof(ctx logger.Cont
 	if err != nil {
 		return nil, MerkleInclusionProof{}, err
 	}
-	leafPos := t.cfg.getParentAtLevel(deepestPosition, uint(leafLevel))
+	leafPos := t.cfg.getParentAtLevel(deepestPosition, uint(leafLevel)) //nolint:gosec // G115: Leaf level bounded by tree depth, safe to convert
 
 	proof.SiblingHashesOnPath = make([]Hash, leafLevel*(t.cfg.ChildrenPerNode-1))
 	leafChildIndexes := t.cfg.positionToChildIndexPath(leafPos)

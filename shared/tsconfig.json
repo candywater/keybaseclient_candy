@@ -10,6 +10,7 @@
     "checkJs": false,
     "declaration": true,
     "exactOptionalPropertyTypes": false,
+    "forceConsistentCasingInFileNames": false,
     "incremental": true,
     "isolatedModules": true,
     "jsx": "preserve",
@@ -28,11 +29,10 @@
     "noUnusedParameters": true,
     "outDir": "./.tsOuts/.tsOut/emit",
     "paths": {
-      "react-native-kb": ["override-d.ts/react-native-kb/index.d.ts"],
-      "react-native-drop-view": ["override-d.ts/react-native-drop-view/index.d.ts"],
       "@/*": ["./*"]
     },
     "resolveJsonModule": true,
+    "skipLibCheck": true,
     "sourceMap": false,
     "strict": true,
     "target": "esnext",

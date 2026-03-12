@@ -64,7 +64,7 @@ const mapPaths =
       throw new Error('invalid path')
     }
     const match = path.match(iconfontRegex)
-    if (!match || match.length !== 4) {
+    if (match?.length !== 4) {
       if (!skipUnmatchedFile) console.error(`Filename did not match, skipping ${path}`)
       return undefined
     }
@@ -122,9 +122,9 @@ function updateIconFont(web: boolean) {
     }
   }
 
-  let webfontsGenerator: (...a: Array<any>) => void
+  let webfontsGenerator: (...a: Array<unknown>) => void
   try {
-    webfontsGenerator = require('webfonts-generator')
+    webfontsGenerator = require('webfonts-generator') as typeof webfontsGenerator
   } catch (e) {
     console.error('\n\n\n\n>> Web fonts generation is optional, install manually to install it << \n\n\n')
     throw e

@@ -1,16 +1,16 @@
 import * as T from '@/constants/types'
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
 import {EmojiPickerDesktop} from '@/chat/emoji-picker/container'
 import {
-  type EmojiData,
   type RenderableEmoji,
   emojiDataToRenderableEmoji,
   getEmojiStr,
-  renderEmoji,
-} from '@/util/emoji'
-import {AliasInput, Modal} from './common'
+  type EmojiData,
+} from '@/common-adapters/emoji'
+import {AliasInput, Modal, type AliasRef} from './common'
 import {useEmojiState} from './use-emoji'
 import {usePickerState} from '@/chat/emoji-picker/use-picker'
 
@@ -26,9 +26,9 @@ const AddAliasModal = (props: Props) => {
   const [emoji, setEmoji] = React.useState<ChosenEmoji | undefined>(undefined)
   const [alias, setAlias] = React.useState('')
   const [error, setError] = React.useState<undefined | string>(undefined)
-  const conversationIDKey = C.useChatContext(s => s.id)
+  const conversationIDKey = Chat.useChatContext(s => s.id)
 
-  const aliasInputRef = React.useRef<AliasInput>(null)
+  const aliasInputRef = React.useRef<AliasRef>(null)
   const onChoose = (emojiStr: string, renderableEmoji: RenderableEmoji) => {
     setEmoji({emojiStr, renderableEmoji})
     setAlias(
@@ -87,7 +87,7 @@ const AddAliasModal = (props: Props) => {
       title="Add an alias"
       desktopHeight={395}
       footerButtonLabel="Add an alias"
-      footerButtonOnClick={doAddAlias}
+      footerButtonOnClick={alias.length > 2 ? doAddAlias : undefined}
       footerButtonWaiting={addAliasWaiting}
     >
       <Kb.Box2 direction="vertical" fullWidth={true} gap="small" style={styles.container}>
@@ -144,7 +144,7 @@ const ChooseEmoji = Kb.Styles.isMobile
       }
 
       const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
-      const conversationIDKey = C.useChatContext(s => s.id)
+      const conversationIDKey = Chat.useChatContext(s => s.id)
       const openEmojiPicker = () =>
         navigateAppend({
           props: {
@@ -200,7 +200,7 @@ const SelectedEmoji = (props: SelectedEmojiProps) => {
   return (
     <Kb.Box2 direction="horizontal" centerChildren={true} style={styles.emoji}>
       {props.chosen ? (
-        renderEmoji({emoji: props.chosen.renderableEmoji, showTooltip: false, size: singleEmojiWidth})
+        <Kb.Emoji emoji={props.chosen.renderableEmoji} showTooltip={false} size={singleEmojiWidth} />
       ) : (
         <Kb.Icon type="iconfont-emoji" fontSize={Kb.Styles.isMobile ? 20 : 16} />
       )}

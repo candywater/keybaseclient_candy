@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -13,7 +14,6 @@ import (
 	gregor1 "github.com/keybase/client/go/protocol/gregor1"
 	keybase1 "github.com/keybase/client/go/protocol/keybase1"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc"
-	context "golang.org/x/net/context"
 )
 
 const TLFRekeyGregorCategory = "kbfs_tlf_rekey_needed"
@@ -151,7 +151,6 @@ func (r *rekeyQueryResult) GetAppStatus() *libkb.AppStatus {
 }
 
 func queryAPIServerForRekeyInfo(g *libkb.GlobalContext) (keybase1.ProblemSet, error) {
-
 	// Calling with the clear=true boolean means the server will potentially
 	// clear all gregor messages as a side-effect of the lookup. Hence the
 	// POST rather than GET for this operation.
@@ -171,7 +170,6 @@ func queryAPIServerForRekeyInfo(g *libkb.GlobalContext) (keybase1.ProblemSet, er
 }
 
 func (r *rekeyMaster) continueSleep(ri RekeyInterrupt) (ret time.Duration) {
-
 	r.G().Log.Debug("+ rekeyMaster#continueSleep")
 	defer func() {
 		r.G().Log.Debug("- rekeyMaster#continueSleep -> %s", ret)
@@ -268,7 +266,6 @@ func (r *rekeyMaster) clearUI() (err error) {
 
 	var ui *RekeyUI
 	ui, err = r.getUI()
-
 	if err != nil {
 		return err
 	}
@@ -479,7 +476,6 @@ func (r *rekeyMaster) currentDeviceSolvesProblemSet(me *libkb.User, ps keybase1.
 }
 
 func (r *rekeyMaster) mainLoop() {
-
 	// Sleep about ten seconds on startup so as to wait for startup sequence.
 	// It's ok if we race here, but it's less work if we don't.
 	timeout := 10 * time.Second

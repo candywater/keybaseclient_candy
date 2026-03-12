@@ -1,17 +1,18 @@
 import * as C from '@/constants'
 import * as React from 'react'
 import * as Kb from '@/common-adapters'
-import * as Container from '@/util/container'
+import {useSafeNavigation} from '@/util/safe-navigation'
+import {useSettingsState} from '@/constants/settings'
 
 const CheckPassphraseMobile = () => {
   const [password, setPassword] = React.useState('')
   const [showTyping, setShowTyping] = React.useState(false)
 
-  const checkPasswordIsCorrect = C.useSettingsState(s => s.checkPasswordIsCorrect)
-  const nav = Container.useSafeNavigation()
-  const checkPassword = C.useSettingsState(s => s.dispatch.checkPassword)
-  const resetCheckPassword = C.useSettingsState(s => s.dispatch.resetCheckPassword)
-  const deleteAccountForever = C.useSettingsState(s => s.dispatch.deleteAccountForever)
+  const checkPasswordIsCorrect = useSettingsState(s => s.checkPasswordIsCorrect)
+  const nav = useSafeNavigation()
+  const checkPassword = useSettingsState(s => s.dispatch.checkPassword)
+  const resetCheckPassword = useSettingsState(s => s.dispatch.resetCheckPassword)
+  const deleteAccountForever = useSettingsState(s => s.dispatch.deleteAccountForever)
 
   const onCancel = () => {
     resetCheckPassword()
@@ -22,7 +23,7 @@ const CheckPassphraseMobile = () => {
     deleteAccountForever(password)
   }
 
-  const waitingKey = C.Waiting.useAnyWaiting(C.Settings.settingsWaitingKey)
+  const waitingKey = C.Waiting.useAnyWaiting(C.waitingKeySettingsGeneric)
   const inputType = showTyping ? 'text' : 'password'
   const keyboardType = showTyping && Kb.Styles.isAndroid ? 'visible-password' : 'default'
 
@@ -47,7 +48,7 @@ const CheckPassphraseMobile = () => {
           <Kb.ButtonBar align="center" direction="column" fullWidth={true} style={styles.buttonBar}>
             <Kb.WaitingButton
               fullWidth={true}
-              waitingKey={C.Settings.checkPasswordWaitingKey}
+              waitingKey={C.waitingKeySettingsCheckPassword}
               disabled={!!checkPasswordIsCorrect || !password}
               label="Authorize"
               onClick={() => onCheckPassword(password)}

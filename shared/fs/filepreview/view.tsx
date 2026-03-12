@@ -1,11 +1,14 @@
 import * as C from '@/constants'
+import * as Chat from '@/constants/chat2'
 import * as React from 'react'
 import * as T from '@/constants/types'
-import DefaultView from './default-view-container'
+import DefaultView from './default-view'
 import TextView from './text-view'
 import AVView from './av-view'
 import PdfView from './pdf-view'
 import * as Kb from '@/common-adapters'
+import * as FS from '@/constants/fs'
+import {useFSState} from '@/constants/fs'
 
 type Props = {
   path: T.FS.Path
@@ -23,24 +26,27 @@ const FilePreviewView = (p: Props) => {
 }
 
 const FilePreviewViewContent = ({path, onUrlError}: Props) => {
-  const pathItem = C.useFSState(s => C.FS.getPathItem(s.pathItems, path))
+  const {pathItem, fileContext} = useFSState(
+    C.useShallow(s => ({
+      fileContext: s.fileContext.get(path) || FS.emptyFileContext,
+      pathItem: FS.getPathItem(s.pathItems, path),
+    }))
+  )
   const [loadedLastModifiedTimestamp, setLoadedLastModifiedTimestamp] = React.useState(
     pathItem.lastModifiedTimestamp
   )
   const reload = () => setLoadedLastModifiedTimestamp(pathItem.lastModifiedTimestamp)
   const tooLargeForText = pathItem.type === T.FS.PathType.File && pathItem.size > textViewUpperLimit
 
-  const fileContext = C.useFSState(s => s.fileContext.get(path) || C.FS.emptyFileContext)
-
   if (pathItem.type === T.FS.PathType.Symlink) {
     return <DefaultView path={path} />
   }
 
   if (pathItem.type !== T.FS.PathType.File) {
-    return <Kb.Text type="BodySmallError">This shouldn't happen type={pathItem.type}</Kb.Text>
+    return <Kb.Text type="BodySmallError">{`This shouldn't happen type=${pathItem.type}`}</Kb.Text>
   }
 
-  if (fileContext === C.FS.emptyFileContext) {
+  if (fileContext === FS.emptyFileContext) {
     // We are still loading fileContext which is needed to determine which
     // component to use.
     return (
@@ -68,7 +74,7 @@ const FilePreviewViewContent = ({path, onUrlError}: Props) => {
   switch (fileContext.viewType) {
     case T.RPCGen.GUIViewType.default: {
       // mobile client only supports heic now
-      if (C.isIOS && C.Chat.isPathHEIC(pathItem.name)) {
+      if (C.isIOS && Chat.isPathHEIC(pathItem.name)) {
         return (
           <>
             {reloadBanner}
@@ -118,7 +124,7 @@ const FilePreviewViewContent = ({path, onUrlError}: Props) => {
         <DefaultView path={path} />
       )
     default:
-      return <Kb.Text type="BodySmallError">This shouldn't happen</Kb.Text>
+      return <Kb.Text type="BodySmallError">{"This shouldn't happen"}</Kb.Text>
   }
 }
 

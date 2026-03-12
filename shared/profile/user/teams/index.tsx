@@ -1,30 +1,42 @@
 import * as C from '@/constants'
-import * as Constants from '@/constants/tracker2'
+import {useTeamsState} from '@/constants/teams'
 import * as T from '@/constants/types'
 import * as Kb from '@/common-adapters'
 import * as React from 'react'
 import OpenMeta from './openmeta'
 import {default as TeamInfo, type Props as TIProps} from './teaminfo'
+import {useTrackerState} from '@/constants/tracker2'
+import {useCurrentUserState} from '@/constants/current-user'
 
 type OwnProps = {username: string}
 
 const noTeams = new Array<T.Tracker.TeamShowcase>()
 
 const Container = (ownProps: OwnProps) => {
-  const d = C.useTrackerState(s => Constants.getDetails(s, ownProps.username))
-  const _isYou = C.useCurrentUserState(s => s.username === ownProps.username)
-  const _roles = C.useTeamsState(s => s.teamRoleMap.roles)
-  const _teamNameToID = C.useTeamsState(s => s.teamNameToID)
-  const _youAreInTeams = C.useTeamsState(s => s.teamnames.size > 0)
+  const d = useTrackerState(s => s.getDetails(ownProps.username))
+  const _isYou = useCurrentUserState(s => s.username === ownProps.username)
+  const teamsState = useTeamsState(
+    C.useShallow(s => ({
+      _roles: s.teamRoleMap.roles,
+      _teamNameToID: s.teamNameToID,
+      _youAreInTeams: s.teamnames.size > 0,
+      joinTeam: s.dispatch.joinTeam,
+      showTeamByName: s.dispatch.showTeamByName,
+    }))
+  )
+  const {joinTeam, showTeamByName, _roles} = teamsState
+  const {_teamNameToID, _youAreInTeams} = teamsState
   const teamShowcase = d.teamShowcase || noTeams
-  const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
+  const {clearModals, navigateAppend} = C.useRouterState(
+    C.useShallow(s => ({
+      clearModals: s.dispatch.clearModals,
+      navigateAppend: s.dispatch.navigateAppend,
+    }))
+  )
   const _onEdit = () => {
     navigateAppend('profileShowcaseTeamOffer')
   }
-  const joinTeam = C.useTeamsState(s => s.dispatch.joinTeam)
-  const showTeamByName = C.useTeamsState(s => s.dispatch.showTeamByName)
   const onJoinTeam = joinTeam
-  const clearModals = C.useRouterState(s => s.dispatch.clearModals)
   const onViewTeam = (teamname: string) => {
     clearModals()
     showTeamByName(teamname)
@@ -96,7 +108,7 @@ const ShowcaseTeamsOffer = (p: {onEdit: () => void}) => (
       <Kb.Box2 direction="horizontal" gap="tiny">
         <Kb.Icon type="icon-team-placeholder-avatar-32" style={styles.placeholderTeam} />
         <Kb.Text style={styles.youFeatureTeam} type="BodyPrimaryLink">
-          Feature the teams you're in
+          {"Feature the teams you're in"}
         </Kb.Text>
       </Kb.Box2>
     </Kb.ClickableBox>

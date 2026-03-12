@@ -1,11 +1,10 @@
-import type {TurboModule} from 'react-native'
-import {TurboModuleRegistry} from 'react-native'
+import {TurboModuleRegistry, type TurboModule} from 'react-native'
 
 export interface Spec extends TurboModule {
-  install: () => void
+  install: () => boolean
   addListener: (eventType: string) => void
   removeListeners: (count: number) => void
-  getConstants(): {
+  getTypedConstants(): {
     androidIsDeviceSecure: boolean
     androidIsTestDevice: boolean
     appVersionCode: string
@@ -33,9 +32,6 @@ export interface Spec extends TurboModule {
   androidGetSecureFlagSetting(): Promise<boolean>
   androidShareText(text: string, mimeType: string): Promise<boolean>
   androidShare(text: string, mimeType: string): Promise<boolean>
-  androidCheckPushPermissions(): Promise<boolean>
-  androidRequestPushPermissions(): Promise<boolean>
-  androidGetRegistrationToken(): Promise<string>
   androidUnlink(path: string): Promise<void>
   androidAddCompleteDownload(o: {
     description: string
@@ -45,12 +41,19 @@ export interface Spec extends TurboModule {
     title: string
   }): Promise<void>
   androidAppColorSchemeChanged(mode: string /*'system' | 'alwaysDark' | 'alwaysLight' | ''*/): void
-  androidSetApplicationIconBadgeNumber(n: number): void
-  androidGetInitialBundleFromNotification(): Promise<any>
-  androidGetInitialShareFileUrls(): Promise<Array<string>>
-  androidGetInitialShareText(): Promise<string>
+  checkPushPermissions(): Promise<boolean>
+  requestPushPermissions(): Promise<boolean>
+  getRegistrationToken(): Promise<string>
+  setApplicationIconBadgeNumber(n: number): void
+  getInitialNotification(): Promise<object | null>
+  removeAllPendingNotificationRequests(): void
+  addNotificationRequest(config: {body: string; id: string}): Promise<void>
   engineReset(): void
-  engineStart(): void
+  notifyJSReady(): void
+  shareListenersRegistered(): void
+  setEnablePasteImage(enabled: boolean): void
+  clearLocalLogs(): Promise<void>
+  //processVideo(path: string): Promise<string>
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('Kb')
