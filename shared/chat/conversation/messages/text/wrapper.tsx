@@ -9,7 +9,7 @@ import {WrapperMessage, useCommonWithData, useMessageData, type Props} from '../
 import type {StyleOverride} from '@/common-adapters/markdown'
 import {sharedStyles} from '../shared-styles'
 import isEqual from 'lodash/isEqual'
-import {useConfigState} from '@/constants/config'
+import {getChatFontFamily, useConfigState} from '@/constants/config'
 
 // Encoding all 4 states as static objects so we don't re-render
 const getStyle = (
@@ -36,7 +36,8 @@ const getStyle = (
 const MessageMarkdown = React.memo(function MessageMarkdown(p: {style: Kb.Styles.StylesCrossPlatform}) {
   const {style} = p
   const ordinal = useOrdinal()
-  const chatFontPreference = useConfigState(s => s.chatFontPreference)
+  const chatCJKFontID = useConfigState(s => s.chatCJKFontID)
+  const chatNonCJKFontID = useConfigState(s => s.chatNonCJKFontID)
   const text = Chat.useChatContext(s => {
     const m = s.messageMap.get(ordinal)
     if (m?.type !== 'text') return ''
@@ -45,18 +46,18 @@ const MessageMarkdown = React.memo(function MessageMarkdown(p: {style: Kb.Styles
     return decoratedText ? decoratedText.stringValue() : text.stringValue()
   })
 
+  const chatFontFamily = React.useMemo(
+    () => getChatFontFamily(chatNonCJKFontID, chatCJKFontID),
+    [chatNonCJKFontID, chatCJKFontID]
+  )
+
   const styleOverride = React.useMemo(() => {
-    const fontStyle =
-      chatFontPreference === 'serif'
-        ? {fontFamily: 'serif'}
-        : chatFontPreference === 'monospace'
-          ? {fontFamily: 'monospace'}
-          : undefined
+    const fontStyle = {fontFamily: chatFontFamily}
     if (Kb.Styles.isMobile) {
-      return {paragraph: fontStyle ? Kb.Styles.collapseStyles([style, fontStyle]) : style}
+      return {paragraph: Kb.Styles.collapseStyles([style, fontStyle])}
     }
-    return fontStyle ? {paragraph: fontStyle} : undefined
-  }, [chatFontPreference, style])
+    return {paragraph: fontStyle}
+  }, [chatFontFamily, style])
 
   return (
     <Kb.Markdown

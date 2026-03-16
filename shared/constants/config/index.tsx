@@ -18,10 +18,63 @@ import {switchTab} from '../router2/util'
 import {storeRegistry} from '../store-registry'
 import {getSelectedConversation} from '@/constants/chat2/common'
 
-export type ChatFontPreference = 'default' | 'serif' | 'monospace'
+export type ChatFontOption = Readonly<{
+  id: string
+  label: string
+  fontFamily: string
+}>
+
+export const chatNonCJKFontOptions = [
+  {
+    fontFamily: 'Keybase',
+    id: 'keybase-default',
+    label: 'Keybase default',
+  },
+  {
+    fontFamily:
+      'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif',
+    id: 'system-sans',
+    label: 'System sans',
+  },
+] as const satisfies ReadonlyArray<ChatFontOption>
+
+export const chatCJKFontOptions = [
+  {
+    fontFamily: 'Keybase',
+    id: 'keybase-default',
+    label: 'Keybase default',
+  },
+  {
+    fontFamily:
+      'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "WenQuanYi Micro Hei", sans-serif',
+    id: 'system-cjk-sans',
+    label: 'System CJK sans',
+  },
+] as const satisfies ReadonlyArray<ChatFontOption>
+
+export type ChatNonCJKFontID = (typeof chatNonCJKFontOptions)[number]['id']
+export type ChatCJKFontID = (typeof chatCJKFontOptions)[number]['id']
+
+const defaultChatNonCJKFontID: ChatNonCJKFontID = chatNonCJKFontOptions[0].id
+const defaultChatCJKFontID: ChatCJKFontID = chatCJKFontOptions[0].id
+
+const isChatNonCJKFontID = (id: unknown): id is ChatNonCJKFontID =>
+  typeof id === 'string' && chatNonCJKFontOptions.some(option => option.id === id)
+const isChatCJKFontID = (id: unknown): id is ChatCJKFontID =>
+  typeof id === 'string' && chatCJKFontOptions.some(option => option.id === id)
+
+const getFontFamilyByID = (options: ReadonlyArray<ChatFontOption>, id: string, fallback: string) =>
+  options.find(option => option.id === id)?.fontFamily ?? fallback
+
+export const getChatFontFamily = (nonCJKFontID: ChatNonCJKFontID, cjkFontID: ChatCJKFontID) => {
+  const nonCJKFamily = getFontFamilyByID(chatNonCJKFontOptions, nonCJKFontID, 'Keybase')
+  const cjkFamily = getFontFamilyByID(chatCJKFontOptions, cjkFontID, 'Keybase')
+  return nonCJKFamily === cjkFamily ? nonCJKFamily : `${nonCJKFamily}, ${cjkFamily}`
+}
 
 type Store = T.Immutable<{
-  chatFontPreference: ChatFontPreference
+  chatCJKFontID: ChatCJKFontID
+  chatNonCJKFontID: ChatNonCJKFontID
   forceSmallNav: boolean
   allowAnimatedEmojis: boolean
   androidShare?:
@@ -93,7 +146,8 @@ const initialStore: Store = {
   androidShare: undefined,
   appFocused: true,
   badgeState: undefined,
-  chatFontPreference: 'default',
+  chatCJKFontID: defaultChatCJKFontID,
+  chatNonCJKFontID: defaultChatNonCJKFontID,
   configuredAccounts: [],
   defaultUsername: '',
   forceSmallNav: false,
@@ -170,7 +224,7 @@ export interface State extends Store {
     eventFromRemoteWindows: (action: RemoteGen.Actions) => void
     filePickerError: (error: Error) => void
     initAppUpdateLoop: () => void
-    initChatFontPreference: () => void
+    initChatFontPrefs: () => void
     initNotifySound: () => void
     initForceSmallNav: () => void
     initOpenAtLogin: () => void
@@ -194,8 +248,9 @@ export interface State extends Store {
     setAccounts: (a: Store['configuredAccounts']) => void
     setAndroidShare: (s: Store['androidShare']) => void
     setBadgeState: (b: State['badgeState']) => void
+    setChatCJKFontID: (fontID: ChatCJKFontID) => void
+    setChatNonCJKFontID: (fontID: ChatNonCJKFontID) => void
     setDefaultUsername: (u: string) => void
-    setChatFontPreference: (preference: ChatFontPreference) => void
     setForceSmallNav: (f: boolean) => void
     setGlobalError: (e?: unknown) => void
     setHTTPSrvInfo: (address: string, token: string) => void
@@ -221,7 +276,8 @@ export const useConfigState = Z.createZustand<State>((set, get) => {
   const nativeFrameKey = 'useNativeFrame'
   const notifySoundKey = 'notifySound'
   const forceSmallNavKey = 'ui.forceSmallNav'
-  const chatFontPreferenceKey = 'ui.chatFontPreference'
+  const chatNonCJKFontKey = 'ui.chatFont.nonCJK'
+  const chatCJKFontKey = 'ui.chatFont.cjk'
 
   const _checkForUpdate = async () => {
     try {
@@ -522,14 +578,23 @@ export const useConfigState = Z.createZustand<State>((set, get) => {
       }
       ignorePromise(f())
     },
-    initChatFontPreference: () => {
+    initChatFontPrefs: () => {
       const f = async () => {
         try {
-          const val = await T.RPCGen.configGuiGetValueRpcPromise({path: chatFontPreferenceKey})
-          const preference = val.s
-          if (preference === 'default' || preference === 'serif' || preference === 'monospace') {
+          const [nonCJKVal, cjkVal] = await Promise.all([
+            T.RPCGen.configGuiGetValueRpcPromise({path: chatNonCJKFontKey}),
+            T.RPCGen.configGuiGetValueRpcPromise({path: chatCJKFontKey}),
+          ])
+          const nonCJKFontID = nonCJKVal.s
+          const cjkFontID = cjkVal.s
+          if (isChatNonCJKFontID(nonCJKFontID) || isChatCJKFontID(cjkFontID)) {
             set(s => {
-              s.chatFontPreference = preference
+              if (isChatNonCJKFontID(nonCJKFontID)) {
+                s.chatNonCJKFontID = nonCJKFontID
+              }
+              if (isChatCJKFontID(cjkFontID)) {
+                s.chatCJKFontID = cjkFontID
+              }
             })
           }
         } catch {}
@@ -967,17 +1032,32 @@ export const useConfigState = Z.createZustand<State>((set, get) => {
         s.defaultUsername = u
       })
     },
-    setChatFontPreference: preference => {
-      if (get().chatFontPreference === preference) return
+    setChatCJKFontID: fontID => {
+      if (get().chatCJKFontID === fontID) return
       set(s => {
-        s.chatFontPreference = preference
+        s.chatCJKFontID = fontID
       })
       ignorePromise(
         T.RPCGen.configGuiSetValueRpcPromise({
-          path: chatFontPreferenceKey,
+          path: chatCJKFontKey,
           value: {
             isNull: false,
-            s: preference,
+            s: fontID,
+          },
+        })
+      )
+    },
+    setChatNonCJKFontID: fontID => {
+      if (get().chatNonCJKFontID === fontID) return
+      set(s => {
+        s.chatNonCJKFontID = fontID
+      })
+      ignorePromise(
+        T.RPCGen.configGuiSetValueRpcPromise({
+          path: chatNonCJKFontKey,
+          value: {
+            isNull: false,
+            s: fontID,
           },
         })
       )
