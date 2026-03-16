@@ -8,15 +8,21 @@
     <SchemaVersion>2.0</SchemaVersion>
     <OutputName>Keybase_%25KEYBASE_VERSION%25.%25GOARCH%25</OutputName>
     <OutputType>Package</OutputType>
+    <WixToolPath Condition=" '$(WixToolPath)' == '' AND Exists('$(USERPROFILE)\scoop\apps\wixtoolset3\current\WixTasks.dll')">$(USERPROFILE)\scoop\apps\wixtoolset3\current\</WixToolPath>
+    <WixTasksPath Condition=" '$(WixTasksPath)' == '' AND Exists('$(USERPROFILE)\scoop\apps\wixtoolset3\current\WixTasks.dll')">$(USERPROFILE)\scoop\apps\wixtoolset3\current\WixTasks.dll</WixTasksPath>
+    <WixExtDir Condition=" '$(WixExtDir)' == '' AND Exists('$(USERPROFILE)\scoop\apps\wixtoolset3\current\WixNetFxExtension.dll')">$(USERPROFILE)\scoop\apps\wixtoolset3\current\</WixExtDir>
     <WixTargetsPath Condition=" '$(WixTargetsPath)' == '' AND Exists('$(USERPROFILE)\scoop\apps\wixtoolset3\current\Wix.targets')">$(USERPROFILE)\scoop\apps\wixtoolset3\current\Wix.targets</WixTargetsPath>
     <WixTargetsPath Condition=" '$(WixTargetsPath)' == '' AND '$(MSBuildExtensionsPath32)' != '' ">$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.targets</WixTargetsPath>
     <WixTargetsPath Condition=" '$(WixTargetsPath)' == '' ">$(MSBuildExtensionsPath)\Microsoft\WiX\v3.x\Wix.targets</WixTargetsPath>
+    <ClientDir Condition=" '$(CLIENT_DIR)' != '' ">$(CLIENT_DIR)</ClientDir>
+    <ClientDir Condition=" '$(ClientDir)' == '' AND '$(GOPATH)' != '' ">$(GOPATH)\src\github.com\keybase\client</ClientDir>
+    <ClientDir Condition=" '$(ClientDir)' == '' ">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\..\..'))</ClientDir>
     <Name>KeybaseApps</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
     <OutputPath>bin\$(Configuration)\</OutputPath>
     <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
-    <DefineConstants>Debug;GuiSourceDir=$(GOPATH)\src\github.com\keybase\client\shared\desktop\release\win32-x64\Keybase-win32-x64</DefineConstants>
+    <DefineConstants>Debug;GuiSourceDir=$(ClientDir)\shared\desktop\release\win32-x64\Keybase-win32-x64</DefineConstants>
     <SuppressIces>ICE20;ICE38</SuppressIces>
     <CompilerAdditionalOptions />
     <LinkerAdditionalOptions>-ext WixUtilExtension.dll</LinkerAdditionalOptions>
@@ -26,14 +32,14 @@
     <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
     <SuppressValidation>False</SuppressValidation>
     <SuppressIces>ICE20;ICE38;ICE91;ICE60</SuppressIces>
-    <DefineConstants>GuiSourceDir=$(GOPATH)\src\github.com\keybase\client\shared\desktop\release\win32-x64\Keybase-win32-x64</DefineConstants>
+    <DefineConstants>GuiSourceDir=$(ClientDir)\shared\desktop\release\win32-x64\Keybase-win32-x64</DefineConstants>
     <CompilerAdditionalOptions />
     <LinkerAdditionalOptions>-ext WixUtilExtension.dll</LinkerAdditionalOptions>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
     <OutputPath>bin\$(Configuration)\</OutputPath>
     <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
-    <DefineConstants>Debug;GuiSourceDir=$(GOPATH)\src\github.com\keybase\client\shared\desktop\release\win32-ia32\Keybase-win32-ia32</DefineConstants>
+    <DefineConstants>Debug;GuiSourceDir=$(ClientDir)\shared\desktop\release\win32-ia32\Keybase-win32-ia32</DefineConstants>
     <SuppressIces>ICE20;ICE38</SuppressIces>
     <CompilerAdditionalOptions>
     </CompilerAdditionalOptions>
@@ -44,7 +50,7 @@
     <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
     <SuppressValidation>False</SuppressValidation>
     <SuppressIces>ICE20;ICE38;ICE91;ICE60</SuppressIces>
-    <DefineConstants>GuiSourceDir=$(GOPATH)\src\github.com\keybase\client\shared\desktop\release\win32-ia32\Keybase-win32-ia32</DefineConstants>
+    <DefineConstants>GuiSourceDir=$(ClientDir)\shared\desktop\release\win32-ia32\Keybase-win32-ia32</DefineConstants>
     <CompilerAdditionalOptions>
     </CompilerAdditionalOptions>
     <LinkerAdditionalOptions>-ext WixUtilExtension.dll</LinkerAdditionalOptions>
@@ -66,7 +72,7 @@
   <PropertyGroup>
       <PreBuildEvent>
 echo ignore > "$(ProjectDir)ignore.txt"
-"%25WIX%25bin\heat" dir %25GOPATH%25\src\github.com\keybase\client\shared\desktop\release\win32-x64\Keybase-win32-x64 -cg GuiComps -ag -sfrag -template fragment  -var var.GuiSourceDir  -dr INSTALLFOLDER -t $(ProjectDir)\gui.xsl -out $(ProjectDir)\gui.wxs
+$(WixToolPath)\heat.exe dir "$(ClientDir)\shared\desktop\release\win32-x64\Keybase-win32-x64" -cg GuiComps -ag -sfrag -template fragment  -var var.GuiSourceDir  -dr INSTALLFOLDER -t $(ProjectDir)\gui.xsl -out $(ProjectDir)\gui.wxs
 echo "Dumping gui.wsx"
 type "$(ProjectDir)\gui.wxs"
 cd /d "$(ProjectDir)"
@@ -74,10 +80,10 @@ if NOT exist Redist\dokan-dev\1.4.0.1000\DokanSetup_redist.exe (
       if NOT exist Redist\ mkdir Redist
       if NOT exist Redist\dokan-dev\ mkdir Redist\dokan-dev\
       if NOT exist Redist\dokan-dev\1.4.0.1000 mkdir Redist\dokan-dev\1.4.0.1000
-      powershell -command "wget https://s3.amazonaws.com/prerelease.keybase.io/windows-support/dokan-dev/1.4.0.1000/DokanSetup_redist.exe -UseBasicParsing -OutFile Redist\dokan-dev\1.4.0.1000\DokanSetup_redist.exe"
+  powershell -NoProfile -Command "$ProgressPreference='SilentlyContinue'; $out='Redist\dokan-dev\1.4.0.1000\DokanSetup_redist.exe'; $urls=@('https://github.com/dokan-dev/dokany/releases/download/v1.4.0.1000/DokanSetup_redist.exe','https://prerelease.keybase.io/windows-support/dokan-dev/1.4.0.1000/DokanSetup_redist.exe'); foreach($u in $urls){ try { Invoke-WebRequest -UseBasicParsing -Uri $u -OutFile $out; if(Test-Path $out){ exit 0 } } catch {} }; exit 1"
 )
 for /f "usebackq tokens=2%2a" %25%25i in (`powershell Get-FileHash -Algorithm sha1 Redist\dokan-dev\1.4.0.1000\DokanSetup_redist.exe`) do set DOKANLIBHASH=%25%25i
-if NOT %25DOKANLIBHASH%25==98998615DE96E077A581228A93F4A46D21232574 exit /B 1</PreBuildEvent>
+if NOT %25DOKANLIBHASH%25==A5809EEA1C4572A965CD833EE95DB170810DA65A exit /B 1</PreBuildEvent>
   </PropertyGroup>
   <!--
 	To modify your build process, add your task inside one of the targets below and uncomment it.
