@@ -11,6 +11,13 @@
 
 ## Tech Related
 
+### packages
+
+```
+scoop install main/mingw
+scoop install versions/wixtoolset3
+```
+
 ### Windows 开发构建与运行（最快）
 
 - 先看官方入口：README.md

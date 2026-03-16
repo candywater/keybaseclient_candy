@@ -15,6 +15,8 @@ set CC=%MINGW_DIR%\bin\gcc
 set CPATH=%MINGW_DIR%\include
 set KEYBASE_WINBUILD=0
 
+set DevCert=1
+
 cd /d %CLIENT_DIR%\packaging\windows
 call .\build_prerelease.cmd
 IF %ERRORLEVEL% NEQ 0 (
