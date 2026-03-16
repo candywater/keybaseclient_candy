@@ -3,6 +3,7 @@
 :: todo: specify output?
 ::
 set GOARCH=amd64
+for %%I in ("%~dp0..\..") do set "CLIENT_DIR=%%~fI"
 
 echo %KEYBASE_SECRET_STORE_FILE%
 :: This has to be reset too for a separate batch command
@@ -19,10 +20,10 @@ set CERTISSUER=DigiCert
 ::
 :: get the target build folder. Assume winresource.exe has been built.
 :: If not, go there and do "go generate"
-set Folder=%GOPATH%\src\github.com\keybase\client\go\keybase\
+set Folder=%CLIENT_DIR%\go\keybase\
 set PathName=%Folder%keybase.exe
 
-pushd %GOPATH%\src\github.com\keybase\client\packaging\windows
+pushd %CLIENT_DIR%\packaging\windows
 
 :: Capture the windows style version
 for /f %%i in ('%Folder%winresource.exe -w') do set KEYBASE_WINVER=%%i
@@ -38,7 +39,7 @@ echo KEYBASE_VERSION %KEYBASE_VERSION%
 popd
 
 :: prompter
-pushd %GOPATH%\src\github.com\keybase\client\go\updater\windows\WpfPrompter
+pushd %CLIENT_DIR%\go\updater\windows\WpfPrompter
 msbuild WpfPrompter.sln /t:Clean
 msbuild WpfPrompter.sln /p:Configuration=Release /t:Build
 IF %ERRORLEVEL% NEQ 0 (
@@ -47,16 +48,16 @@ IF %ERRORLEVEL% NEQ 0 (
 popd
 
 call:dosignexe %PathName%
-call:dosignexe %GOPATH%\src\github.com\keybase\client\go\kbfs\kbfsdokan\kbfsdokan.exe
-call:dosignexe %GOPATH%\src\github.com\keybase\client\go\kbfs\kbfsgit\git-remote-keybase\git-remote-keybase.exe
-call:dosignexe %GOPATH%\src\github.com\keybase\client\go\updater\service\upd.exe
-call:dosignexe %GOPATH%\src\github.com\keybase\client\shared\desktop\release\win32-x64\Keybase-win32-x64\Keybase.exe
+call:dosignexe %CLIENT_DIR%\go\kbfs\kbfsdokan\kbfsdokan.exe
+call:dosignexe %CLIENT_DIR%\go\kbfs\kbfsgit\git-remote-keybase\git-remote-keybase.exe
+call:dosignexe %CLIENT_DIR%\go\updater\service\upd.exe
+call:dosignexe %CLIENT_DIR%\shared\desktop\release\win32-x64\Keybase-win32-x64\Keybase.exe
 :: Browser Extension
-call:dosignexe %GOPATH%\src\github.com\keybase\client\go\kbnm\kbnm.exe
+call:dosignexe %CLIENT_DIR%\go\kbnm\kbnm.exe
 :: prompter
-call:dosignexe %GOPATH%\src\github.com\keybase\client\go\updater\windows\WpfPrompter\WpfApplication1\bin\Release\prompter.exe
+call:dosignexe %CLIENT_DIR%\go\updater\windows\WpfPrompter\WpfApplication1\bin\Release\prompter.exe
 :: runquiet utility
-call:dosignexe %GOPATH%\src\github.com\keybase\client\go\tools\runquiet\keybaserq.exe
+call:dosignexe %CLIENT_DIR%\go\tools\runquiet\keybaserq.exe
 
 :: Double check that keybase is codesigned
 %SIGNTOOL% verify /pa %PathName%
@@ -65,50 +66,50 @@ IF %ERRORLEVEL% NEQ 0 (
 )
 
 :: Double check that kbfs is codesigned
-%SIGNTOOL% verify /pa %GOPATH%\src\github.com\keybase\client\go\kbfs\kbfsdokan\kbfsdokan.exe
+%SIGNTOOL% verify /pa %CLIENT_DIR%\go\kbfs\kbfsdokan\kbfsdokan.exe
 IF %ERRORLEVEL% NEQ 0 (
   EXIT /B 1
 )
 
 :: Double check that git-remote-keybase is codesigned
-%SIGNTOOL% verify /pa %GOPATH%\src\github.com\keybase\client\go\kbfs\kbfsgit\git-remote-keybase\git-remote-keybase.exe
+%SIGNTOOL% verify /pa %CLIENT_DIR%\go\kbfs\kbfsgit\git-remote-keybase\git-remote-keybase.exe
 IF %ERRORLEVEL% NEQ 0 (
   EXIT /B 1
 )
 
 :: Double check that updater is codesigned
-%SIGNTOOL% verify /pa %GOPATH%\src\github.com\keybase\client\go\updater\service\upd.exe
+%SIGNTOOL% verify /pa %CLIENT_DIR%\go\updater\service\upd.exe
 IF %ERRORLEVEL% NEQ 0 (
   EXIT /B 1
 )
 
 :: Double check that Keybase.exe gui is codesigned
-%SIGNTOOL% verify /pa %GOPATH%\src\github.com\keybase\client\shared\desktop\release\win32-x64\Keybase-win32-x64\Keybase.exe
+%SIGNTOOL% verify /pa %CLIENT_DIR%\shared\desktop\release\win32-x64\Keybase-win32-x64\Keybase.exe
 IF %ERRORLEVEL% NEQ 0 (
   EXIT /B 1
 )
 
 :: Double check that browser extension is codesigned
-%SIGNTOOL% verify /pa %GOPATH%\src\github.com\keybase\client\go\kbnm\kbnm.exe
+%SIGNTOOL% verify /pa %CLIENT_DIR%\go\kbnm\kbnm.exe
 IF %ERRORLEVEL% NEQ 0 (
   EXIT /B 1
 )
 
 :: Double check that the prompter exe is codesigned
-%SIGNTOOL% verify /pa %GOPATH%\src\github.com\keybase\client\go\updater\windows\WpfPrompter\WpfApplication1\bin\Release\prompter.exe
+%SIGNTOOL% verify /pa %CLIENT_DIR%\go\updater\windows\WpfPrompter\WpfApplication1\bin\Release\prompter.exe
 IF %ERRORLEVEL% NEQ 0 (
   EXIT /B 1
 )
 
 :: Double check that the runquiet exe is codesigned
-%SIGNTOOL% verify /pa %GOPATH%\src\github.com\keybase\client\go\tools\runquiet\keybaserq.exe
+%SIGNTOOL% verify /pa %CLIENT_DIR%\go\tools\runquiet\keybaserq.exe
 IF %ERRORLEVEL% NEQ 0 (
   EXIT /B 1
 )
 
 set BUILD_TAG=%SEMVER%
 
-pushd %GOPATH%\src\github.com\keybase\client\packaging\windows\WIXInstallers
+pushd %CLIENT_DIR%\packaging\windows\WIXInstallers
 
 msbuild WIX_Installers.sln  /p:Configuration=%CONFIGURATION% /p:Platform=x64 /t:Build
 popd
@@ -120,12 +121,12 @@ IF "%CONFIGURATION%"=="Debug" (
 )
 
 :: Here we rely on the previous steps checking out and building release.exe
-set ReleaseBin=%GOPATH%\src\github.com\keybase\client\go\release\release.exe
+set ReleaseBin=%CLIENT_DIR%\go\release\release.exe
 
-if not EXIST %GOPATH%\src\github.com\keybase\client\packaging\windows\%BUILD_TAG% mkdir %GOPATH%\src\github.com\keybase\client\packaging\windows\%BUILD_TAG%
-pushd %GOPATH%\src\github.com\keybase\client\packaging\windows\%BUILD_TAG%
+if not EXIST %CLIENT_DIR%\packaging\windows\%BUILD_TAG% mkdir %CLIENT_DIR%\packaging\windows\%BUILD_TAG%
+pushd %CLIENT_DIR%\packaging\windows\%BUILD_TAG%
 
-move %GOPATH%\src\github.com\keybase\client\packaging\windows\WIXInstallers\KeybaseApps\bin\Release\*.msi %GOPATH%\src\github.com\keybase\client\packaging\windows\%BUILD_TAG%
+move %CLIENT_DIR%\packaging\windows\WIXInstallers\KeybaseApps\bin\Release\*.msi %CLIENT_DIR%\packaging\windows\%BUILD_TAG%
 for /f %%i in ('dir /od /b *.msi') do set KEYBASE_INSTALLER_NAME=%%i
 
 :: Double check that the installer is codesigned
@@ -135,13 +136,13 @@ IF %ERRORLEVEL% NEQ 0 (
 )
 
 :: Run ssss to get signature of update
-pushd %GOPATH%\src\github.com\keybase\client\go\tools\ssss
+pushd %CLIENT_DIR%\go\tools\ssss
 go build
 IF %ERRORLEVEL% NEQ 0 (
   EXIT /B 1
 )
 popd
-set SigningBin="%GOPATH%\src\github.com\keybase\client\go\tools\ssss\ssss.exe"
+set SigningBin="%CLIENT_DIR%\go\tools\ssss\ssss.exe"
 set SigFile=sig.txt
 %SigningBin% %KEYBASE_INSTALLER_NAME% > %SigFile%
 IF %ERRORLEVEL% NEQ 0 (
@@ -158,7 +159,7 @@ IF %UpdateChannel% EQU Test (
 
 :: We need a test channel updater .json in all smoke cases
 IF "%UpdateChannel:~0,5%"=="Smoke" (
-  %ReleaseBin% update-json --version=%SEMVER% --src=%KEYBASE_INSTALLER_NAME% --uri=https://prerelease.keybase.io/windows --signature=%SigFile% --description=%GOPATH%\src\github.com\keybase\client\shared\desktop\CHANGELOG.txt > update-windows-prod-%KEYBASE_VERSION%.json
+  %ReleaseBin% update-json --version=%SEMVER% --src=%KEYBASE_INSTALLER_NAME% --uri=https://prerelease.keybase.io/windows --signature=%SigFile% --description=%CLIENT_DIR%\shared\desktop\CHANGELOG.txt > update-windows-prod-%KEYBASE_VERSION%.json
   :: All smoke builds go in the test channel too except Smoke2
   IF %UpdateChannel% NEQ Smoke2 GOTO set_test_channel
   :: Don't make a production json either for smoke2
@@ -175,7 +176,7 @@ set JSON_UPDATE_FILENAME=update-windows-prod-test-v2.json
 
 echo %JSON_UPDATE_FILENAME%
 
-%ReleaseBin% update-json --version=%SEMVER% --src=%KEYBASE_INSTALLER_NAME% --uri=https://prerelease.keybase.io/windows --signature=%SigFile% --description=%GOPATH%\src\github.com\keybase\client\shared\desktop\CHANGELOG.txt > %JSON_UPDATE_FILENAME%
+%ReleaseBin% update-json --version=%SEMVER% --src=%KEYBASE_INSTALLER_NAME% --uri=https://prerelease.keybase.io/windows --signature=%SigFile% --description=%CLIENT_DIR%\shared\desktop\CHANGELOG.txt > %JSON_UPDATE_FILENAME%
 
 :end_update_json
 

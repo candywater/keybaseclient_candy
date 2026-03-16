@@ -7,6 +7,7 @@
 - feat: add font selection support in Settings - Display - Chat font
 - feat: add config to disable upgrade / check upgrade in Settings - Advanced
 - doc: add candy edit credit
+- fix: change packaging scripts to make them use current folder / can use vs2022 build tool
 
 ## Tech Related
 
