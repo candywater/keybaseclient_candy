@@ -100,6 +100,15 @@ const Advanced = () => {
       openAtLogin: s.openAtLogin,
     }))
   )
+  const {preventUpgradePrompt, preventVersionCheck, setPreventUpgradePrompt, setPreventVersionCheck} =
+    useConfigState(
+      C.useShallow(s => ({
+        preventUpgradePrompt: s.preventUpgradePrompt,
+        preventVersionCheck: s.preventVersionCheck,
+        setPreventUpgradePrompt: s.dispatch.setPreventUpgradePrompt,
+        setPreventVersionCheck: s.dispatch.setPreventVersionCheck,
+      }))
+    )
   const {loadLockdownMode} = useSettingsState(
     C.useShallow(s => ({
       loadLockdownMode: s.dispatch.loadLockdownMode,
@@ -201,6 +210,20 @@ const Advanced = () => {
               checked={!!disableSpellCheck}
               onCheck={onToggleDisableSpellcheck}
             />
+          )}
+          {C.isElectron && (
+            <>
+              <Kb.Checkbox
+                label="Prevent checking for new versions"
+                checked={preventVersionCheck}
+                onCheck={setPreventVersionCheck}
+              />
+              <Kb.Checkbox
+                label="Prevent automatic upgrade prompts"
+                checked={preventUpgradePrompt}
+                onCheck={setPreventUpgradePrompt}
+              />
+            </>
           )}
         </Kb.Box2>
         <Kb.Divider style={styles.proxyDivider} />

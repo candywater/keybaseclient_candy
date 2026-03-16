@@ -134,6 +134,9 @@ export const initPlatformListener = () => {
         }
 
         case EngineGen.keybase1NotifySessionClientOutOfDate: {
+          if (storeRegistry.getState('config').preventUpgradePrompt) {
+            break
+          }
           const {upgradeTo, upgradeURI, upgradeMsg} = action.payload.params
           const body = upgradeMsg || `Please update to ${upgradeTo} by going to ${upgradeURI}`
           NotifyPopup('Client out of date!', {body}, 60 * 60)
@@ -255,6 +258,8 @@ export const initPlatformListener = () => {
   storeRegistry.getState('config').dispatch.initNotifySound()
   storeRegistry.getState('config').dispatch.initForceSmallNav()
   storeRegistry.getState('config').dispatch.initOpenAtLogin()
+  storeRegistry.getState('config').dispatch.initPreventVersionCheck()
+  storeRegistry.getState('config').dispatch.initPreventUpgradePrompt()
   storeRegistry.getState('config').dispatch.initAppUpdateLoop()
 
   storeRegistry.getStore('profile').setState(s => {

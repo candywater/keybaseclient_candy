@@ -5,7 +5,7 @@
 - feat: "Chat" is the first tab in left side menu
 - fix: windows cannot clear red dot even have read message
 - feat: add font selection support in Settings - Display - Chat font
-- feat: add config to disable upgrade / check upgrade in Settings - 
+- feat: add config to disable upgrade / check upgrade in Settings - Advanced
 - doc: add candy edit credit
 
 ## Tech Related
@@ -39,8 +39,8 @@
 
 ### 阻止自动升级（桌面端）
 
-- 定时更新检查是这里启动的： index.desktop.tsx:258。
-- 更新检查 RPC 在 index.tsx:282-301。
+- 定时更新检查是这里启动的： shared/constants/platform-specific/index.desktop.tsx:258。
+- 更新检查 RPC 在 shared/constants/config/index.tsx:282-301。
 - 真正触发“开始更新”的 RPC 在 index.tsx:347-365。
 - 服务端“强制过期”通知入口在 index.desktop.tsx:136-143。
 

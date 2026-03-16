@@ -75,6 +75,8 @@ export const getChatFontFamily = (nonCJKFontID: ChatNonCJKFontID, cjkFontID: Cha
 type Store = T.Immutable<{
   chatCJKFontID: ChatCJKFontID
   chatNonCJKFontID: ChatNonCJKFontID
+  preventUpgradePrompt: boolean
+  preventVersionCheck: boolean
   forceSmallNav: boolean
   allowAnimatedEmojis: boolean
   androidShare?:
@@ -148,6 +150,8 @@ const initialStore: Store = {
   badgeState: undefined,
   chatCJKFontID: defaultChatCJKFontID,
   chatNonCJKFontID: defaultChatNonCJKFontID,
+  preventUpgradePrompt: false,
+  preventVersionCheck: false,
   configuredAccounts: [],
   defaultUsername: '',
   forceSmallNav: false,
@@ -225,6 +229,8 @@ export interface State extends Store {
     filePickerError: (error: Error) => void
     initAppUpdateLoop: () => void
     initChatFontPrefs: () => void
+    initPreventUpgradePrompt: () => void
+    initPreventVersionCheck: () => void
     initNotifySound: () => void
     initForceSmallNav: () => void
     initOpenAtLogin: () => void
@@ -252,6 +258,8 @@ export interface State extends Store {
     setChatNonCJKFontID: (fontID: ChatNonCJKFontID) => void
     setDefaultUsername: (u: string) => void
     setForceSmallNav: (f: boolean) => void
+    setPreventUpgradePrompt: (prevent: boolean) => void
+    setPreventVersionCheck: (prevent: boolean) => void
     setGlobalError: (e?: unknown) => void
     setHTTPSrvInfo: (address: string, token: string) => void
     setIncomingShareUseOriginal: (use: boolean) => void
@@ -278,10 +286,24 @@ export const useConfigState = Z.createZustand<State>((set, get) => {
   const forceSmallNavKey = 'ui.forceSmallNav'
   const chatNonCJKFontKey = 'ui.chatFont.nonCJK'
   const chatCJKFontKey = 'ui.chatFont.cjk'
+  const preventVersionCheckKey = 'ui.preventVersionCheck'
+  const preventUpgradePromptKey = 'ui.preventUpgradePrompt'
 
   const _checkForUpdate = async () => {
+    if (get().preventVersionCheck) {
+      return
+    }
     try {
       const {status, message} = await T.RPCGen.configGetUpdateInfoRpcPromise()
+      if (get().preventUpgradePrompt) {
+        get().dispatch.setOutOfDate({
+          critical: false,
+          message: '',
+          outOfDate: false,
+          updating: false,
+        })
+        return
+      }
       get().dispatch.setOutOfDate(
         status !== T.RPCGen.UpdateInfoStatus.upToDate
           ? {
@@ -594,6 +616,46 @@ export const useConfigState = Z.createZustand<State>((set, get) => {
               }
               if (isChatCJKFontID(cjkFontID)) {
                 s.chatCJKFontID = cjkFontID
+              }
+            })
+          }
+        } catch {}
+      }
+      ignorePromise(f())
+    },
+    initPreventUpgradePrompt: () => {
+      const f = async () => {
+        try {
+          const val = await T.RPCGen.configGuiGetValueRpcPromise({path: preventUpgradePromptKey})
+          const preventUpgradePrompt = val.b
+          if (typeof preventUpgradePrompt === 'boolean') {
+            set(s => {
+              s.preventUpgradePrompt = preventUpgradePrompt
+              if (preventUpgradePrompt) {
+                s.outOfDate.critical = false
+                s.outOfDate.message = ''
+                s.outOfDate.outOfDate = false
+                s.outOfDate.updating = false
+              }
+            })
+          }
+        } catch {}
+      }
+      ignorePromise(f())
+    },
+    initPreventVersionCheck: () => {
+      const f = async () => {
+        try {
+          const val = await T.RPCGen.configGuiGetValueRpcPromise({path: preventVersionCheckKey})
+          const preventVersionCheck = val.b
+          if (typeof preventVersionCheck === 'boolean') {
+            set(s => {
+              s.preventVersionCheck = preventVersionCheck
+              if (preventVersionCheck) {
+                s.outOfDate.critical = false
+                s.outOfDate.message = ''
+                s.outOfDate.outOfDate = false
+                s.outOfDate.updating = false
               }
             })
           }
@@ -1076,6 +1138,46 @@ export const useConfigState = Z.createZustand<State>((set, get) => {
         })
       }
       ignorePromise(f())
+    },
+    setPreventUpgradePrompt: prevent => {
+      set(s => {
+        s.preventUpgradePrompt = prevent
+        if (prevent) {
+          s.outOfDate.critical = false
+          s.outOfDate.message = ''
+          s.outOfDate.outOfDate = false
+          s.outOfDate.updating = false
+        }
+      })
+      ignorePromise(
+        T.RPCGen.configGuiSetValueRpcPromise({
+          path: preventUpgradePromptKey,
+          value: {
+            b: prevent,
+            isNull: false,
+          },
+        })
+      )
+    },
+    setPreventVersionCheck: prevent => {
+      set(s => {
+        s.preventVersionCheck = prevent
+        if (prevent) {
+          s.outOfDate.critical = false
+          s.outOfDate.message = ''
+          s.outOfDate.outOfDate = false
+          s.outOfDate.updating = false
+        }
+      })
+      ignorePromise(
+        T.RPCGen.configGuiSetValueRpcPromise({
+          path: preventVersionCheckKey,
+          value: {
+            b: prevent,
+            isNull: false,
+          },
+        })
+      )
     },
     setGlobalError: _e => {
       if (_e) {
