@@ -5,12 +5,13 @@ if NOT DEFINED ReleaseRevision set ReleaseRevision=master
 if NOT DEFINED DevCert set DevCert=0
 
 set GOARCH=amd64
+for %%I in ("%~dp0..\..") do set "CLIENT_DIR=%%~fI"
 
 set OUTPUT=echo
 if DEFINED SlackBot set OUTPUT=cmd /c %KEYBASE_LOCATION% chat send %CHATCHANNEL%
 
 :: sanity check that the passphrase is set right
-(cd %GOPATH%\src\github.com\keybase\client\go\tools\ssss\ && go run main.go %0)
+(cd %CLIENT_DIR%\go\tools\ssss\ && go run main.go %0)
 IF %ERRORLEVEL% NEQ 0 (
   echo Saltpack key not set right, can't build
   EXIT /B 1
@@ -23,10 +24,10 @@ IF [%UpdateChannel%] == [Smoke2] goto:done_ci
 
 :done_ci
 
-for /F delims^=^"^ tokens^=2 %%x in ('findstr /C:"Version = " %GOPATH%\src\github.com\keybase\client\go\libkb\version.go') do set LIBKB_VER=%%x
+for /F delims^=^"^ tokens^=2 %%x in ('findstr /C:"Version = " %CLIENT_DIR%\go\libkb\version.go') do set LIBKB_VER=%%x
 
 :: release
-pushd %GOPATH%\src\github.com\keybase\client\go\release
+pushd %CLIENT_DIR%\go\release
 del release.exe
 go build
 IF %ERRORLEVEL% NEQ 0 (
@@ -47,22 +48,22 @@ if defined badbuildnumber (
   goto:build_error || EXIT /B 1
 )
 
-call %GOPATH%\src\github.com\keybase\client\packaging\windows\build_prerelease.cmd || goto:build_error || EXIT /B 1
+call %CLIENT_DIR%\packaging\windows\build_prerelease.cmd || goto:build_error || EXIT /B 1
 
-call %GOPATH%\src\github.com\keybase\client\packaging\windows\buildui.cmd || goto:build_error || EXIT /B 1
+call %CLIENT_DIR%\packaging\windows\buildui.cmd || goto:build_error || EXIT /B 1
 
 ::Build Installer
-call %GOPATH%\src\github.com\keybase\client\packaging\windows\doinstaller_wix.cmd || goto:build_error || EXIT /B 1
+call %CLIENT_DIR%\packaging\windows\doinstaller_wix.cmd || goto:build_error || EXIT /B 1
 
 ::Publish to S3
 echo "Uploading %BUILD_TAG%"
-s3browser-con upload prerelease.keybase.io  %GOPATH%\src\github.com\keybase\client\packaging\windows\%BUILD_TAG%\Keybase_%BUILD_TAG%.%GOARCH%.msi prerelease.keybase.io/windows  || goto:build_error || EXIT /B 1
+s3browser-con upload prerelease.keybase.io  %CLIENT_DIR%\packaging\windows\%BUILD_TAG%\Keybase_%BUILD_TAG%.%GOARCH%.msi prerelease.keybase.io/windows  || goto:build_error || EXIT /B 1
 
 if %UpdateChannel% NEQ "None" (
     :: Test channel json
-    s3browser-con upload prerelease.keybase.io  %GOPATH%\src\github.com\keybase\client\packaging\windows\%BUILD_TAG%\update-windows-prod-test-v2.json prerelease.keybase.io || goto:build_error || EXIT /B 1
+    s3browser-con upload prerelease.keybase.io  %CLIENT_DIR%\packaging\windows\%BUILD_TAG%\update-windows-prod-test-v2.json prerelease.keybase.io || goto:build_error || EXIT /B 1
     echo "Creating index files"
-    %GOPATH%\src\github.com\keybase\client\go\release\release index-html --bucket-name=prerelease.keybase.io --prefixes="windows/" --upload="windows/index.html"
+    %CLIENT_DIR%\go\release\release index-html --bucket-name=prerelease.keybase.io --prefixes="windows/" --upload="windows/index.html"
 ) else (
     echo "No update channel"
 )
@@ -77,7 +78,7 @@ if [%UpdateChannel%] NEQ [Smoke] (
 )
 
 :: Smoke A json
-s3browser-con upload prerelease.keybase.io  %GOPATH%\src\github.com\keybase\client\packaging\windows\%BUILD_TAG%\*.json prerelease.keybase.io/windows-support || goto:build_error || EXIT /B 1
+s3browser-con upload prerelease.keybase.io  %CLIENT_DIR%\packaging\windows\%BUILD_TAG%\*.json prerelease.keybase.io/windows-support || goto:build_error || EXIT /B 1
 
 set PrevUpdateChannel=%UpdateChannel%
 set UpdateChannel=Smoke2
@@ -85,7 +86,7 @@ set smokeASemVer=%KEYBASE_VERSION%
 ::SlackBot?
 
 ::build again
-call %GOPATH%\src\github.com\keybase\client\packaging\windows\dorelease.cmd || EXIT /B 1
+call %CLIENT_DIR%\packaging\windows\dorelease.cmd || EXIT /B 1
 
 :: and we're done here
 
@@ -102,9 +103,9 @@ if [%UpdateChannel%] NEQ [Smoke2] (
     goto:no_smokeb
 )
 ::Smoke B json
-s3browser-con upload prerelease.keybase.io  %GOPATH%\src\github.com\keybase\client\packaging\windows\%BUILD_TAG%\*.json prerelease.keybase.io/windows-support  || goto:build_error || EXIT /B 1
+s3browser-con upload prerelease.keybase.io  %CLIENT_DIR%\packaging\windows\%BUILD_TAG%\*.json prerelease.keybase.io/windows-support  || goto:build_error || EXIT /B 1
 set smokeBSemVer=%KEYBASE_VERSION%
-%GOPATH%\src\github.com\keybase\client\go\release\release announce-build --build-a="%SmokeASemVer%" --build-b="%smokeBSemVer%" --platform="windows" || goto:build_error || EXIT /B 1
+%CLIENT_DIR%\go\release\release announce-build --build-a="%SmokeASemVer%" --build-b="%smokeBSemVer%" --platform="windows" || goto:build_error || EXIT /B 1
 %OUTPUT% "Successfully built Windows: --build-a=%SmokeASemVer% --build-b=%smokeBSemVer%
 %OUTPUT% "https://prerelease.keybase.io/windows/"
 :no_smokeb
@@ -139,10 +140,10 @@ goto:eof
 EXIT /B 1
 
 :check_ci 
-for /f %%i in ('git -C %GOPATH%\src\github.com\keybase\client rev-parse --short^=8 HEAD') do set clientCommit=%%i
+for /f %%i in ('git -C %CLIENT_DIR% rev-parse --short^=8 HEAD') do set clientCommit=%%i
 echo [%clientCommit%]
 :: need GITHUB_TOKEN
-pushd %GOPATH%\src\github.com\keybase\client\go\release
+pushd %CLIENT_DIR%\go\release
 go build || goto:build_error || EXIT /B 1
 release wait-ci --repo="client" --commit="%clientCommit%" --context="continuous-integration/jenkins/branch" --context="ci/circleci"  || goto:ci_error
 popd
