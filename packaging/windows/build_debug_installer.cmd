@@ -9,7 +9,7 @@ if exist "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\Tools\vsva
 ) else (
   echo Warning: could not find VS2015 vsvars32.bat or VS2022 VsDevCmd.bat.
 )
-set MINGW_DIR=C:\mingw-w64\x86_64-8.1.0-posix-seh-rt_v6-rev0\mingw64
+set MINGW_DIR=%USERPROFILE%\scoop\apps\mingw\current
 set PATH=%MINGW_DIR%\bin;%PATH%
 set CC=%MINGW_DIR%\bin\gcc
 set CPATH=%MINGW_DIR%\include
