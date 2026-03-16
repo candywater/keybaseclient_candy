@@ -4,6 +4,7 @@ import openUrl from '@/util/open-url'
 
 const privacyPolicy = 'https://keybase.io/_/webview/privacypolicy'
 const terms = 'https://keybase.io/_/webview/terms'
+const candyCredit = 'https://github.com/candywater/keybaseclient_candy'
 
 const About = () => {
   const navigateAppend = C.useRouterState(s => s.dispatch.navigateAppend)
@@ -24,6 +25,13 @@ const About = () => {
       openUrl(terms)
     }
   }
+  const onShowCandyCredit = () => {
+    if (C.isMobile) {
+      navigateAppend({props: {title: 'Candy Credit', url: candyCredit}, selected: 'webLinks'})
+    } else {
+      openUrl(candyCredit)
+    }
+  }
 
   return (
     <Kb.Box2 direction="vertical" fullWidth={true} fullHeight={true} style={styles.container}>
@@ -41,6 +49,9 @@ const About = () => {
       </Kb.Text>
       <Kb.Text type="BodyPrimaryLink" onClick={onShowPrivacyPolicy}>
         Privacy Policy
+      </Kb.Text>
+      <Kb.Text type="BodyPrimaryLink" onClick={onShowCandyCredit}>
+        Candy Credit
       </Kb.Text>
     </Kb.Box2>
   )
