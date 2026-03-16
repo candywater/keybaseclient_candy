@@ -9,7 +9,9 @@ import * as DarkMode from '@/constants/darkmode'
 const Display = () => {
   const allowAnimatedEmojis = useConfigState(s => s.allowAnimatedEmojis)
   const forceSmallNav = useConfigState(s => s.forceSmallNav)
+  const chatFontPreference = useConfigState(s => s.chatFontPreference)
   const setForceSmallNav = useConfigState(s => s.dispatch.setForceSmallNav)
+  const setChatFontPreference = useConfigState(s => s.dispatch.setChatFontPreference)
   const toggleForceSmallNav = React.useCallback(() => {
     setForceSmallNav(!forceSmallNav)
   }, [forceSmallNav, setForceSmallNav])
@@ -49,6 +51,22 @@ const Display = () => {
               label={<Kb.Text type="Body">Light</Kb.Text>}
               selected={darkModePreference === 'alwaysLight'}
               onSelect={() => onSetDarkModePreference('alwaysLight')}
+            />
+            <Kb.Text type="BodySmall">Chat font</Kb.Text>
+            <Kb.RadioButton
+              label="Default"
+              selected={chatFontPreference === 'default'}
+              onSelect={() => setChatFontPreference('default')}
+            />
+            <Kb.RadioButton
+              label="Serif"
+              selected={chatFontPreference === 'serif'}
+              onSelect={() => setChatFontPreference('serif')}
+            />
+            <Kb.RadioButton
+              label="Monospace"
+              selected={chatFontPreference === 'monospace'}
+              onSelect={() => setChatFontPreference('monospace')}
             />
           </Kb.Box2>
           <Kb.Box2 direction="vertical" fullWidth={true} gap="tiny">

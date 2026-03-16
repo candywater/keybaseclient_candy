@@ -110,6 +110,7 @@ export const useDaemonState = Z.createZustand<State>((set, get) => {
         try {
           await get().dispatch.loadDaemonBootstrapStatus()
           storeRegistry.getState('dark-mode').dispatch.loadDarkPrefs()
+          storeRegistry.getState('config').dispatch.initChatFontPreference()
           storeRegistry.getState('chat').dispatch.loadStaticConfig()
         } finally {
           wait(name, version, false)

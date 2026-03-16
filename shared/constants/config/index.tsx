@@ -18,7 +18,10 @@ import {switchTab} from '../router2/util'
 import {storeRegistry} from '../store-registry'
 import {getSelectedConversation} from '@/constants/chat2/common'
 
+export type ChatFontPreference = 'default' | 'serif' | 'monospace'
+
 type Store = T.Immutable<{
+  chatFontPreference: ChatFontPreference
   forceSmallNav: boolean
   allowAnimatedEmojis: boolean
   androidShare?:
@@ -90,6 +93,7 @@ const initialStore: Store = {
   androidShare: undefined,
   appFocused: true,
   badgeState: undefined,
+  chatFontPreference: 'default',
   configuredAccounts: [],
   defaultUsername: '',
   forceSmallNav: false,
@@ -166,6 +170,7 @@ export interface State extends Store {
     eventFromRemoteWindows: (action: RemoteGen.Actions) => void
     filePickerError: (error: Error) => void
     initAppUpdateLoop: () => void
+    initChatFontPreference: () => void
     initNotifySound: () => void
     initForceSmallNav: () => void
     initOpenAtLogin: () => void
@@ -190,6 +195,7 @@ export interface State extends Store {
     setAndroidShare: (s: Store['androidShare']) => void
     setBadgeState: (b: State['badgeState']) => void
     setDefaultUsername: (u: string) => void
+    setChatFontPreference: (preference: ChatFontPreference) => void
     setForceSmallNav: (f: boolean) => void
     setGlobalError: (e?: unknown) => void
     setHTTPSrvInfo: (address: string, token: string) => void
@@ -215,6 +221,7 @@ export const useConfigState = Z.createZustand<State>((set, get) => {
   const nativeFrameKey = 'useNativeFrame'
   const notifySoundKey = 'notifySound'
   const forceSmallNavKey = 'ui.forceSmallNav'
+  const chatFontPreferenceKey = 'ui.chatFontPreference'
 
   const _checkForUpdate = async () => {
     try {
@@ -512,6 +519,20 @@ export const useConfigState = Z.createZustand<State>((set, get) => {
           } catch {}
           await timeoutPromise(3_600_000) // 1 hr
         }
+      }
+      ignorePromise(f())
+    },
+    initChatFontPreference: () => {
+      const f = async () => {
+        try {
+          const val = await T.RPCGen.configGuiGetValueRpcPromise({path: chatFontPreferenceKey})
+          const preference = val.s
+          if (preference === 'default' || preference === 'serif' || preference === 'monospace') {
+            set(s => {
+              s.chatFontPreference = preference
+            })
+          }
+        } catch {}
       }
       ignorePromise(f())
     },
@@ -945,6 +966,21 @@ export const useConfigState = Z.createZustand<State>((set, get) => {
       set(s => {
         s.defaultUsername = u
       })
+    },
+    setChatFontPreference: preference => {
+      if (get().chatFontPreference === preference) return
+      set(s => {
+        s.chatFontPreference = preference
+      })
+      ignorePromise(
+        T.RPCGen.configGuiSetValueRpcPromise({
+          path: chatFontPreferenceKey,
+          value: {
+            isNull: false,
+            s: preference,
+          },
+        })
+      )
     },
     setForceSmallNav: force => {
       const f = async () => {
