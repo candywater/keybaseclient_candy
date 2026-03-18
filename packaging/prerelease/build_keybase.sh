@@ -17,6 +17,7 @@ keybase_build=${KEYBASE_BUILD:-$build}
 tags=${TAGS:-"prerelease production"}
 ldflags="-X github.com/keybase/client/go/libkb.PrereleaseBuild=$keybase_build -s -w"
 arch=${ARCH:-"amd64"}
+skip_sign=${SKIP_SIGN:-}
 
 echo "------------------ Building go ------------------"
 echo "Building $build_dir/keybase ($keybase_build) with $(go version) on arch: $arch"
@@ -24,9 +25,13 @@ echo "Building $build_dir/keybase ($keybase_build) with $(go version) on arch: $
 echo "------------------ Building go ------------------"
 
 if [ "$PLATFORM" = "darwin" ] || [ "$PLATFORM" = "darwin-arm64" ]; then
-	echo "Signing binary..."
-	code_sign_identity="90524F7BEAEACD94C7B473787F4949582F904104" # "Developer ID Application: Keybase, Inc. (99229SGT5K)"
-	codesign --verbose --force --deep --timestamp --options runtime --sign "$code_sign_identity" "$build_dir/keybase"
+	if [ "$skip_sign" = "1" ]; then
+		echo "Skipping codesign..."
+	else
+		echo "Signing binary..."
+		code_sign_identity="90524F7BEAEACD94C7B473787F4949582F904104" # "Developer ID Application: Keybase, Inc. (99229SGT5K)"
+		codesign --verbose --force --deep --timestamp --options runtime --sign "$code_sign_identity" "$build_dir/keybase"
+	fi
 elif [ "$PLATFORM" = "linux" ]; then
 	echo "No codesigning for Linux"
 elif [ "$PLATFORM" = "windows" ]; then

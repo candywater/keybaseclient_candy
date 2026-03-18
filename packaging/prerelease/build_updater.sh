@@ -10,6 +10,7 @@ gopath=${GOPATH:-}
 package="github.com/keybase/client/go/updater/service"
 dest="$build_dir/updater"
 arch=${ARCH:-"amd64"}
+skip_sign=${SKIP_SIGN:-}
 
 src_dir=${UPDATER_DIR:-"$gopath/src/$package"}
 cd "$src_dir"
@@ -22,9 +23,13 @@ GOARCH="$arch" go build -a -o "$dest" "$package"
 echo "------------------ Building updater go ------------------"
 
 if [ "$PLATFORM" = "darwin" ] || [ "$PLATFORM" = "darwin-arm64" ]; then
-	echo "Signing binary..."
-	code_sign_identity="90524F7BEAEACD94C7B473787F4949582F904104" # "Developer ID Application: Keybase, Inc. (99229SGT5K)"
-	codesign --verbose --force --deep --timestamp --options runtime --sign "$code_sign_identity" "$dest"
+	if [ "$skip_sign" = "1" ]; then
+		echo "Skipping codesign..."
+	else
+		echo "Signing binary..."
+		code_sign_identity="90524F7BEAEACD94C7B473787F4949582F904104" # "Developer ID Application: Keybase, Inc. (99229SGT5K)"
+		codesign --verbose --force --deep --timestamp --options runtime --sign "$code_sign_identity" "$dest"
+	fi
 elif [ "$PLATFORM" = "linux" ]; then
 	echo "No codesigning for Linux"
 elif [ "$PLATFORM" = "windows" ]; then
