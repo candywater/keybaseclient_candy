@@ -5,7 +5,8 @@ set -e -u -o pipefail # Fail on error
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 cd "$dir"
 
-gopath=${GOPATH:-}
+export GOPATH="${GOPATH:-$PWD}"
+gopath=${GOPATH}
 nobuild=${NOBUILD:-} # Don't build go binaries
 istest=${TEST:-} # If set to true, only build (for testing)
 nopull=${NOPULL:-} # Don't git pull
@@ -17,11 +18,6 @@ nowait=${NOWAIT:-} # Don't wait for CI
 smoke_test=${SMOKE_TEST:-} # If set to 1, enable smoke testing
 skip_notarize=${NONOTARIZE:-} # Skip notarize
 arch=${ARCH:-"amd64"} # architecture
-
-if [ "$gopath" = "" ]; then
-  echo "No GOPATH"
-  exit 1
-fi
 
 if [ "$platform" = "" ]; then
   echo "No PLATFORM. You can specify darwin, darwin-arm64, linux or windows."
@@ -43,16 +39,16 @@ build_dir_keybase="/tmp/build_keybase"
 build_dir_kbfs="/tmp/build_kbfs"
 build_dir_kbnm="/tmp/build_kbnm"
 build_dir_updater="/tmp/build_updater"
-client_dir=${CLIENT_DIR:-"$gopath/src/github.com/keybase/client"}
+client_dir=${CLIENT_DIR:-"$(cd "$dir/../.." && pwd)"}
 kbfs_dir="$client_dir/go/kbfs"
-updater_dir=${UPDATER_DIR:-"$gopath/src/github.com/keybase/client/go/updater"}
+updater_dir=${UPDATER_DIR:-"$client_dir/go/updater"}
 echo "client_dir: $client_dir"
 echo "kbfs_dir: $kbfs_dir"
 echo "updater_dir: $updater_dir"
 
 echo "Loading release tool"
 (cd "$client_dir/go/buildtools"; go install "github.com/keybase/client/go/release")
-release_bin="$GOPATH/bin/release"
+release_bin="$(go env GOPATH | awk -F: '{print $1}')/bin/release"
 echo "$(go version)"
 
 client_branch=$(cd "$client_dir" && git rev-parse --abbrev-ref HEAD)

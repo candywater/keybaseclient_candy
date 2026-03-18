@@ -5,6 +5,8 @@ set -e -u -o pipefail # Fail on error
 dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 cd "$dir"
 
+export GOPATH="${GOPATH:-$PWD}"
+
 client_dir="$dir/../.."
 shared_dir="$client_dir/shared"
 desktop_dir="$client_dir/shared/desktop"
@@ -58,7 +60,7 @@ echo "Loading release tool"
 	cd "$client_dir/go/buildtools"
 	go install "github.com/keybase/client/go/release"
 )
-release_bin="$GOPATH/bin/release"
+release_bin="$(go env GOPATH | awk -F: '{print $1}')/bin/release"
 echo "$(go version)"
 
 if [ "$keybase_version" = "" ]; then
@@ -367,7 +369,7 @@ echo "Loading cleanup tool"
 	cd "$client_dir/go/buildtools/cleanup"
 	go install "github.com/keybase/client/go/buildtools/cleanup"
 )
-cleanup_bin="$GOPATH/bin/cleanup"
+cleanup_bin="$(go env GOPATH | awk -F: '{print $1}')/bin/cleanup"
 
 s3sync() {
 	if [ ! "$bucket_name" = "" ] && [ ! "$save_dir" = "" ]; then

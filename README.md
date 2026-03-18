@@ -68,8 +68,11 @@ save            → 归档输出文件
 #### 运行命令
 
 ```bash
+# 默认先进入 packaging 目录
+cd packaging
+
 # 构建两个架构（amd64 + arm64）
-cd packaging && ./build_darwin.sh
+./build_darwin.sh
 
 # 只构建某一架构，跳过公证、S3 上传
 ARCH=arm64 SKIP_NOTARIZE=1 NOS3=1 ./build_darwin.sh
@@ -79,7 +82,7 @@ ARCH=arm64 SKIP_NOTARIZE=1 NOS3=1 ./build_darwin.sh
 
 - Xcode + Apple Developer ID 证书（用于 `codesign`）
 - Notary Profile `NOTARY_PROFILE_LOGIN`（用于 `notarytool`，可跳过）
-- `GOPATH` 环境变量已设置
+- 使用当前目录作为 `GOPATH`（例如：`export GOPATH=$(pwd)`）
 - Node.js / Yarn 已安装
 - `go install` 可访问（用于构建 `release` 工具）
 

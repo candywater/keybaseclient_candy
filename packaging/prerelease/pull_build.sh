@@ -10,7 +10,8 @@ set -e -u -o pipefail # Fail on error
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 cd "$dir"
 
-client_dir="$GOPATH/src/github.com/keybase/client"
+export GOPATH="${GOPATH:-$PWD}"
+client_dir=${CLIENT_DIR:-"$(cd "$dir/../.." && pwd)"}
 nopull=${NOPULL:-} # Don't git pull
 if [ ! "$nopull" = "1" ]; then
   "$client_dir/packaging/check_status_and_pull.sh" "$client_dir"

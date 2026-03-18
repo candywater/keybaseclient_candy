@@ -5,6 +5,8 @@ set -e -u -o pipefail # Fail on error
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 cd "$dir"
 
+export GOPATH="${GOPATH:-$PWD}"
+
 # If editing this file, you may also want to update windows/s3_prerelease.cmd
 
 client_dir="$dir/../.."
@@ -24,7 +26,7 @@ fi
 
 echo "Loading release tool"
 (cd "$client_dir/go/buildtools"; go install "github.com/keybase/client/go/release")
-release_bin="$GOPATH/bin/release"
+release_bin="$(go env GOPATH | awk -F: '{print $1}')/bin/release"
 echo "$(go version)"
 
 echo "Creating index files"

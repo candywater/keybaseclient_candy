@@ -1,7 +1,12 @@
 #! /usr/bin/env bash
 
-gopath=${GOPATH:-}
-client_dir="$gopath/src/github.com/keybase/client"
+set -e -u -o pipefail # Fail on error
+
+export GOPATH="${GOPATH:-$PWD}"
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+cd "$dir"
+
+client_dir="$(cd "$dir/.." && pwd)"
 
 echo "Cleaning yarn cache to free up disk space"
 yarn cache clean
