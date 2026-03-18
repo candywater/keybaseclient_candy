@@ -2,8 +2,8 @@
 
 # There are lots of places where we need to check stuff like:
 #   1) Does repo X exist?
-#   2) Does it have master checked out?
-#   3) It is clean?
+#   2) Is it on a normal branch with upstream configured?
+#   3) Is it clean?
 #   4) Is it up to date?
 # This script takes care of all that.
 
@@ -33,8 +33,14 @@ fi
 git fetch
 
 current_branch="$(git rev-parse --abbrev-ref HEAD)"
-if [ "$current_branch" != "master" ] ; then
-  echo "Repo '$repo' doesn't have master checked out."
+if [ "$current_branch" = "HEAD" ] ; then
+  echo "Repo '$repo' is in detached HEAD state."
+  exit 1
+fi
+
+upstream_branch="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)"
+if [ -z "$upstream_branch" ] ; then
+  echo "Repo '$repo' branch '$current_branch' has no upstream configured."
   exit 1
 fi
 
@@ -44,7 +50,7 @@ if [ -n "$current_status" ] ; then
   exit 1
 fi
 
-unpushed_commits="$(git log origin/master..master)"
+unpushed_commits="$(git log "$upstream_branch".."$current_branch")"
 if [ -n "$unpushed_commits" ] ; then
   echo "Repo '$repo' has unpushed commits."
   exit 1
