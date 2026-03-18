@@ -18,6 +18,7 @@ run_mode="prod"
 s3host=${S3HOST:-}
 istest=${TEST:-}
 skip_notarize=${SKIP_NOTARIZE:-}
+skip_sign=${SKIP_SIGN:-}
 arch=${ARCH:-"amd64"}
 electron_arch="x64"
 platform=${PLATFORM:-"darwin"}
@@ -251,6 +252,10 @@ update_plist() { (
 ); }
 
 sign() { (
+	if [ "$skip_sign" = "1" ]; then
+		echo "Skipping codesign..."
+		return
+	fi
 	cd "$out_dir"
 	code_sign_identity="90524F7BEAEACD94C7B473787F4949582F904104" # "Developer ID Application: Keybase, Inc. (99229SGT5K)"
 	# need to sign some stuff from electron that doesn't get picked up for some reason

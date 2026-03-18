@@ -16,7 +16,8 @@ platform=${PLATFORM:-} # darwin,darwin-arm64,linux,windows (Only darwin/darwin-a
 nos3=${NOS3:-} # Don't sync to S3
 nowait=${NOWAIT:-} # Don't wait for CI
 smoke_test=${SMOKE_TEST:-} # If set to 1, enable smoke testing
-skip_notarize=${NONOTARIZE:-} # Skip notarize
+skip_notarize=${SKIP_NOTARIZE:-${NONOTARIZE:-}} # Skip notarize
+skip_sign=${SKIP_SIGN:-} # Skip codesign
 arch=${ARCH:-"amd64"} # architecture
 
 if [ "$platform" = "" ]; then
@@ -131,7 +132,7 @@ for ((i=1; i<=$number_of_builds; i++)); do
 
   if [ "$platform" = "darwin" ] || [ "$platform" = "darwin-arm64" ]; then
     SAVE_DIR="$save_dir" KEYBASE_BINPATH="$build_dir_keybase/keybase" KBFS_BINPATH="$build_dir_kbfs/kbfs" GIT_REMOTE_KEYBASE_BINPATH="$build_dir_kbfs/git-remote-keybase" REDIRECTOR_BINPATH="$build_dir_kbfs/keybase-redirector" KBNM_BINPATH="$build_dir_kbnm/kbnm" \
-      UPDATER_BINPATH="$build_dir_updater/updater" BUCKET_NAME="$bucket_name" S3HOST="$s3host" SKIP_NOTARIZE="$skip_notarize" PLATFORM="$platform" \
+      UPDATER_BINPATH="$build_dir_updater/updater" BUCKET_NAME="$bucket_name" S3HOST="$s3host" SKIP_NOTARIZE="$skip_notarize" SKIP_SIGN="$skip_sign" PLATFORM="$platform" \
       KEYBASE_VERSION="$KEYBASE_VERSION" KBNM_VERSION="$KBFS_VERSION" KBFS_VERSION="$KBFS_VERSION" "$dir/../desktop/package_darwin.sh"
   else
     # TODO: Support Linux build here?
