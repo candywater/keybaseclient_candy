@@ -39,6 +39,50 @@ scoop install versions/wixtoolset3
     * build_debug_installer.cmd
     * 产物位置见 build_debug_installer.cmd（最后输出到 WIXInstallers/KeybaseApps/bin/Debug）
 
+### macOS 安装包制作流程
+
+#### 关键脚本
+
+| 脚本 | 作用 |
+|------|------|
+| `packaging/build_darwin.sh` | 入口脚本，支持 `amd64` / `arm64` |
+| `packaging/prerelease/build_app.sh` | 编译 Go 二进制、拉取依赖 |
+| `packaging/desktop/package_darwin.sh` | 打包核心流程 |
+
+#### 打包步骤（`package_darwin.sh` 中的顺序）
+
+```
+clean           → 清理临时目录
+get_deps        → 下载 keybase/kbfs/kbnm/updater 二进制
+package_electron→ 用 Electron 构建 Keybase.app
+package_app     → 将 Go 二进制注入 .app/Contents/SharedSupport/bin/
+update_plist    → 修改 Info.plist（隐藏 Dock 图标等）
+sign            → codesign 签名（需要 Apple Developer ID）
+package_dmg     → 用 appdmg 生成 .dmg 安装包
+notarize_dmg    → xcrun notarytool 公证（可用 SKIP_NOTARIZE=1 跳过）
+create_zip      → ditto 打包为 .zip（用于自动更新）
+kbsign          → 用 keybase 签名 zip
+save            → 归档输出文件
+```
+
+#### 运行命令
+
+```bash
+# 构建两个架构（amd64 + arm64）
+cd packaging && ./build_darwin.sh
+
+# 只构建某一架构，跳过公证、S3 上传
+ARCH=arm64 SKIP_NOTARIZE=1 NOS3=1 ./build_darwin.sh
+```
+
+#### 前置条件
+
+- Xcode + Apple Developer ID 证书（用于 `codesign`）
+- Notary Profile `NOTARY_PROFILE_LOGIN`（用于 `notarytool`，可跳过）
+- `GOPATH` 环境变量已设置
+- Node.js / Yarn 已安装
+- `go install` 可访问（用于构建 `release` 工具）
+
 ### 改版本号
 
 - 主版本号在 version.go:7，直接改 Version = "6.6.1" 为你想要的语义版本。
