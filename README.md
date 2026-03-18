@@ -75,7 +75,7 @@ cd packaging
 ./build_darwin.sh
 
 # 只构建某一架构，跳过公证、S3 上传
-ARCH=arm64 SKIP_NOTARIZE=1 NOS3=1 ./build_darwin.sh
+ARCH=arm64 SKIP_NOTARIZE=1 NOS3=1 NOWAIT=1 ./build_darwin.sh
 ```
 
 #### 前置条件

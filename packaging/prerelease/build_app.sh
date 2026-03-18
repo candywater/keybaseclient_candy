@@ -68,10 +68,14 @@ fi
 
 # NB: This is duplicated in packaging/linux/build_and_push_packages.sh.
 if [ ! "$nowait" = "1" ]; then
-  echo "Checking client CI"
-  "$release_bin" wait-ci --repo="client" --commit=$(git -C "$client_dir" log -1 --pretty=format:%h) --context="continuous-integration/jenkins/branch" --context="ci/circleci"
+  if [ -z "${GITHUB_TOKEN:-}" ]; then
+    echo "GITHUB_TOKEN not set, skipping CI status check"
+  else
+    echo "Checking client CI"
+    "$release_bin" wait-ci --repo="client" --commit=$(git -C "$client_dir" log -1 --pretty=format:%h) --context="continuous-integration/jenkins/branch" --context="ci/circleci"
 
-  "$client_dir/packaging/slack/send.sh" "CI tests passed! Starting build for $platform."
+    "$client_dir/packaging/slack/send.sh" "CI tests passed! Starting build for $platform."
+  fi
 fi
 
 number_of_builds=1
